@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterator
 
 import pytest
 import structlog
@@ -12,7 +13,7 @@ from parcel_tracker.observability.logging import configure_logging, hash_trackin
 
 
 @pytest.fixture(autouse=True)
-def _reset_structlog() -> None:
+def _reset_structlog() -> Iterator[None]:
     """Reset structlog config between tests to avoid global state leakage."""
     structlog.reset_defaults()
     yield
@@ -23,7 +24,7 @@ def test_configure_logging_json_format_emits_json(capsys: pytest.CaptureFixture[
     configure_logging(log_level="INFO", log_format="json")
     logger = logging.getLogger("test_module")
 
-    logger.info("event", tracker="dhl")
+    logger.info("event", tracker="dhl")  # pyright: ignore[reportCallIssue]
 
     captured = capsys.readouterr()
     assert captured.err.strip(), "expected log line on stderr"
