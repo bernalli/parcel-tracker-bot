@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import aiosqlite
 import pytest
 
 from parcel_tracker.db.migrations import get_connection, init_schema
@@ -65,3 +66,34 @@ async def test_init_schema_idempotent_on_last_check_at(tmp_db_path: Path) -> Non
         rows = await cursor.fetchall()
         columns = [row["name"] for row in rows]
     assert columns.count("last_check_at") == 1
+
+
+@pytest.mark.asyncio
+async def test_init_schema_creates_user_notification_prefs(tmp_path) -> None:
+    db_path = str(tmp_path / "n.db")
+    await init_schema(db_path)
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_notification_prefs'"
+        )
+        row = await cursor.fetchone()
+    assert row is not None
+
+
+@pytest.mark.asyncio
+async def test_init_schema_creates_notification_cooldown_log(tmp_path) -> None:
+    db_path = str(tmp_path / "n.db")
+    await init_schema(db_path)
+    async with aiosqlite.connect(db_path) as conn:
+        cursor = await conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notification_cooldown_log'"
+        )
+        row = await cursor.fetchone()
+    assert row is not None
+
+
+@pytest.mark.asyncio
+async def test_init_schema_idempotent_for_notification_tables(tmp_path) -> None:
+    db_path = str(tmp_path / "n.db")
+    await init_schema(db_path)
+    await init_schema(db_path)  # must not raise

@@ -68,6 +68,23 @@ SCHEMA_STATEMENTS: list[str] = [
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_health_quarantine ON tracker_health(quarantine_until)",
+    """
+    CREATE TABLE IF NOT EXISTS user_notification_prefs (
+        user_id INTEGER NOT NULL,
+        status_value TEXT NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT 1,
+        PRIMARY KEY (user_id, status_value)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS notification_cooldown_log (
+        user_id INTEGER NOT NULL,
+        tracking_number TEXT NOT NULL,
+        status_value TEXT NOT NULL,
+        sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, tracking_number, status_value)
+    )
+    """,
 ]
 
 
