@@ -15,6 +15,7 @@ from parcel_tracker.trackers.correos import CorreosTracker
 from parcel_tracker.trackers.deutsche_post import DeutschePostTracker
 from parcel_tracker.trackers.dhl import DhlTracker
 from parcel_tracker.trackers.dpd import DpdTracker
+from parcel_tracker.trackers.ems import EmsTracker
 from parcel_tracker.trackers.evri import EvriTracker
 from parcel_tracker.trackers.fedex import FedexTracker
 from parcel_tracker.trackers.gls_europe import GlsEuropeTracker
@@ -60,6 +61,7 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
     # Tier D — registered with optional track17 delegate (None if track17 not configured)
     registry.register(AmazonLogisticsTracker(track17=track17_instance))
     registry.register(ChinaPostTracker(track17=track17_instance))
+    registry.register(EmsTracker(track17=track17_instance))
 
 
 __all__ = ["register_builtins"]
