@@ -87,7 +87,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "BLE001"]
+"tests/**" = ["S101", "BLE001", "S105", "S106"]
 "src/parcel_tracker/db/migrations.py" = ["S608"]
 
 [tool.ruff.lint.mccabe]
@@ -115,7 +115,7 @@ warn_unused_ignores = true
 files = ["src/parcel_tracker"]
 
 [[tool.mypy.overrides]]
-module = ["telegram.*", "respx.*"]
+module = ["telegram.*", "respx.*", "dotenv"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
