@@ -1,0 +1,52 @@
+name: New tracker request
+description: Propose support for a courier we do not yet cover.
+labels: ["new-tracker", "triage"]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Courier name
+      placeholder: La Poste / Acme Express / …
+    validations:
+      required: true
+  - type: input
+    id: country
+    attributes:
+      label: Country / region
+    validations:
+      required: true
+  - type: input
+    id: website
+    attributes:
+      label: Public tracking URL
+      placeholder: https://www.acme-express.com/track?id={tracking_id}
+    validations:
+      required: true
+  - type: input
+    id: sample
+    attributes:
+      label: Sample tracking ID
+      description: Use a publicly-shareable / expired ID. Do not post a live shipment of yours.
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Data source
+      options:
+        - Public API (no auth)
+        - Public API (free key required)
+        - Public API (paid)
+        - Public scraper (HTML parsing)
+        - 17track-backed (Tier D)
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: ToS / legality
+      description: |
+        Confirm that scraping or API use is allowed under the provider's Terms of Service.
+        Link to the ToS section if relevant.
+    validations:
+      required: true

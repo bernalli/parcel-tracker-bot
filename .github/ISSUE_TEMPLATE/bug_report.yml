@@ -1,0 +1,58 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly.
+labels: ["bug", "triage"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Tag, branch or commit SHA you are running.
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: Deploy method
+      options:
+        - Docker (docker compose up)
+        - Bare metal (uvicorn / systemd)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal sequence of commands or actions.
+      placeholder: |
+        1. /add 1Z999AA10123456784
+        2. wait 30 minutes
+        3. expected …, got …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        `docker compose logs --tail=200 parcel-tracker`. Redact tokens and tracking IDs you
+        do not want to share.
+      render: shell
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Python version, Docker version, courier you were tracking.
