@@ -17,6 +17,8 @@ from parcel_tracker.db.health_repository import HealthRepository
 from parcel_tracker.db.migrations import init_schema
 from parcel_tracker.db.repository import ParcelRepository, UserRepository
 from parcel_tracker.notifier.telegram import TelegramNotifier
+from parcel_tracker.observability.exporter import ExporterConfig, start_metrics_exporter
+from parcel_tracker.observability.logging import configure_logging
 from parcel_tracker.trackers import register_builtins
 
 logger = logging.getLogger(__name__)
@@ -55,9 +57,13 @@ async def _async_init(
 def main() -> None:
     config = Config.from_env()
 
-    logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        level=getattr(logging, config.log_level, logging.INFO),
+    configure_logging(log_level=config.log_level, log_format=config.log_format)
+    start_metrics_exporter(
+        ExporterConfig(
+            enabled=config.metrics_enabled,
+            host=config.metrics_bind_host,
+            port=config.metrics_port,
+        )
     )
     logger.info("Starting parcel-tracker-bot")
 

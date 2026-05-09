@@ -29,7 +29,7 @@ class Config:
     database_path: str = "/app/data/bot.db"
 
     log_level: str = "INFO"
-    log_format: str = "text"
+    log_format: str = "json"
     log_full_tracking_id: bool = False
 
     default_language: str = "en"
@@ -49,7 +49,8 @@ class Config:
     fedex_api_key: str | None = None
     fedex_secret_key: str | None = None
 
-    metrics_enabled: bool = False
+    metrics_enabled: bool = True
+    metrics_bind_host: str = "0.0.0.0"  # noqa: S104 — Docker network scope; override via METRICS_BIND_HOST
     metrics_port: int = 9090
 
     @classmethod
@@ -93,7 +94,7 @@ class Config:
             max_active_shipments=_int_env("MAX_ACTIVE_SHIPMENTS", 20),
             database_path=os.getenv("DATABASE_PATH", "/app/data/bot.db"),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
-            log_format=os.getenv("LOG_FORMAT", "text").lower(),
+            log_format=os.getenv("LOG_FORMAT", "json").lower(),
             log_full_tracking_id=_bool_env("LOG_FULL_TRACKING_ID", False),
             default_language=os.getenv("DEFAULT_LANGUAGE", "en"),
             request_timeout=_int_env("REQUEST_TIMEOUT", 30),
@@ -108,7 +109,8 @@ class Config:
             ups_client_secret=_optional_env("UPS_CLIENT_SECRET"),
             fedex_api_key=_optional_env("FEDEX_API_KEY"),
             fedex_secret_key=_optional_env("FEDEX_SECRET_KEY"),
-            metrics_enabled=_bool_env("METRICS_ENABLED", False),
+            metrics_enabled=_bool_env("METRICS_ENABLED", True),
+            metrics_bind_host=os.getenv("METRICS_BIND_HOST", "0.0.0.0").strip() or "0.0.0.0",  # noqa: S104
             metrics_port=_int_env("METRICS_PORT", 9090),
         )
 
