@@ -9,6 +9,7 @@ from parcel_tracker.trackers.aramex import AramexTracker
 from parcel_tracker.trackers.australia_post import AustraliaPostTracker
 from parcel_tracker.trackers.bpost import BpostTracker
 from parcel_tracker.trackers.canada_post import CanadaPostTracker
+from parcel_tracker.trackers.china_post import ChinaPostTracker
 from parcel_tracker.trackers.correios import CorreiosTracker
 from parcel_tracker.trackers.correos import CorreosTracker
 from parcel_tracker.trackers.deutsche_post import DeutschePostTracker
@@ -58,6 +59,7 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
 
     # Tier D — registered with optional track17 delegate (None if track17 not configured)
     registry.register(AmazonLogisticsTracker(track17=track17_instance))
+    registry.register(ChinaPostTracker(track17=track17_instance))
 
 
 __all__ = ["register_builtins"]
