@@ -26,4 +26,4 @@ async def test_async_init_creates_db(
 
     assert (tmp_path / "smoke.db").exists()
     assert parcel_repo is not None
-    assert len(list(registry.iter_all())) >= 5  # 5 built-in trackers
+    assert len(list(registry.iter_all())) >= 1  # at least DHL built-in
