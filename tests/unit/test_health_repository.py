@@ -81,6 +81,11 @@ async def test_health_repository_reset_tracker_clears_all_entries(tmp_path: Path
     await init_schema(db_path)
     repo = HealthRepository(db_path)
 
+    # Build up consecutive_successes so the post-reset assertion is meaningful
+    await repo.record_success("dhl", "")  # global
+    await repo.record_success("dhl", "")
+    await repo.record_success("dhl", "AB123")
+
     for _ in range(3):
         await repo.record_failure("dhl", "")
         await repo.record_failure("dhl", "AB123")
@@ -94,7 +99,20 @@ async def test_health_repository_reset_tracker_clears_all_entries(tmp_path: Path
     state_ship = await repo.get_state("dhl", "AB123")
     assert state_global is not None
     assert state_global.consecutive_failures == 0
+    assert state_global.consecutive_successes == 0
     assert state_global.quarantine_until is None
     assert state_ship is not None
     assert state_ship.consecutive_failures == 0
+    assert state_ship.consecutive_successes == 0
     assert state_ship.quarantine_until is None
+
+
+@pytest.mark.asyncio
+async def test_health_repository_reset_tracker_no_rows_is_noop(tmp_path: Path) -> None:
+    """reset_tracker on an unknown tracker must not raise (UPDATE WHERE = 0 rows = no-op)."""
+    db_path = str(tmp_path / "h.db")
+    await init_schema(db_path)
+    repo = HealthRepository(db_path)
+
+    # Must complete without raising
+    await repo.reset_tracker("nonexistent_tracker")
