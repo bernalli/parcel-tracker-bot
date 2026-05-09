@@ -27,7 +27,8 @@ SCHEMA_STATEMENTS: list[str] = [
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         delivered_at TIMESTAMP,
-        is_active INTEGER DEFAULT 1
+        is_active INTEGER DEFAULT 1,
+        last_check_at TIMESTAMP
     )
     """,
     """
@@ -78,7 +79,21 @@ async def init_schema(db_path: str) -> None:
         await conn.execute("PRAGMA journal_mode=WAL")
         for statement in SCHEMA_STATEMENTS:
             await conn.execute(statement)
+        await _add_parcels_last_check_at(conn)
         await conn.commit()
+
+
+async def _add_parcels_last_check_at(conn: aiosqlite.Connection) -> None:
+    """Idempotent ALTER: add parcels.last_check_at if missing.
+
+    For new DBs the column is already in CREATE TABLE; this is the upgrade path
+    for DBs created before Phase 2.
+    """
+    cursor = await conn.execute("PRAGMA table_info(parcels)")
+    rows = await cursor.fetchall()
+    columns = {row[1] for row in rows}  # row[1] is column name
+    if "last_check_at" not in columns:
+        await conn.execute("ALTER TABLE parcels ADD COLUMN last_check_at TIMESTAMP")
 
 
 @asynccontextmanager

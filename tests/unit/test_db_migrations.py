@@ -42,3 +42,26 @@ async def test_journal_mode_wal(tmp_db_path: Path) -> None:
 
     assert row is not None
     assert row[0].lower() == "wal"
+
+
+@pytest.mark.asyncio
+async def test_init_schema_adds_last_check_at_column(tmp_db_path: Path) -> None:
+    """parcels.last_check_at column must exist after init_schema."""
+    await init_schema(str(tmp_db_path))
+    async with get_connection(str(tmp_db_path)) as conn:
+        cursor = await conn.execute("PRAGMA table_info(parcels)")
+        rows = await cursor.fetchall()
+        columns = [row["name"] for row in rows]
+    assert "last_check_at" in columns
+
+
+@pytest.mark.asyncio
+async def test_init_schema_idempotent_on_last_check_at(tmp_db_path: Path) -> None:
+    """Re-running init_schema must not error if last_check_at already exists."""
+    await init_schema(str(tmp_db_path))
+    await init_schema(str(tmp_db_path))  # should not raise
+    async with get_connection(str(tmp_db_path)) as conn:
+        cursor = await conn.execute("PRAGMA table_info(parcels)")
+        rows = await cursor.fetchall()
+        columns = [row["name"] for row in rows]
+    assert columns.count("last_check_at") == 1
