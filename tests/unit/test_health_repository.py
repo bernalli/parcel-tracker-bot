@@ -56,3 +56,45 @@ async def test_quarantine_expires(health_repo: HealthRepository) -> None:
 
     is_quarantined = await health_repo.is_quarantined("dhl", "ABC")
     assert is_quarantined is False
+
+
+@pytest.mark.asyncio
+async def test_health_repository_iter_global_states_returns_only_global(tmp_path: Path) -> None:
+    db_path = str(tmp_path / "h.db")
+    await init_schema(db_path)
+    repo = HealthRepository(db_path)
+
+    await repo.record_success("dhl", "")  # global
+    await repo.record_success("dhl", "AB123")  # per-shipment
+    await repo.record_success("track17", "")  # global
+
+    states = [s async for s in repo.iter_global_states()]
+    tracker_ids = sorted(s.tracker_id for s in states)
+    assert tracker_ids == ["dhl", "track17"]
+    for s in states:
+        assert s.tracking_id == ""
+
+
+@pytest.mark.asyncio
+async def test_health_repository_reset_tracker_clears_all_entries(tmp_path: Path) -> None:
+    db_path = str(tmp_path / "h.db")
+    await init_schema(db_path)
+    repo = HealthRepository(db_path)
+
+    for _ in range(3):
+        await repo.record_failure("dhl", "")
+        await repo.record_failure("dhl", "AB123")
+    until = datetime.now(UTC) + timedelta(hours=1)
+    await repo.set_quarantine("dhl", "", until)
+    await repo.set_quarantine("dhl", "AB123", until)
+
+    await repo.reset_tracker("dhl")
+
+    state_global = await repo.get_state("dhl", "")
+    state_ship = await repo.get_state("dhl", "AB123")
+    assert state_global is not None
+    assert state_global.consecutive_failures == 0
+    assert state_global.quarantine_until is None
+    assert state_ship is not None
+    assert state_ship.consecutive_failures == 0
+    assert state_ship.quarantine_until is None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -116,6 +117,40 @@ class HealthRepository:
             total_checks=row["total_checks"],
             total_failures=row["total_failures"],
         )
+
+    async def iter_global_states(self) -> AsyncIterator[HealthState]:
+        """Yield all global (tracking_id='') health states, ordered by tracker_id."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT * FROM tracker_health WHERE tracking_id = '' ORDER BY tracker_id",
+            )
+            rows = await cursor.fetchall()
+        for row in rows:
+            yield HealthState(
+                tracker_id=row["tracker_id"],
+                tracking_id=row["tracking_id"],
+                last_success_at=_parse_ts(row["last_success_at"]),
+                last_failure_at=_parse_ts(row["last_failure_at"]),
+                consecutive_failures=row["consecutive_failures"],
+                consecutive_successes=row["consecutive_successes"],
+                quarantine_until=_parse_ts(row["quarantine_until"]),
+                total_checks=row["total_checks"],
+                total_failures=row["total_failures"],
+            )
+
+    async def reset_tracker(self, tracker_id: str) -> None:
+        """Reset consecutive_failures and quarantine_until for ALL entries of a tracker."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                """
+                UPDATE tracker_health
+                SET consecutive_failures = 0,
+                    quarantine_until = NULL
+                WHERE tracker_id = ?
+                """,
+                (tracker_id,),
+            )
+            await conn.commit()
 
 
 def _parse_ts(raw: str | None) -> datetime | None:
