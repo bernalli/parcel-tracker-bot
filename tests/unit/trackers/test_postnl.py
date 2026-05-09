@@ -18,6 +18,7 @@ def test_detects_postnl_pattern() -> None:
     # Positive samples — PostNL formats
     assert t.detect("3SABCDEFGHI01") is True  # 3S prefix + 11 chars (13 total)
     assert t.detect("3SXYZ12345AB") is True  # 3S prefix + 10 chars (12 total)
+    assert t.detect("3SABCDEFGHI012") is True  # 3S prefix + 12 chars
     assert t.detect("RR123456789NL") is True  # UPU NL-suffix
     assert t.detect("LL123456789NL") is True  # PostNL LL-prefix UPU variant
     # URL patterns

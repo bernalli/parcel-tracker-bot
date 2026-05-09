@@ -28,7 +28,8 @@ class DhlTracker(AbstractTracker):
     tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"^\d{10}$"),  # 10-digit DHL Express
         re.compile(r"^JD\d{18}$"),  # DHL eCommerce
-        re.compile(r"^[A-Z]{3}\d{9,12}$"),  # DHL Global Mail / variants
+        # DHL Global Mail / variants — exclude TBA prefix (Amazon Logistics).
+        re.compile(r"^(?!TBA)[A-Z]{3}\d{9,12}$"),
     ]
     url_patterns: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"dhl\.com.*tracking-id=", re.IGNORECASE),

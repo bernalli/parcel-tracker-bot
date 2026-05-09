@@ -19,6 +19,7 @@ def test_detects_usps_pattern() -> None:
     assert t.detect("94055118995600000000") is True  # 20-digit standard (^9\d{19}$)
     assert t.detect("EA123456789US") is True  # UPU international (^E[A-Z]\d{9}US$)
     assert t.detect("9100123456789012345678") is True  # 22-digit Priority/Express (^91\d{20}$)
+    assert t.detect("9405511899560000000000") is True  # 22-digit IMpb (^94\d{20}$)
     # URL pattern
     assert (
         t.detect("https://tools.usps.com/go/TrackConfirmAction?tLabels=9405511899560000000000")

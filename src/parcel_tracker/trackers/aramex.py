@@ -79,7 +79,9 @@ class AramexTracker(AbstractTracker):
     priority: ClassVar[int] = 80
     country_codes: ClassVar[list[str]] = ["AE", "GLOBAL"]
     tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [
-        re.compile(r"^\d{10,12}$"),  # Aramex numeric 10-12 digit
+        # Aramex AWB is canonically 11-digit. Excluding 10 (DHL Express) and
+        # 12 (FedEx Express / GLS) avoids priority collisions in the routing.
+        re.compile(r"^\d{11}$"),
     ]
     url_patterns: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"aramex\.com/track", re.IGNORECASE),

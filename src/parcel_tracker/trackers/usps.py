@@ -76,6 +76,7 @@ class UspsTracker(AbstractTracker):
     country_codes: ClassVar[list[str]] = ["US"]
     tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"^91\d{20}$"),  # USPS Priority/Express 22-digit (starts with 91)
+        re.compile(r"^94\d{20}$"),  # USPS IMpb 22-digit (starts with 94)
         re.compile(r"^9\d{19}$"),  # USPS 20-digit standard
         re.compile(r"^E[A-Z]\d{9}US$"),  # USPS UPU international (EE/EM/EX/EZ-prefix, US suffix)
     ]
