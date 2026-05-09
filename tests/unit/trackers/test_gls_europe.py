@@ -13,11 +13,12 @@ from parcel_tracker.trackers.gls_europe import GlsEuropeTracker
 
 
 def test_detects_gls_europe_pattern() -> None:
-    """GLS detect: 11/12/14-digit numeric IDs, gls-group.eu URLs with 'tracking'."""
+    """GLS detect: 11/12/13/14-digit numeric IDs, gls-group.eu URLs with 'tracking'."""
     t = GlsEuropeTracker()
     # Positive samples — GLS numeric formats
     assert t.detect("12345678901") is True  # 11-digit GLS
     assert t.detect("123456789012") is True  # 12-digit GLS
+    assert t.detect("1234567890123") is True  # 13-digit GLS (Phase 3 / item 30)
     assert t.detect("12345678901234") is True  # 14-digit GLS international
     # URL patterns
     assert t.detect("https://gls-group.eu/EU/en/parcel-tracking?match=12345678901") is True

@@ -56,7 +56,7 @@ class PostnlTracker(AbstractTracker):
     priority: ClassVar[int] = 60
     country_codes: ClassVar[list[str]] = ["NL"]
     tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [
-        re.compile(r"^3S[A-Z0-9]{9,11}$"),  # PostNL 3S prefix (11-13 chars total)
+        re.compile(r"^3S[A-Z0-9]{9,13}$"),  # PostNL 3S prefix (11-15 chars total)
         re.compile(r"^[A-Z]{2}\d{9}NL$"),  # UPU NL
         re.compile(r"^LL\d{9}NL$"),  # PostNL LL-prefix UPU variant
     ]

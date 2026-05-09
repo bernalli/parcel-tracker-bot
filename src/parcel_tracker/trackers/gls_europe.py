@@ -84,6 +84,7 @@ class GlsEuropeTracker(AbstractTracker):
     tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"^\d{11}$"),  # GLS 11-digit
         re.compile(r"^\d{12}$"),  # GLS 12-digit
+        re.compile(r"^\d{13}$"),  # GLS 13-digit (newer parcel IDs)
         re.compile(r"^\d{14}$"),  # GLS 14-digit international
     ]
     url_patterns: ClassVar[list[re.Pattern[str]]] = [
