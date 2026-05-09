@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from parcel_tracker.config import Config
 from parcel_tracker.core.registry import TrackerRegistry
+from parcel_tracker.trackers.amazon_logistics import AmazonLogisticsTracker
 from parcel_tracker.trackers.aramex import AramexTracker
 from parcel_tracker.trackers.australia_post import AustraliaPostTracker
 from parcel_tracker.trackers.bpost import BpostTracker
@@ -49,8 +50,14 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
     registry.register(PostnlTracker())
     registry.register(SwissPostTracker())
     registry.register(YodelTracker())
+
+    track17_instance: Track17Tracker | None = None
     if config.track17_api_key:
-        registry.register(Track17Tracker(api_key=config.track17_api_key))
+        track17_instance = Track17Tracker(api_key=config.track17_api_key)
+        registry.register(track17_instance)
+
+    # Tier D — registered with optional track17 delegate (None if track17 not configured)
+    registry.register(AmazonLogisticsTracker(track17=track17_instance))
 
 
 __all__ = ["register_builtins"]
