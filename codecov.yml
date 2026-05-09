@@ -1,0 +1,20 @@
+codecov:
+  require_ci_to_pass: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: 75%
+        threshold: 1%
+    patch:
+      default:
+        target: 75%
+        threshold: 5%
+
+  range: "75...95"
+
+ignore:
+  - "tests/**"
+  - "src/parcel_tracker/main.py"   # entry point
+  - "src/parcel_tracker/i18n/build.py"
