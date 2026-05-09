@@ -32,7 +32,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install bandit[toml]
+      - run: pip install bandit[toml] bandit-sarif-formatter
       - run: bandit -r src -ll -f sarif -o bandit.sarif
         continue-on-error: true
       - uses: github/codeql-action/upload-sarif@v3
