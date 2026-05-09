@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.scheduler import check_updates, sort_by_priority
 from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult
 from parcel_tracker.db.models import Parcel, ShipmentStatus
@@ -48,6 +50,7 @@ def _make_context(
     parcel_repo = MagicMock()
     parcel_repo.list_active_for_user = AsyncMock(return_value=parcels)
     parcel_repo.update_status = AsyncMock()
+    parcel_repo.set_last_check_at = AsyncMock()
 
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[42] if user_ids is None else user_ids)
@@ -60,6 +63,15 @@ def _make_context(
     notifier = MagicMock()
     notifier.send_status_update = AsyncMock()
 
+    config = MagicMock()
+    config.batch_size = 10
+
+    prefs = MagicMock()
+    prefs.is_allowed = AsyncMock(return_value=True)
+    prefs.mark_sent = AsyncMock()
+
+    fixed_now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
+
     ctx = MagicMock()
     ctx.bot_data = {
         "parcel_repo": parcel_repo,
@@ -68,6 +80,10 @@ def _make_context(
         "health": health,
         "notifier": notifier,
         "user_repo": user_repo,
+        "config": config,
+        "rate_limiter": RateLimiter(default_rate_per_min=600),
+        "prefs": prefs,
+        "now": lambda: fixed_now,
     }
     return ctx
 
@@ -197,6 +213,86 @@ async def test_check_updates_status_changed_sends_notification() -> None:
     assert call_kwargs["old_status"] == ShipmentStatus.IN_TRANSIT
     assert call_kwargs["new_status"] == ShipmentStatus.DELIVERED
     assert call_kwargs["chat_id"] == 42
+
+
+@pytest.mark.asyncio
+async def test_check_updates_skips_parcels_not_due() -> None:
+    """Parcels with last_check_at within their status interval are skipped."""
+    from datetime import timedelta
+
+    fixed_now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
+    fresh = Parcel(
+        tracking_number="FAKE-FRESH",
+        user_id=42,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_check_at=fixed_now - timedelta(minutes=5),
+    )
+    stale = Parcel(
+        tracking_number="FAKE-STALE",
+        user_id=42,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_check_at=fixed_now - timedelta(minutes=20),
+    )
+    ctx = _make_context(parcels=[fresh, stale])
+    fake_tracker = ctx.bot_data["detector"].detect.return_value[0]
+    fake_tracker.fetch = AsyncMock(  # type: ignore[method-assign]
+        return_value=TrackingResult(
+            tracking_number="X",
+            found=True,
+            status=ShipmentStatus.IN_TRANSIT,
+        )
+    )
+
+    await check_updates(ctx)
+
+    fake_tracker.fetch.assert_awaited_once_with("FAKE-STALE")
+
+
+@pytest.mark.asyncio
+async def test_check_updates_skips_delivered_parcels() -> None:
+    """DELIVERED parcels have interval=0 → never due → never fetched."""
+    fixed_now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
+    delivered = Parcel(
+        tracking_number="FAKE-DONE",
+        user_id=42,
+        status=ShipmentStatus.DELIVERED,
+        last_check_at=None,  # never checked, but interval=0 still wins
+    )
+    ctx = _make_context(parcels=[delivered])
+    ctx.bot_data["now"] = lambda: fixed_now
+
+    await check_updates(ctx)
+
+    ctx.bot_data["detector"].detect.assert_not_called()
+    ctx.bot_data["parcel_repo"].set_last_check_at.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_check_updates_processes_batch_in_parallel() -> None:
+    """Two due parcels with same tracker run via asyncio.gather (both fetched)."""
+    parcels = [
+        Parcel(
+            tracking_number=f"FAKE-T{i}",
+            user_id=42,
+            status=ShipmentStatus.IN_TRANSIT,
+            last_check_at=None,  # always due
+        )
+        for i in range(2)
+    ]
+    ctx = _make_context(parcels=parcels)
+    fake_tracker = ctx.bot_data["detector"].detect.return_value[0]
+    fake_tracker.fetch = AsyncMock(  # type: ignore[method-assign]
+        return_value=TrackingResult(
+            tracking_number="X",
+            found=True,
+            status=ShipmentStatus.IN_TRANSIT,
+        )
+    )
+
+    await check_updates(ctx)
+
+    assert fake_tracker.fetch.await_count == 2
+    assert ctx.bot_data["parcel_repo"].set_last_check_at.await_count == 2
 
 
 def test_sort_by_priority_orders_out_for_delivery_first() -> None:

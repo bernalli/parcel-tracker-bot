@@ -1,13 +1,18 @@
-"""Periodic tracking job — checks active parcels for updates."""
+"""Periodic tracking job — checks active parcels with dynamic interval, parallel batch,
+and per-tracker rate limiting."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from parcel_tracker.core.detector import CourierDetector
 from parcel_tracker.core.health import HealthManager
-from parcel_tracker.core.registry import TrackerRegistry
+from parcel_tracker.core.rate_limiter import RateLimiter
+from parcel_tracker.core.status_intervals import is_due
 from parcel_tracker.db.models import Parcel, ShipmentStatus
 from parcel_tracker.db.repository import ParcelRepository
 from parcel_tracker.notifier.telegram import TelegramNotifier
@@ -39,33 +44,85 @@ class _JobContext(Protocol):
     bot_data: dict[str, Any]
 
 
+def _now_default() -> datetime:
+    return datetime.now(UTC)
+
+
+def _chunked(seq: list[tuple[int, Parcel]], size: int) -> list[list[tuple[int, Parcel]]]:
+    return [seq[i : i + size] for i in range(0, len(seq), size)]
+
+
 async def check_updates(context: _JobContext) -> None:
-    """Periodic job: iterate all active parcels and refresh status."""
-    parcel_repo = context.bot_data["parcel_repo"]
-    registry = context.bot_data["registry"]
-    detector = context.bot_data["detector"]
-    health = context.bot_data["health"]
-    notifier = context.bot_data["notifier"]
+    """Periodic job: filter due parcels, sort by priority, process in parallel batches.
+
+    bot_data keys consumed:
+      - parcel_repo, user_repo, registry, detector, health, notifier (existing)
+      - config (Phase 2): provides batch_size
+      - rate_limiter (Phase 2): RateLimiter instance
+      - prefs (Phase 2): NotificationPreferences instance for gating
+      - now (test-only optional): zero-arg callable returning current datetime
+    """
+    parcel_repo: ParcelRepository = context.bot_data["parcel_repo"]
     user_repo = context.bot_data["user_repo"]
+    detector: CourierDetector = context.bot_data["detector"]
+    health: HealthManager = context.bot_data["health"]
+    notifier: TelegramNotifier = context.bot_data["notifier"]
+    config = context.bot_data["config"]
+    rate_limiter: RateLimiter = context.bot_data["rate_limiter"]
+    prefs = context.bot_data["prefs"]
+    now: Callable[[], datetime] = context.bot_data.get("now", _now_default)
 
     user_ids = await user_repo.get_allowed_user_ids()
+    if not user_ids:
+        return
 
+    all_due: list[tuple[int, Parcel]] = []
     for user_id in user_ids:
         parcels = await parcel_repo.list_active_for_user(user_id=user_id)
         for parcel in parcels:
-            await _check_one(parcel, parcel_repo, registry, detector, health, notifier, user_id)
+            if is_due(parcel.status, parcel.last_check_at, now()):
+                all_due.append((user_id, parcel))
+
+    if not all_due:
+        return
+
+    rank = {status: idx for idx, status in enumerate(PRIORITY_ORDER)}
+    all_due.sort(key=lambda pair: rank.get(pair[1].status, 999))
+
+    batch_size = int(getattr(config, "batch_size", 10))
+    for batch in _chunked(all_due, batch_size):
+        await asyncio.gather(
+            *[
+                _check_one(
+                    parcel=p,
+                    user_id=uid,
+                    parcel_repo=parcel_repo,
+                    detector=detector,
+                    health=health,
+                    notifier=notifier,
+                    rate_limiter=rate_limiter,
+                    prefs=prefs,
+                    now=now,
+                )
+                for (uid, p) in batch
+            ],
+            return_exceptions=True,
+        )
 
 
 async def _check_one(  # noqa: PLR0913
+    *,
     parcel: Parcel,
+    user_id: int,
     parcel_repo: ParcelRepository,
-    registry: TrackerRegistry,
     detector: CourierDetector,
     health: HealthManager,
     notifier: TelegramNotifier,
-    user_id: int,
+    rate_limiter: RateLimiter,
+    prefs: Any,
+    now: Callable[[], datetime],
 ) -> None:
-    """Check a single parcel for status updates."""
+    """Check a single parcel: rate limit, fetch, record health, notify if status changed."""
     matches = detector.detect(parcel.tracking_number)
     if not matches:
         logger.debug("No tracker matches for %s", parcel.tracking_number)
@@ -75,11 +132,13 @@ async def _check_one(  # noqa: PLR0913
 
     if await health.is_quarantined(tracker.name, parcel.tracking_number):
         logger.debug(
-            "Skipping %s/%s — currently quarantined",
+            "Skipping %s/%s — quarantined",
             tracker.name,
             parcel.tracking_number,
         )
         return
+
+    await rate_limiter.acquire(tracker.name)
 
     try:
         result = await tracker.fetch(parcel.tracking_number)
@@ -91,22 +150,27 @@ async def _check_one(  # noqa: PLR0913
             exc,
         )
         await health.record_failure(tracker.name, parcel.tracking_number)
+        await parcel_repo.set_last_check_at(parcel.tracking_number, now())
         return
 
     if not result.found:
         await health.record_failure(tracker.name, parcel.tracking_number)
+        await parcel_repo.set_last_check_at(parcel.tracking_number, now())
         return
 
     await health.record_success(tracker.name, parcel.tracking_number)
+    await parcel_repo.set_last_check_at(parcel.tracking_number, now())
 
     if result.status != parcel.status:
         await parcel_repo.update_status(parcel.tracking_number, result.status)
-        last_event = result.events[0] if result.events else None
-        await notifier.send_status_update(
-            chat_id=user_id,
-            tracking_number=parcel.tracking_number,
-            parcel_name=parcel.name,
-            old_status=parcel.status,
-            new_status=result.status,
-            last_event=last_event,
-        )
+        if await prefs.is_allowed(user_id, result.status, parcel.tracking_number):
+            last_event = result.events[0] if result.events else None
+            await notifier.send_status_update(
+                chat_id=user_id,
+                tracking_number=parcel.tracking_number,
+                parcel_name=parcel.name,
+                old_status=parcel.status,
+                new_status=result.status,
+                last_event=last_event,
+            )
+            await prefs.mark_sent(user_id, parcel.tracking_number, result.status)
