@@ -7,9 +7,15 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from telegram.ext import Application
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 from parcel_tracker.bot.handlers import register_handlers
+from parcel_tracker.bot.health_commands import (
+    cmd_health,
+    cmd_health_detail,
+    cmd_health_reset,
+)
 from parcel_tracker.config import Config
 from parcel_tracker.core.detector import CourierDetector
 from parcel_tracker.core.health import HealthManager, QuarantineThresholds
@@ -24,6 +30,29 @@ from parcel_tracker.observability.logging import configure_logging
 from parcel_tracker.trackers import register_builtins
 
 logger = logging.getLogger(__name__)
+
+
+async def _health_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Sub-command dispatcher for the /health command family.
+
+    /health           → list all trackers (cmd_health)
+    /health <name>    → tracker detail (cmd_health_detail)
+    /health reset <name> → admin reset (cmd_health_reset, strips 'reset' arg)
+    """
+    args = context.args or []
+    if not args:
+        await cmd_health(update, context)
+        return
+    if args[0].lower() == "reset":
+        context.args = args[1:]
+        await cmd_health_reset(update, context)
+        return
+    await cmd_health_detail(update, context)
+
+
+def _register_health_handlers(application: Application) -> None:
+    """Register /health command family with sub-command dispatch."""
+    application.add_handler(CommandHandler("health", _health_dispatch))
 
 
 async def build_bot_data(config: Config) -> dict[str, Any]:
@@ -102,6 +131,7 @@ def main() -> None:
         user_repo=bot_data["user_repo"],
         registry=bot_data["registry"],
     )
+    _register_health_handlers(application)
 
     # Local import to avoid circular dependency at module level
     from parcel_tracker.core.scheduler import check_updates  # noqa: PLC0415
