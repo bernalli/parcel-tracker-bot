@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
+from typing import Any
 
 from telegram.ext import Application
 
@@ -12,6 +13,7 @@ from parcel_tracker.bot.handlers import register_handlers
 from parcel_tracker.config import Config
 from parcel_tracker.core.detector import CourierDetector
 from parcel_tracker.core.health import HealthManager, QuarantineThresholds
+from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.registry import TrackerRegistry
 from parcel_tracker.db.health_repository import HealthRepository
 from parcel_tracker.db.migrations import init_schema
@@ -24,9 +26,13 @@ from parcel_tracker.trackers import register_builtins
 logger = logging.getLogger(__name__)
 
 
-async def _async_init(
-    config: Config,
-) -> tuple[ParcelRepository, UserRepository, HealthManager, TrackerRegistry]:
+async def build_bot_data(config: Config) -> dict[str, Any]:
+    """Assemble all bot dependencies into a dict suitable for application.bot_data.
+
+    Note: TelegramNotifier requires application.bot which only exists after
+    Application.builder().build(); the notifier is therefore wired in main()
+    after this helper returns.
+    """
     await init_schema(config.database_path)
 
     parcel_repo = ParcelRepository(config.database_path)
@@ -46,12 +52,26 @@ async def _async_init(
 
     registry = TrackerRegistry()
     register_builtins(registry, config)
-
     plugins_dir = Path(config.database_path).parent.parent / "plugins"
     if plugins_dir.exists():
         registry.load_from_directory(plugins_dir)
+    detector = CourierDetector(registry)
 
-    return parcel_repo, user_repo, health, registry
+    rate_limiter = RateLimiter(default_rate_per_min=config.rate_limit_default_per_min)
+    for tracker_name, rate in config.rate_limit_overrides.items():
+        rate_limiter.configure(tracker_name, rate)
+
+    return {
+        "config": config,
+        "parcel_repo": parcel_repo,
+        "user_repo": user_repo,
+        "health_repo": health_repo,
+        "registry": registry,
+        "detector": detector,
+        "health": health,
+        "rate_limiter": rate_limiter,
+        # NOTE: prefs deferred to item 19; notifier added in main() after Application.build()
+    }
 
 
 def main() -> None:
@@ -67,26 +87,20 @@ def main() -> None:
     )
     logger.info("Starting parcel-tracker-bot")
 
-    parcel_repo, user_repo, health, registry = asyncio.run(_async_init(config))
-    detector = CourierDetector(registry)
+    bot_data = asyncio.run(build_bot_data(config))
 
     application = Application.builder().token(config.telegram_bot_token).build()
 
     notifier = TelegramNotifier(bot=application.bot)
-
-    application.bot_data["detector"] = detector
-    application.bot_data["health"] = health
-    application.bot_data["notifier"] = notifier
-    application.bot_data["parcel_repo"] = parcel_repo
-    application.bot_data["user_repo"] = user_repo
-    application.bot_data["registry"] = registry
+    bot_data["notifier"] = notifier
+    application.bot_data.update(bot_data)
 
     register_handlers(
         application,
         config=config,
-        parcel_repo=parcel_repo,
-        user_repo=user_repo,
-        registry=registry,
+        parcel_repo=bot_data["parcel_repo"],
+        user_repo=bot_data["user_repo"],
+        registry=bot_data["registry"],
     )
 
     # Local import to avoid circular dependency at module level

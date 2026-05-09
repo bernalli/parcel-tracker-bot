@@ -19,11 +19,11 @@ async def test_async_init_creates_db(
     monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "smoke.db"))
 
     from parcel_tracker.config import Config
-    from parcel_tracker.main import _async_init
+    from parcel_tracker.main import build_bot_data
 
     config = Config.from_env(load_dotenv_file=False)
-    parcel_repo, _user_repo, _health, registry = await _async_init(config)
+    bot_data = await build_bot_data(config)
 
     assert (tmp_path / "smoke.db").exists()
-    assert parcel_repo is not None
-    assert len(list(registry.iter_all())) >= 1  # at least DHL built-in
+    assert bot_data["parcel_repo"] is not None
+    assert len(list(bot_data["registry"].iter_all())) >= 1  # at least DHL built-in
