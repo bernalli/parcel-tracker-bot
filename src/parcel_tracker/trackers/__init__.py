@@ -19,6 +19,7 @@ from parcel_tracker.trackers.royal_mail import RoyalMailTracker
 from parcel_tracker.trackers.track17 import Track17Tracker
 from parcel_tracker.trackers.ups import UpsTracker
 from parcel_tracker.trackers.usps import UspsTracker
+from parcel_tracker.trackers.yodel import YodelTracker
 
 
 def register_builtins(registry: TrackerRegistry, config: Config) -> None:
@@ -37,6 +38,7 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
     registry.register(DpdTracker())
     registry.register(FedexTracker())
     registry.register(GlsEuropeTracker())
+    registry.register(YodelTracker())
     if config.track17_api_key:
         registry.register(Track17Tracker(api_key=config.track17_api_key))
 
