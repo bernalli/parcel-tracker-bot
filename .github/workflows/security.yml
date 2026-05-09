@@ -49,9 +49,10 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -e .
+      - run: pip freeze > requirements.txt
       - uses: pypa/gh-action-pip-audit@v1.1.0
         with:
-          inputs: pyproject.toml
+          inputs: requirements.txt
 
   dependency-review:
     if: github.event_name == 'pull_request'
