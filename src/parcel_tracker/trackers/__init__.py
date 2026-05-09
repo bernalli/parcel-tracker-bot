@@ -20,6 +20,7 @@ from parcel_tracker.trackers.la_poste import LaPosteTracker
 from parcel_tracker.trackers.oesterreichische_post import OesterreichischePostTracker
 from parcel_tracker.trackers.postnl import PostnlTracker
 from parcel_tracker.trackers.royal_mail import RoyalMailTracker
+from parcel_tracker.trackers.swisspost import SwissPostTracker
 from parcel_tracker.trackers.track17 import Track17Tracker
 from parcel_tracker.trackers.ups import UpsTracker
 from parcel_tracker.trackers.usps import UspsTracker
@@ -46,6 +47,7 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
     registry.register(GlsEuropeTracker())
     registry.register(OesterreichischePostTracker())
     registry.register(PostnlTracker())
+    registry.register(SwissPostTracker())
     registry.register(YodelTracker())
     if config.track17_api_key:
         registry.register(Track17Tracker(api_key=config.track17_api_key))
