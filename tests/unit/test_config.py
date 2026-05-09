@@ -19,6 +19,12 @@ def env_clean(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "CHECK_INTERVAL_MINUTES",
         "DATABASE_PATH",
         "TRACK17_API_KEY",
+        "LOG_LEVEL",
+        "LOG_FORMAT",
+        "LOG_FULL_TRACKING_ID",
+        "METRICS_ENABLED",
+        "METRICS_BIND_HOST",
+        "METRICS_PORT",
     ]:
         monkeypatch.delenv(key, raising=False)
     yield
@@ -68,3 +74,39 @@ def test_quarantine_thresholds_parsed(monkeypatch: pytest.MonkeyPatch, env_clean
 
     assert cfg.quarantine_3fail_hours == 2
     assert cfg.quarantine_6fail_hours == 6  # default
+
+
+def test_config_loads_observability_defaults(
+    monkeypatch: pytest.MonkeyPatch, env_clean: None
+) -> None:
+    """Phase 2 defaults: log_format=json, metrics_enabled=true, bind_host=0.0.0.0."""
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")
+    monkeypatch.setenv("OWNER_ID", "1")
+
+    cfg = Config.from_env(load_dotenv_file=False)
+
+    assert cfg.log_level == "INFO"
+    assert cfg.log_format == "json"
+    assert cfg.metrics_enabled is True
+    assert cfg.metrics_bind_host == "0.0.0.0"  # noqa: S104
+    assert cfg.metrics_port == 9090
+
+
+def test_config_loads_observability_overrides(
+    monkeypatch: pytest.MonkeyPatch, env_clean: None
+) -> None:
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")
+    monkeypatch.setenv("OWNER_ID", "1")
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
+    monkeypatch.setenv("LOG_FORMAT", "console")
+    monkeypatch.setenv("METRICS_ENABLED", "false")
+    monkeypatch.setenv("METRICS_BIND_HOST", "127.0.0.1")
+    monkeypatch.setenv("METRICS_PORT", "19090")
+
+    cfg = Config.from_env(load_dotenv_file=False)
+
+    assert cfg.log_level == "DEBUG"
+    assert cfg.log_format == "console"
+    assert cfg.metrics_enabled is False
+    assert cfg.metrics_bind_host == "127.0.0.1"
+    assert cfg.metrics_port == 19090
