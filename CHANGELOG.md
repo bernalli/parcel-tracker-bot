@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.0-trackers] — 2026-05-09
+
+### Added
+- 19 Tier S full-scraper trackers: UPS, USPS, Royal Mail, La Poste, Deutsche Post, Aramex, Australia Post, Canada Post, Correos (ES), Correios (BR), FedEx (with TNT folded), DPD, GLS Europe, Yodel, Evri (Hermes rebrand), Bpost, PostNL, Oesterreichische Post, Swiss Post.
+- 5 Tier D detection-only trackers: Amazon Logistics, China Post, EMS, Singapore Post, Japan Post. Delega `fetch` to Track17 with carrier identity rebrand.
+- New `Track17BackedTracker` base class for Tier D pattern.
+- Multi-locale status keyword mapping (EN/IT/PT/FR/DE/ES out-of-the-box).
+- `docs/trackers.md` with complete tracker catalog.
+
+### Changed
+- `core/scheduler.py:_check_one` now iterates `matches[1:]` on failure: when
+  the primary tracker fails (raises or returns `found=False`), the scheduler
+  falls back to lower-priority matches until one succeeds. This makes the
+  zero-setup design resilient: a broken site scraper no longer silences the
+  user when Track17 is configured.
+- Aramex regex tightened from `^\d{10,12}$` to `^\d{11}$` to free 10-digit
+  AWB to DHL and 12-digit to FedEx.
+- DHL regex narrowed with `(?!TBA)` negative lookahead so Amazon Logistics
+  TBA-prefix IDs route to amazon_logistics.
+- USPS regex extended to cover 22-digit IMpb prefix (`^94\d{20}$`).
+- GLS Europe regex extended to include 13-digit IDs.
+- PostNL regex widened to allow 12-13 char tail after `3S` prefix.
+- China Post regex tightened from `^[LRCEABS][A-Z]\d{9}CN$` to
+  `^[LRCES][A-Z]\d{9}CN$` (canonical UPU prefixes only).
+
+### Tests
+- 24 new tracker-specific test files with parametrized HTML fixture parsing.
+- 1 integration test for scheduler fallback (3 scenarios, F0).
+- 1 integration test for detection routing (25 sample tracking IDs + registration check).
+- Baseline: 414 tests passing, coverage maintained.
+
 ## [v0.1.0-enhancements] — 2026-05-09
 
 ### Added
