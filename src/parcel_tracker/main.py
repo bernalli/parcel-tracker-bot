@@ -29,6 +29,7 @@ from parcel_tracker.db.health_repository import HealthRepository
 from parcel_tracker.db.migrations import init_schema
 from parcel_tracker.db.notification_repository import NotificationRepository
 from parcel_tracker.db.repository import ParcelRepository, UserRepository
+from parcel_tracker.i18n import Translator, set_default_translator
 from parcel_tracker.notifier.preferences import CooldownConfig, NotificationPreferences
 from parcel_tracker.notifier.telegram import TelegramNotifier
 from parcel_tracker.observability.exporter import ExporterConfig, start_metrics_exporter
@@ -67,6 +68,9 @@ def _register_notify_handlers(application: Application[Any, Any, Any, Any, Any, 
     application.add_handler(CallbackQueryHandler(on_notify_callback, pattern=r"^notify:"))
 
 
+LOCALE_ROOT = Path(__file__).parent / "i18n" / "locale"
+
+
 async def build_bot_data(config: Config) -> dict[str, Any]:
     """Assemble all bot dependencies into a dict suitable for application.bot_data.
 
@@ -74,6 +78,7 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
     Application.builder().build(); the notifier is therefore wired in main()
     after this helper returns.
     """
+    set_default_translator(Translator(locale=config.default_language, locale_dir=LOCALE_ROOT))
     await init_schema(config.database_path)
 
     parcel_repo = ParcelRepository(config.database_path)

@@ -48,7 +48,8 @@ SCHEMA_STATEMENTS: list[str] = [
         user_id INTEGER PRIMARY KEY,
         username TEXT,
         added_by INTEGER NOT NULL,
-        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        language TEXT NOT NULL DEFAULT 'en'
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_parcels_active ON parcels(is_active, user_id)",
@@ -97,7 +98,23 @@ async def init_schema(db_path: str) -> None:
         for statement in SCHEMA_STATEMENTS:
             await conn.execute(statement)
         await _add_parcels_last_check_at(conn)
+        await _add_allowed_users_language(conn)
         await conn.commit()
+
+
+async def _add_allowed_users_language(conn: aiosqlite.Connection) -> None:
+    """Idempotent ALTER: add allowed_users.language if missing.
+
+    For new DBs the column is already in CREATE TABLE; this is the upgrade path
+    for older DBs.
+    """
+    cursor = await conn.execute("PRAGMA table_info(allowed_users)")
+    rows = await cursor.fetchall()
+    columns = {row[1] for row in rows}
+    if "language" not in columns:
+        await conn.execute(
+            "ALTER TABLE allowed_users ADD COLUMN language TEXT NOT NULL DEFAULT 'en'"
+        )
 
 
 async def _add_parcels_last_check_at(conn: aiosqlite.Connection) -> None:
