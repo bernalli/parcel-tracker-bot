@@ -53,6 +53,12 @@ class Config:
     metrics_bind_host: str = "0.0.0.0"  # noqa: S104 — Docker network scope; override via METRICS_BIND_HOST
     metrics_port: int = 9090
 
+    batch_size: int = 10
+    rate_limit_default_per_min: int = 10
+    rate_limit_overrides: dict[str, int] = field(default_factory=dict)
+    notify_cooldown_minutes: int = 60
+    admin_user_ids: frozenset[int] = field(default_factory=frozenset)
+
     @classmethod
     def from_env(cls, *, load_dotenv_file: bool = True) -> Config:
         """Build Config from environment variables (loads .env if present)."""
@@ -83,6 +89,15 @@ class Config:
                         f"ALLOWED_USER_IDS contains non-integer: {token_id!r}"
                     ) from exc
 
+        batch_size = _int_env("BATCH_SIZE", 10)
+        rate_limit_default = _int_env("RATE_LIMIT_DEFAULT_PER_MIN", 10)
+        rate_limit_overrides = _rate_limit_overrides_env()
+        notify_cooldown = _int_env("NOTIFY_COOLDOWN_MINUTES", 60)
+        admin_raw = os.getenv("ADMIN_USER_IDS", "")
+        admin_ids: frozenset[int] = frozenset(
+            int(x.strip()) for x in admin_raw.split(",") if x.strip()
+        )
+
         return cls(
             telegram_bot_token=token,
             owner_id=owner_id,
@@ -112,6 +127,11 @@ class Config:
             metrics_enabled=_bool_env("METRICS_ENABLED", True),
             metrics_bind_host=os.getenv("METRICS_BIND_HOST", "0.0.0.0").strip() or "0.0.0.0",  # noqa: S104
             metrics_port=_int_env("METRICS_PORT", 9090),
+            batch_size=batch_size,
+            rate_limit_default_per_min=rate_limit_default,
+            rate_limit_overrides=rate_limit_overrides,
+            notify_cooldown_minutes=notify_cooldown,
+            admin_user_ids=admin_ids,
         )
 
 
@@ -139,3 +159,18 @@ def _bool_env(key: str, default: bool) -> bool:
 def _optional_env(key: str) -> str | None:
     raw = os.getenv(key, "").strip()
     return raw or None
+
+
+def _rate_limit_overrides_env() -> dict[str, int]:
+    """Parse all RATE_LIMIT_TRACKER_<NAME>=<int> env vars into a dict keyed by lowercase name."""
+    prefix = "RATE_LIMIT_TRACKER_"
+    overrides: dict[str, int] = {}
+    for key, val in os.environ.items():
+        if key.startswith(prefix):
+            tracker = key[len(prefix) :].lower()
+            raw_rate = val.strip()
+            try:
+                overrides[tracker] = int(raw_rate)
+            except ValueError as exc:
+                raise ConfigError(f"{key} must be an integer, got: {raw_rate!r}") from exc
+    return overrides
