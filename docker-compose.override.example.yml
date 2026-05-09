@@ -1,0 +1,10 @@
+# Copia in `docker-compose.override.yml` (gitignored) per personalizzazioni locali.
+# Esempio: montare plugins/ in modalità rw per sviluppo, esporre porta metrics, ecc.
+
+services:
+  parcel-tracker:
+    volumes:
+      # Plugin overlay locale rw (per sviluppo plugin italiani)
+      - ./plugins:/app/plugins:rw
+    # ports:
+    #   - "9090:9090"  # Prometheus metrics endpoint
