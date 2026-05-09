@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0-rc.1] — 2026-05-10
+
+First public release candidate. Full feature set:
+
+- 24 built-in couriers (19 Tier S + 5 Tier D) + 17track universal fallback
+- Tracker health & auto-quarantine
+- Fine-grained notification preferences with cooldown
+- Prometheus metrics + structlog JSON logging
+- i18n (English + Italian, per-user via `/lang`)
+- Hardened container (read-only fs, no-new-privileges, dropped caps, resource limits)
+- GitHub Actions CI (matrix py3.11/3.12, ruff, mypy strict, pytest 75 % coverage gate)
+- Security: gitleaks, bandit, pip-audit, dependency-review, Dependabot
+- 427 tests, 91.17 % coverage
+
 ## [v0.1.0-trackers] — 2026-05-09
 
 ### Added
