@@ -99,7 +99,7 @@ class HealthRepository:
     async def get_state(self, tracker_id: str, tracking_id: str = "") -> HealthState | None:
         async with get_connection(self._db_path) as conn:
             cursor = await conn.execute(
-                "SELECT * FROM tracker_health " "WHERE tracker_id = ? AND tracking_id = ?",
+                "SELECT * FROM tracker_health WHERE tracker_id = ? AND tracking_id = ?",
                 (tracker_id, tracking_id),
             )
             row = await cursor.fetchone()
