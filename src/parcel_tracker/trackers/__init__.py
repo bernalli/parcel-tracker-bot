@@ -19,6 +19,7 @@ from parcel_tracker.trackers.ems import EmsTracker
 from parcel_tracker.trackers.evri import EvriTracker
 from parcel_tracker.trackers.fedex import FedexTracker
 from parcel_tracker.trackers.gls_europe import GlsEuropeTracker
+from parcel_tracker.trackers.japan_post import JapanPostTracker
 from parcel_tracker.trackers.la_poste import LaPosteTracker
 from parcel_tracker.trackers.oesterreichische_post import OesterreichischePostTracker
 from parcel_tracker.trackers.postnl import PostnlTracker
@@ -64,6 +65,7 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
     registry.register(ChinaPostTracker(track17=track17_instance))
     registry.register(EmsTracker(track17=track17_instance))
     registry.register(SingaporePostTracker(track17=track17_instance))
+    registry.register(JapanPostTracker(track17=track17_instance))
 
 
 __all__ = ["register_builtins"]
