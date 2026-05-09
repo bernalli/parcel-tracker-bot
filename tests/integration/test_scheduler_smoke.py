@@ -42,3 +42,8 @@ async def test_build_bot_data_includes_plan2_dependencies(tmp_path: Path) -> Non
     # core deps present
     for key in ("parcel_repo", "user_repo", "health_repo", "registry", "detector", "health"):
         assert key in bot_data
+    # notifier is intentionally NOT created in build_bot_data — it requires
+    # application.bot which only exists post-Application.builder().build().
+    assert "notifier" not in bot_data
+    # prefs is deferred to item 19 (NotificationPreferences not yet wired).
+    assert "prefs" not in bot_data

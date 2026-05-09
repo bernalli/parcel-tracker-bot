@@ -71,7 +71,8 @@ async def _check_updates_impl(context: _JobContext) -> None:
       - parcel_repo, user_repo, registry, detector, health, notifier (existing)
       - config: provides batch_size
       - rate_limiter: RateLimiter instance
-      - prefs (Phase 2): NotificationPreferences instance for gating
+      - prefs: NotificationPreferences instance for gating, OR None if not wired
+          (when None, gating is bypassed and notifications go through always)
       - now (test-only optional): zero-arg callable returning current datetime
     """
     parcel_repo: ParcelRepository = context.bot_data["parcel_repo"]
@@ -81,7 +82,7 @@ async def _check_updates_impl(context: _JobContext) -> None:
     notifier: TelegramNotifier = context.bot_data["notifier"]
     config = context.bot_data["config"]
     rate_limiter: RateLimiter = context.bot_data["rate_limiter"]
-    prefs = context.bot_data["prefs"]
+    prefs = context.bot_data.get("prefs")  # None until NotificationPreferences is wired
     now: Callable[[], datetime] = context.bot_data.get("now", _now_default)
 
     user_ids = await user_repo.get_allowed_user_ids()
@@ -131,7 +132,7 @@ async def _check_one(  # noqa: PLR0913
     health: HealthManager,
     notifier: TelegramNotifier,
     rate_limiter: RateLimiter,
-    prefs: Any,
+    prefs: Any | None,
     now: Callable[[], datetime],
 ) -> None:
     """Check a single parcel: rate limit, fetch, record health, notify if status changed."""
@@ -182,7 +183,10 @@ async def _check_one(  # noqa: PLR0913
 
     if result.status != parcel.status:
         await parcel_repo.update_status(parcel.tracking_number, result.status)
-        if await prefs.is_allowed(user_id, result.status, parcel.tracking_number):
+        gated = prefs is None or await prefs.is_allowed(
+            user_id, result.status, parcel.tracking_number
+        )
+        if gated:
             last_event = result.events[0] if result.events else None
             await notifier.send_status_update(
                 chat_id=user_id,
@@ -192,4 +196,5 @@ async def _check_one(  # noqa: PLR0913
                 new_status=result.status,
                 last_event=last_event,
             )
-            await prefs.mark_sent(user_id, parcel.tracking_number, result.status)
+            if prefs is not None:
+                await prefs.mark_sent(user_id, parcel.tracking_number, result.status)

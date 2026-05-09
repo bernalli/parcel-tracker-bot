@@ -312,6 +312,28 @@ async def test_check_updates_processes_batch_in_parallel() -> None:
     assert ctx.bot_data["parcel_repo"].set_last_check_at.await_count == 2
 
 
+@pytest.mark.asyncio
+async def test_check_updates_prefs_none_notifies_without_gating() -> None:
+    """When bot_data has no 'prefs' key, notifications go through and
+    no mark_sent() is invoked (no preference store exists)."""
+    parcel = _make_parcel(status=ShipmentStatus.IN_TRANSIT)
+    result = TrackingResult(
+        tracking_number="FAKE123",
+        found=True,
+        status=ShipmentStatus.DELIVERED,
+    )
+    ctx = _make_context(parcels=[parcel], tracker_result=result)
+    # Remove 'prefs' to exercise the get(...) → None path
+    del ctx.bot_data["prefs"]
+
+    await check_updates(ctx)
+
+    # Notification must still go through (gating bypassed when prefs is None)
+    ctx.bot_data["notifier"].send_status_update.assert_called_once()
+    # No mark_sent — there is no preference store to record into
+    # (prefs is None so the guard skips the call entirely)
+
+
 def test_sort_by_priority_orders_out_for_delivery_first() -> None:
     parcels = [
         Parcel(tracking_number="A", user_id=1, status=ShipmentStatus.IN_TRANSIT),
