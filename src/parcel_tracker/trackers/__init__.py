@@ -12,6 +12,7 @@ from parcel_tracker.trackers.correos import CorreosTracker
 from parcel_tracker.trackers.deutsche_post import DeutschePostTracker
 from parcel_tracker.trackers.dhl import DhlTracker
 from parcel_tracker.trackers.dpd import DpdTracker
+from parcel_tracker.trackers.evri import EvriTracker
 from parcel_tracker.trackers.fedex import FedexTracker
 from parcel_tracker.trackers.gls_europe import GlsEuropeTracker
 from parcel_tracker.trackers.la_poste import LaPosteTracker
@@ -36,6 +37,7 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
     registry.register(CorreosTracker())
     registry.register(DhlTracker())
     registry.register(DpdTracker())
+    registry.register(EvriTracker())
     registry.register(FedexTracker())
     registry.register(GlsEuropeTracker())
     registry.register(YodelTracker())
