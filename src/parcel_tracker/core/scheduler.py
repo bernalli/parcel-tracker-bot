@@ -13,6 +13,7 @@ from parcel_tracker.core.detector import CourierDetector
 from parcel_tracker.core.health import HealthManager
 from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.status_intervals import is_due
+from parcel_tracker.core.tracker_base import TrackingResult
 from parcel_tracker.db.models import Parcel, ShipmentStatus
 from parcel_tracker.db.repository import ParcelRepository
 from parcel_tracker.notifier.telegram import TelegramNotifier
@@ -135,66 +136,77 @@ async def _check_one(  # noqa: PLR0913
     prefs: Any | None,
     now: Callable[[], datetime],
 ) -> None:
-    """Check a single parcel: rate limit, fetch, record health, notify if status changed."""
+    """Check a single parcel: iterate matches in priority order until one succeeds.
+
+    Phase 3 fallback semantics: when matches[0] fails (raises or returns
+    found=False) or is quarantined, try matches[1], matches[2], ... until one
+    returns found=True. Each tracker still records its own success/failure
+    against its quarantine ladder; rate limit is acquired per tracker per call.
+    """
     matches = detector.detect(parcel.tracking_number)
     if not matches:
         logger.debug("No tracker matches for %s", parcel.tracking_number)
         return
 
-    tracker = matches[0]
+    final_result: TrackingResult | None = None
 
-    if await health.is_quarantined(tracker.name, parcel.tracking_number):
-        logger.debug(
-            "Skipping %s/%s — quarantined",
-            tracker.name,
-            parcel.tracking_number,
-        )
-        QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(1)
-        CHECK_TOTAL.labels(tracker=tracker.name, outcome="quarantined").inc()
-        return
+    for tracker in matches:
+        if await health.is_quarantined(tracker.name, parcel.tracking_number):
+            logger.debug(
+                "Skipping %s/%s — quarantined",
+                tracker.name,
+                parcel.tracking_number,
+            )
+            QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(1)
+            CHECK_TOTAL.labels(tracker=tracker.name, outcome="quarantined").inc()
+            continue
 
-    QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(0)
-    await rate_limiter.acquire(tracker.name)
+        QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(0)
+        await rate_limiter.acquire(tracker.name)
 
-    try:
-        with CHECK_LATENCY_SECONDS.labels(tracker=tracker.name).time():
-            result = await tracker.fetch(parcel.tracking_number)
-    except Exception as exc:  # noqa: BLE001 (instrumentation)
-        logger.warning(
-            "Tracker %s failed for %s: %s",
-            tracker.name,
-            parcel.tracking_number,
-            exc,
-        )
-        CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
-        await health.record_failure(tracker.name, parcel.tracking_number)
-        await parcel_repo.set_last_check_at(parcel.tracking_number, now())
-        return
+        try:
+            with CHECK_LATENCY_SECONDS.labels(tracker=tracker.name).time():
+                result = await tracker.fetch(parcel.tracking_number)
+        except Exception as exc:  # noqa: BLE001 (instrumentation)
+            logger.warning(
+                "Tracker %s failed for %s: %s",
+                tracker.name,
+                parcel.tracking_number,
+                exc,
+            )
+            CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
+            await health.record_failure(tracker.name, parcel.tracking_number)
+            continue
 
-    if not result.found:
-        CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
-        await health.record_failure(tracker.name, parcel.tracking_number)
-        await parcel_repo.set_last_check_at(parcel.tracking_number, now())
-        return
+        if not result.found:
+            CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
+            await health.record_failure(tracker.name, parcel.tracking_number)
+            continue
 
-    CHECK_TOTAL.labels(tracker=tracker.name, outcome="success").inc()
-    await health.record_success(tracker.name, parcel.tracking_number)
+        CHECK_TOTAL.labels(tracker=tracker.name, outcome="success").inc()
+        await health.record_success(tracker.name, parcel.tracking_number)
+        final_result = result
+        break
+
     await parcel_repo.set_last_check_at(parcel.tracking_number, now())
 
-    if result.status != parcel.status:
-        await parcel_repo.update_status(parcel.tracking_number, result.status)
+    if final_result is None:
+        return
+
+    if final_result.status != parcel.status:
+        await parcel_repo.update_status(parcel.tracking_number, final_result.status)
         gated = prefs is None or await prefs.is_allowed(
-            user_id, result.status, parcel.tracking_number
+            user_id, final_result.status, parcel.tracking_number
         )
         if gated:
-            last_event = result.events[0] if result.events else None
+            last_event = final_result.events[0] if final_result.events else None
             await notifier.send_status_update(
                 chat_id=user_id,
                 tracking_number=parcel.tracking_number,
                 parcel_name=parcel.name,
                 old_status=parcel.status,
-                new_status=result.status,
+                new_status=final_result.status,
                 last_event=last_event,
             )
             if prefs is not None:
-                await prefs.mark_sent(user_id, parcel.tracking_number, result.status)
+                await prefs.mark_sent(user_id, parcel.tracking_number, final_result.status)
