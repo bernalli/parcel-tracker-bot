@@ -58,4 +58,4 @@ async def test_cmd_map_replies() -> None:
     context = MagicMock()
     await cmd_map(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "Mappa" in text or "mappa" in text
+    assert "Parcel map" in text or "map" in text.lower()

@@ -5,21 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from parcel_tracker.bot.messages import (
-    ADD_USAGE,
-    CHECKALL_DONE,
-    CHECKALL_STARTED,
-    EVENTS_USAGE,
-    NO_EVENTS,
-    NO_PARCELS_ACTIVE,
-    PARCEL_ADDED,
-    PARCEL_NOT_FOUND,
-    PARCEL_REMOVED,
-    PARCEL_RENAMED,
-    REMOVE_USAGE,
-    RENAME_USAGE,
-    STATUS_USAGE,
-)
+from parcel_tracker.bot import messages
 from parcel_tracker.db.models import Parcel, ShipmentStatus
 
 if TYPE_CHECKING:
@@ -36,7 +22,7 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     args = context.args or []
     if not args:
-        await update.message.reply_text(ADD_USAGE, parse_mode="HTML")
+        await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
     name = args[1] if len(args) >= 2 else None
@@ -51,7 +37,7 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     await repo.create(parcel)
     await update.message.reply_text(
-        PARCEL_ADDED.format(name=name or tracking_number), parse_mode="HTML"
+        messages.parcel_added(name or tracking_number), parse_mode="HTML"
     )
 
 
@@ -63,7 +49,7 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     repo = context.bot_data["parcel_repo"]
     parcels = await repo.list_active_for_user(user_id=user.id)
     if not parcels:
-        await update.message.reply_text(NO_PARCELS_ACTIVE, parse_mode="HTML")
+        await update.message.reply_text(messages.no_parcels_active(), parse_mode="HTML")
         return
     text = "\n".join(f"• <code>{p.tracking_number}</code> {p.name or ''}".rstrip() for p in parcels)
     await update.message.reply_text(text, parse_mode="HTML")
@@ -75,21 +61,21 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     args = context.args or []
     if not args:
-        await update.message.reply_text(STATUS_USAGE, parse_mode="HTML")
+        await update.message.reply_text(messages.status_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
     parcel = await repo.get_by_tracking_number(tracking_number)
     if parcel is None:
         await update.message.reply_text(
-            PARCEL_NOT_FOUND.format(tracking_number=tracking_number), parse_mode="HTML"
+            messages.parcel_not_found(tracking_number), parse_mode="HTML"
         )
         return
     text = (
         f"<b>{parcel.name or parcel.tracking_number}</b>\n"
         f"<code>{parcel.tracking_number}</code>\n"
         f"Status: <i>{parcel.status.value}</i>\n"
-        f"Corriere: {parcel.carrier_name or parcel.carrier_code or '?'}"
+        f"{messages.carrier_label()}: {parcel.carrier_name or parcel.carrier_code or '?'}"
     )
     await update.message.reply_text(text, parse_mode="HTML")
 
@@ -100,17 +86,15 @@ async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     args = context.args or []
     if not args:
-        await update.message.reply_text(EVENTS_USAGE, parse_mode="HTML")
+        await update.message.reply_text(messages.events_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
     events = await repo.get_history(tracking_number, limit=20)
     if not events:
-        await update.message.reply_text(
-            NO_EVENTS.format(tracking_number=tracking_number), parse_mode="HTML"
-        )
+        await update.message.reply_text(messages.no_events(tracking_number), parse_mode="HTML")
         return
-    lines = [f"<b>Eventi per <code>{tracking_number}</code></b>"]
+    lines = [messages.events_for(tracking_number)]
     for ev in events:
         line = f"• <i>{ev.time}</i> — {ev.description}"
         if ev.location:
@@ -125,7 +109,7 @@ async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     args = context.args or []
     if not args:
-        await update.message.reply_text(REMOVE_USAGE, parse_mode="HTML")
+        await update.message.reply_text(messages.remove_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
@@ -133,13 +117,11 @@ async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     parcel = await repo.get_by_tracking_number(tracking_number)
     if parcel is None:
         await update.message.reply_text(
-            PARCEL_NOT_FOUND.format(tracking_number=tracking_number), parse_mode="HTML"
+            messages.parcel_not_found(tracking_number), parse_mode="HTML"
         )
         return
     await repo.update_status(tracking_number, ShipmentStatus.EXPIRED)
-    await update.message.reply_text(
-        PARCEL_REMOVED.format(tracking_number=tracking_number), parse_mode="HTML"
-    )
+    await update.message.reply_text(messages.parcel_removed(tracking_number), parse_mode="HTML")
 
 
 async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -148,12 +130,12 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     args = context.args or []
     if len(args) < 2:
-        await update.message.reply_text(RENAME_USAGE, parse_mode="HTML")
+        await update.message.reply_text(messages.rename_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
     new_name = " ".join(args[1:]).strip()
     await update.message.reply_text(
-        PARCEL_RENAMED.format(tracking_number=tracking_number, name=new_name),
+        messages.parcel_renamed(tracking_number, new_name),
         parse_mode="HTML",
     )
 
@@ -162,9 +144,9 @@ async def cmd_checkall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     """Trigger an update for all the user's parcels (Phase 2: actual scheduler call)."""
     if update.message is None:
         return
-    await update.message.reply_text(CHECKALL_STARTED, parse_mode="HTML")
+    await update.message.reply_text(messages.checkall_started(), parse_mode="HTML")
     # Phase 2: enqueue background task
-    await update.message.reply_text(CHECKALL_DONE, parse_mode="HTML")
+    await update.message.reply_text(messages.checkall_done(), parse_mode="HTML")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -176,6 +158,4 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     logger.debug("handle_message received: %s", text)
     # F1 minimal: just echo back a hint. Phase 2: detector + create parcel.
-    await update.message.reply_text(
-        f"Per aggiungere usa: <code>/add {text}</code>", parse_mode="HTML"
-    )
+    await update.message.reply_text(messages.to_add_use(text), parse_mode="HTML")

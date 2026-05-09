@@ -46,7 +46,7 @@ async def test_cmd_list_empty() -> None:
 
     update.message.reply_text.assert_called_once()
     text = update.message.reply_text.call_args.args[0]
-    assert "non hai pacchi" in text.lower()
+    assert "no active parcels" in text.lower()
 
 
 @pytest.mark.asyncio
@@ -92,7 +92,7 @@ async def test_cmd_status_not_found() -> None:
     context = _make_context(args=["NOPE"], parcel_repo=repo)
     await cmd_status(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "non trovato" in text.lower()
+    assert "not found" in text.lower()
 
 
 @pytest.mark.asyncio
@@ -120,7 +120,7 @@ async def test_cmd_events_empty() -> None:
     context = _make_context(args=["ABC"], parcel_repo=repo)
     await cmd_events(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "Nessun evento" in text
+    assert "No events" in text
 
 
 @pytest.mark.asyncio
@@ -142,7 +142,7 @@ async def test_cmd_remove_not_found() -> None:
     context = _make_context(args=["MISSING"], parcel_repo=repo)
     await cmd_remove(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "non trovato" in text.lower()
+    assert "not found" in text.lower()
 
 
 @pytest.mark.asyncio

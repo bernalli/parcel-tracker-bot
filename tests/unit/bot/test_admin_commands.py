@@ -55,7 +55,7 @@ async def test_cmd_clean_owner_runs() -> None:
     context = _make_context(owner_id=1)
     await cmd_clean(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "Pulizia completata" in text
+    assert "Cleanup complete" in text
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ async def test_cmd_cleanall_owner_runs() -> None:
     context = _make_context(owner_id=1)
     await cmd_cleanall(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "rimossi" in text.lower()
+    assert "removed" in text.lower()
 
 
 @pytest.mark.asyncio
@@ -74,7 +74,7 @@ async def test_cmd_delivered_no_delivered_replies_empty() -> None:
     context = _make_context(owner_id=1, parcel_repo=parcel_repo)
     await cmd_delivered(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "nessun pacco" in text.lower()
+    assert "no delivered parcels" in text.lower()
 
 
 @pytest.mark.asyncio
