@@ -60,7 +60,7 @@ class Config:
     admin_user_ids: frozenset[int] = field(default_factory=frozenset)
 
     @classmethod
-    def from_env(cls, *, load_dotenv_file: bool = True) -> Config:
+    def from_env(cls, *, load_dotenv_file: bool = True) -> Config:  # noqa: C901
         """Build Config from environment variables (loads .env if present)."""
         if load_dotenv_file:
             load_dotenv()
@@ -94,9 +94,15 @@ class Config:
         rate_limit_overrides = _rate_limit_overrides_env()
         notify_cooldown = _int_env("NOTIFY_COOLDOWN_MINUTES", 60)
         admin_raw = os.getenv("ADMIN_USER_IDS", "")
-        admin_ids: frozenset[int] = frozenset(
-            int(x.strip()) for x in admin_raw.split(",") if x.strip()
-        )
+        admin_ids_list: list[int] = []
+        for token_id in admin_raw.split(","):
+            token_id = token_id.strip()
+            if token_id:
+                try:
+                    admin_ids_list.append(int(token_id))
+                except ValueError as exc:
+                    raise ConfigError(f"ADMIN_USER_IDS contains non-integer: {token_id!r}") from exc
+        admin_ids: frozenset[int] = frozenset(admin_ids_list)
 
         return cls(
             telegram_bot_token=token,
@@ -167,7 +173,12 @@ def _rate_limit_overrides_env() -> dict[str, int]:
     overrides: dict[str, int] = {}
     for key, val in os.environ.items():
         if key.startswith(prefix):
-            tracker = key[len(prefix) :].lower()
+            tracker = key[len(prefix) :].strip().lower()
+            if not tracker:
+                raise ConfigError(
+                    f"Invalid env var {key!r}: tracker name must not be empty "
+                    f"(expected RATE_LIMIT_TRACKER_<NAME>=<int>)"
+                )
             raw_rate = val.strip()
             try:
                 overrides[tracker] = int(raw_rate)
