@@ -29,6 +29,8 @@ dependencies = [
     "lxml>=5.2.2",
     "Pillow>=10.3.0",
     "tenacity>=9.0.0,<10",
+    "structlog>=24.1",
+    "prometheus-client>=0.20",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +43,7 @@ dev = [
     "mypy>=1.13.0",
     "types-beautifulsoup4",
     "pre-commit>=4.0.0",
+    "freezegun>=1.5",
 ]
 observability = [
     "structlog>=24.4.0",
