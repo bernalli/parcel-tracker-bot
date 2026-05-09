@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 from datetime import UTC, datetime
 
@@ -14,14 +15,17 @@ _GREEN = "🟢"
 _YELLOW = "🟡"
 _RED = "🔴"
 
+_THRESHOLD_GREEN = 0.95
+_THRESHOLD_YELLOW = 0.80
+
 
 def compute_color_emoji(*, success_rate: float, quarantine_until: datetime | None) -> str:
     """Return color emoji for a tracker based on success rate and quarantine state."""
     if quarantine_until is not None and quarantine_until > datetime.now(UTC):
         return _RED
-    if success_rate >= 0.95:
+    if success_rate >= _THRESHOLD_GREEN:
         return _GREEN
-    if success_rate >= 0.80:
+    if success_rate >= _THRESHOLD_YELLOW:
         return _YELLOW
     return _RED
 
@@ -80,7 +84,7 @@ async def cmd_health_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     state = await health_repo.get_state(name, "")
     if state is None or state.total_checks == 0:
         await update.message.reply_text(
-            f"📊 <b>{name}</b>\n\nNo data yet — tracker registered but never called.",
+            f"📊 <b>{html.escape(name)}</b>\n\nNo data yet — tracker registered but never called.",
             parse_mode="HTML",
         )
         return
@@ -93,7 +97,7 @@ async def cmd_health_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     quarantine = state.quarantine_until.isoformat(sep=" ") if state.quarantine_until else "—"
 
     text = (
-        f"📊 <b>{name}</b> health detail\n\n"
+        f"📊 <b>{html.escape(name)}</b> health detail\n\n"
         f"Status: {emoji} {pct}% success rate\n"
         f"Last success: <code>{last_success}</code>\n"
         f"Last failure: <code>{last_failure}</code>\n"
@@ -120,9 +124,17 @@ async def cmd_health_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text("Usage: /health reset <tracker_name>")
         return
     name = context.args[0].lower()
+    registry = context.bot_data["registry"]
+    valid = {t.name for t in registry.iter_all()}
+    if name not in valid:
+        await update.message.reply_text(
+            f"❌ Unknown tracker '{name}'. Use /health to see the list."
+        )
+        return
     health_repo = context.bot_data["health_repo"]
     await health_repo.reset_tracker(name)
     await update.message.reply_text(
-        f"✅ Reset done for tracker '<code>{name}</code>'.\n" f"Cleared counters and quarantine.",
+        f"✅ Reset done for tracker '<code>{html.escape(name)}</code>'.\n"
+        f"Cleared counters and quarantine.",
         parse_mode="HTML",
     )
