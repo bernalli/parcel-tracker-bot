@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from parcel_tracker.core.scheduler import check_updates
+from parcel_tracker.core.scheduler import check_updates, sort_by_priority
 from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult
 from parcel_tracker.db.models import Parcel, ShipmentStatus
 
@@ -197,3 +197,23 @@ async def test_check_updates_status_changed_sends_notification() -> None:
     assert call_kwargs["old_status"] == ShipmentStatus.IN_TRANSIT
     assert call_kwargs["new_status"] == ShipmentStatus.DELIVERED
     assert call_kwargs["chat_id"] == 42
+
+
+def test_sort_by_priority_orders_out_for_delivery_first() -> None:
+    parcels = [
+        Parcel(tracking_number="A", user_id=1, status=ShipmentStatus.IN_TRANSIT),
+        Parcel(tracking_number="B", user_id=1, status=ShipmentStatus.OUT_FOR_DELIVERY),
+        Parcel(tracking_number="C", user_id=1, status=ShipmentStatus.PICKUP),
+    ]
+    sorted_p = sort_by_priority(parcels)
+    assert [p.tracking_number for p in sorted_p] == ["B", "A", "C"]
+
+
+def test_sort_by_priority_preserves_unknowns_at_end() -> None:
+    parcels = [
+        Parcel(tracking_number="A", user_id=1, status=ShipmentStatus.NOT_FOUND),
+        Parcel(tracking_number="B", user_id=1, status=ShipmentStatus.OUT_FOR_DELIVERY),
+    ]
+    sorted_p = sort_by_priority(parcels)
+    assert sorted_p[0].tracking_number == "B"
+    assert sorted_p[-1].tracking_number == "A"

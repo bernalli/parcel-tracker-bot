@@ -8,11 +8,31 @@ from typing import Any, Protocol
 from parcel_tracker.core.detector import CourierDetector
 from parcel_tracker.core.health import HealthManager
 from parcel_tracker.core.registry import TrackerRegistry
-from parcel_tracker.db.models import Parcel
+from parcel_tracker.db.models import Parcel, ShipmentStatus
 from parcel_tracker.db.repository import ParcelRepository
 from parcel_tracker.notifier.telegram import TelegramNotifier
 
 logger = logging.getLogger(__name__)
+
+
+PRIORITY_ORDER: list[ShipmentStatus] = [
+    ShipmentStatus.OUT_FOR_DELIVERY,
+    ShipmentStatus.IN_TRANSIT,
+    ShipmentStatus.CUSTOMS,
+    ShipmentStatus.PICKUP,
+    ShipmentStatus.UNDELIVERED,
+    ShipmentStatus.EXCEPTION,
+    ShipmentStatus.ALERT,
+    ShipmentStatus.INFO_RECEIVED,
+    ShipmentStatus.RETURNED,
+    ShipmentStatus.NOT_FOUND,
+]
+
+
+def sort_by_priority(parcels: list[Parcel]) -> list[Parcel]:
+    """Sort parcels descending by urgency (OUT_FOR_DELIVERY first, NOT_FOUND last)."""
+    rank = {status: idx for idx, status in enumerate(PRIORITY_ORDER)}
+    return sorted(parcels, key=lambda p: rank.get(p.status, 999))
 
 
 class _JobContext(Protocol):
