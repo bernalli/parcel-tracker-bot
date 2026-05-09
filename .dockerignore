@@ -1,0 +1,45 @@
+# Mirror of .gitignore + extras for Docker build context
+
+.env
+.env.*
+*.db
+*.db-*
+data/
+plugins/*
+!plugins/README.md
+docker-compose.override.yml
+
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+logs/
+*.log
+backup/
+*.bak
+*.tar.gz
+
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Dev-only files (NOT needed in production image)
+tests/
+docs/
+.github/
+.pre-commit-config.yaml
+.editorconfig
+
+# Git
+.git/
+.gitignore
+.gitattributes
