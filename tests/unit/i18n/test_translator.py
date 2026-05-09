@@ -28,12 +28,11 @@ def test_translator_returns_msgid_for_english() -> None:
     assert t.gettext("Welcome") == "Welcome"
 
 
-@pytest.mark.xfail(reason="awaits item 18 italian translations", strict=True)
 def test_translator_returns_translation_for_italian() -> None:
     t = Translator(locale="it", locale_dir=_locale_root())
-    out = t.gettext("Welcome")
-    assert out != "Welcome"
-    assert isinstance(out, str)
+    # Use a real msgid we know is translated.
+    out = t.gettext("⛔ You are not authorised to use this bot.")
+    assert "Non sei autorizzato" in out
 
 
 def test_translator_supports_ngettext() -> None:

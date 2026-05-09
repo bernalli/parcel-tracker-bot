@@ -1,0 +1,231 @@
+# Italian translations for parcel-tracker-bot.
+# Copyright (C) 2026 bernalli
+# This file is distributed under the same license as the parcel-tracker-bot
+# project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: parcel-tracker-bot 0.1.0\n"
+"Report-Msgid-Bugs-To: https://github.com/bernalli/parcel-tracker-bot/issues\n"
+"POT-Creation-Date: 2026-05-09 23:29+0200\n"
+"PO-Revision-Date: 2026-05-09 23:31+0200\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: it\n"
+"Language-Team: it <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: src/parcel_tracker/bot/keyboards.py:19
+msgid "📦 My parcels"
+msgstr "📦 I miei pacchi"
+
+#: src/parcel_tracker/bot/keyboards.py:21
+msgid "➕ Add"
+msgstr "➕ Aggiungi"
+
+#: src/parcel_tracker/bot/keyboards.py:22
+msgid "🔄 Refresh all"
+msgstr "🔄 Aggiorna tutti"
+
+#: src/parcel_tracker/bot/keyboards.py:24
+msgid "ℹ️ Help"
+msgstr "ℹ️ Aiuto"
+
+#: src/parcel_tracker/bot/keyboards.py:36
+msgid "(no parcels)"
+msgstr "(nessun pacco)"
+
+#: src/parcel_tracker/bot/keyboards.py:45
+msgid "🔄 Refresh"
+msgstr "🔄 Aggiorna"
+
+#: src/parcel_tracker/bot/keyboards.py:46
+msgid "📋 Events"
+msgstr "📋 Eventi"
+
+#: src/parcel_tracker/bot/keyboards.py:48
+msgid "🗑 Remove"
+msgstr "🗑 Rimuovi"
+
+#: src/parcel_tracker/bot/messages.py:10
+msgid ""
+"📦 <b>Parcel Tracker Bot</b>\n"
+"\n"
+"Track your parcels automatically and get smart notifications.\n"
+"\n"
+"<b>Getting started:</b>\n"
+"• Send a tracking number to add it\n"
+"• Use <code>/add CODE [name] [carrier]</code>\n"
+"• Press /menu for the interactive menu"
+msgstr "📦 <b>Parcel Tracker Bot</b>\n\nTraccia automaticamente i tuoi pacchi e ricevi notifiche intelligenti.\n\n<b>Come iniziare:</b>\n• Invia un codice tracking per aggiungerlo\n• Usa <code>/add CODICE [nome] [corriere]</code>\n• Premi /menu per il menu interattivo"
+
+#: src/parcel_tracker/bot/messages.py:21
+msgid ""
+"<b>Available commands:</b>\n"
+"/add CODE [name] [carrier] - add a parcel\n"
+"/list - list active parcels\n"
+"/status CODE - parcel details\n"
+"/events CODE - event history\n"
+"/remove CODE - remove parcel\n"
+"/rename CODE NAME - rename parcel\n"
+"/checkall - refresh all parcels\n"
+"/menu - interactive menu\n"
+"/lang [code] - change language\n"
+"/help - this help"
+msgstr "<b>Comandi disponibili:</b>\n/add CODICE [nome] [corriere] - aggiungi un pacco\n/list - elenca i pacchi attivi\n/status CODICE - dettagli pacco\n/events CODICE - storico eventi\n/remove CODICE - rimuovi pacco\n/rename CODICE NOME - rinomina pacco\n/checkall - aggiorna tutti i pacchi\n/menu - menu interattivo\n/lang [codice] - cambia lingua\n/help - questa guida"
+
+#: src/parcel_tracker/bot/messages.py:36
+msgid "⛔ You are not authorised to use this bot."
+msgstr "⛔ Non sei autorizzato a usare questo bot."
+
+#: src/parcel_tracker/bot/messages.py:40
+msgid "⛔ Only the owner can use this command."
+msgstr "⛔ Solo l'owner può usare questo comando."
+
+#: src/parcel_tracker/bot/messages.py:44
+#, python-brace-format
+msgid "✅ Parcel added: <b>{name}</b>"
+msgstr "✅ Pacco aggiunto: <b>{name}</b>"
+
+#: src/parcel_tracker/bot/messages.py:48
+#, python-brace-format
+msgid "🗑 Parcel removed: <b>{tracking_number}</b>"
+msgstr "🗑 Pacco rimosso: <b>{tracking_number}</b>"
+
+#: src/parcel_tracker/bot/messages.py:52
+#, python-brace-format
+msgid "❌ Parcel <code>{tracking_number}</code> not found."
+msgstr "❌ Pacco <code>{tracking_number}</code> non trovato."
+
+#: src/parcel_tracker/bot/messages.py:58
+#, python-brace-format
+msgid "✏️ Parcel <code>{tracking_number}</code> renamed to <b>{name}</b>."
+msgstr "✏️ Pacco <code>{tracking_number}</code> rinominato in <b>{name}</b>."
+
+#: src/parcel_tracker/bot/messages.py:64
+msgid "You have no active parcels. Add one with <code>/add</code>."
+msgstr "Non hai pacchi attivi. Aggiungine uno con <code>/add</code>."
+
+#: src/parcel_tracker/bot/messages.py:68
+#, python-brace-format
+msgid "No events for <code>{tracking_number}</code>."
+msgstr "Nessun evento per <code>{tracking_number}</code>."
+
+#: src/parcel_tracker/bot/messages.py:74
+msgid "Usage: <code>/add CODE [name] [carrier]</code>"
+msgstr "Uso: <code>/add CODICE [nome] [corriere]</code>"
+
+#: src/parcel_tracker/bot/messages.py:78
+msgid "Usage: <code>/remove CODE</code>"
+msgstr "Uso: <code>/remove CODICE</code>"
+
+#: src/parcel_tracker/bot/messages.py:82
+msgid "Usage: <code>/rename CODE NEW_NAME</code>"
+msgstr "Uso: <code>/rename CODICE NUOVO_NOME</code>"
+
+#: src/parcel_tracker/bot/messages.py:86
+msgid "Usage: <code>/status CODE</code>"
+msgstr "Uso: <code>/status CODICE</code>"
+
+#: src/parcel_tracker/bot/messages.py:90
+msgid "Usage: <code>/events CODE</code>"
+msgstr "Uso: <code>/events CODICE</code>"
+
+#: src/parcel_tracker/bot/messages.py:94
+#, python-brace-format
+msgid "✅ User <code>{user_id}</code> added."
+msgstr "✅ Utente <code>{user_id}</code> aggiunto."
+
+#: src/parcel_tracker/bot/messages.py:98
+#, python-brace-format
+msgid "🗑 User <code>{user_id}</code> removed."
+msgstr "🗑 Utente <code>{user_id}</code> rimosso."
+
+#: src/parcel_tracker/bot/messages.py:102
+#, python-brace-format
+msgid "⚠️ User <code>{user_id}</code> already present."
+msgstr "⚠️ Utente <code>{user_id}</code> già presente."
+
+#: src/parcel_tracker/bot/messages.py:106
+msgid "Usage: <code>/adduser USER_ID</code>"
+msgstr "Uso: <code>/adduser USER_ID</code>"
+
+#: src/parcel_tracker/bot/messages.py:110
+msgid "Usage: <code>/removeuser USER_ID</code>"
+msgstr "Uso: <code>/removeuser USER_ID</code>"
+
+#: src/parcel_tracker/bot/messages.py:114
+msgid "🔄 Checking all parcels…"
+msgstr "🔄 Controllo di tutti i pacchi avviato…"
+
+#: src/parcel_tracker/bot/messages.py:118
+msgid "✅ Check complete."
+msgstr "✅ Controllo completato."
+
+#: src/parcel_tracker/bot/messages.py:122
+msgid "🧹 Cleanup complete."
+msgstr "🧹 Pulizia completata."
+
+#: src/parcel_tracker/bot/messages.py:126
+msgid "🧹 All parcels removed."
+msgstr "🧹 Tutti i pacchi rimossi."
+
+#: src/parcel_tracker/bot/messages.py:130
+msgid "<b>📊 Statistics</b>"
+msgstr "<b>📊 Statistiche</b>"
+
+#: src/parcel_tracker/bot/messages.py:134
+msgid "🗺 Parcel map (coming soon)"
+msgstr "🗺 Mappa pacchi (in sviluppo)"
+
+#: src/parcel_tracker/bot/messages.py:138
+#, python-brace-format
+msgid ""
+"Current language: <code>{current}</code>\n"
+"Available: {available}"
+msgstr "Lingua attuale: <code>{current}</code>\nDisponibili: {available}"
+
+#: src/parcel_tracker/bot/messages.py:144
+#, python-brace-format
+msgid "Language switched to <code>{new}</code>."
+msgstr "Lingua impostata su <code>{new}</code>."
+
+#: src/parcel_tracker/bot/messages.py:148
+#, python-brace-format
+msgid "Language <code>{requested}</code> is not available. Try: {available}"
+msgstr "La lingua <code>{requested}</code> non è disponibile. Prova: {available}"
+
+#: src/parcel_tracker/bot/messages.py:154
+msgid "Main menu:"
+msgstr "Menu principale:"
+
+#: src/parcel_tracker/bot/messages.py:158
+msgid "(no users)"
+msgstr "(nessun utente)"
+
+#: src/parcel_tracker/bot/messages.py:162
+msgid "(no delivered parcels)"
+msgstr "(nessun pacco consegnato)"
+
+#: src/parcel_tracker/bot/messages.py:166
+#, python-brace-format
+msgid "<b>Events for <code>{tracking_number}</code></b>"
+msgstr "<b>Eventi per <code>{tracking_number}</code></b>"
+
+#: src/parcel_tracker/bot/messages.py:172
+#, python-brace-format
+msgid "To add, use: <code>/add {text}</code>"
+msgstr "Per aggiungere usa: <code>/add {text}</code>"
+
+#: src/parcel_tracker/bot/messages.py:176
+msgid "Carrier"
+msgstr "Corriere"
+
+#: src/parcel_tracker/bot/messages.py:180
+#, python-brace-format
+msgid "Authorised users: <b>{count}</b>"
+msgstr "Utenti autorizzati: <b>{count}</b>"
