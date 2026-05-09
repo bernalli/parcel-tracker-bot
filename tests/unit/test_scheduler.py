@@ -352,3 +352,126 @@ def test_sort_by_priority_preserves_unknowns_at_end() -> None:
     sorted_p = sort_by_priority(parcels)
     assert sorted_p[0].tracking_number == "B"
     assert sorted_p[-1].tracking_number == "A"
+
+
+@pytest.mark.asyncio
+async def test_check_updates_skips_send_when_prefs_disallow() -> None:
+    """When prefs.is_allowed returns False, notifier.send_status_update is NOT called."""
+    from datetime import timedelta
+
+    now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
+    parcel = Parcel(
+        tracking_number="X",
+        user_id=1,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_check_at=now - timedelta(hours=1),
+    )
+
+    parcel_repo = MagicMock()
+    parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
+    parcel_repo.update_status = AsyncMock()
+    parcel_repo.set_last_check_at = AsyncMock()
+
+    user_repo = MagicMock()
+    user_repo.get_allowed_user_ids = AsyncMock(return_value=[1])
+
+    fake_tracker = MagicMock()
+    fake_tracker.name = "ft"
+    fake_tracker.fetch = AsyncMock(
+        return_value=MagicMock(found=True, status=ShipmentStatus.DELIVERED, events=[])
+    )
+    detector = MagicMock()
+    detector.detect = MagicMock(return_value=[fake_tracker])
+
+    health = MagicMock()
+    health.is_quarantined = AsyncMock(return_value=False)
+    health.record_success = AsyncMock()
+
+    notifier = MagicMock()
+    notifier.send_status_update = AsyncMock()
+
+    config = MagicMock()
+    config.batch_size = 10
+
+    prefs = MagicMock()
+    prefs.is_allowed = AsyncMock(return_value=False)  # blocked
+    prefs.mark_sent = AsyncMock()
+
+    context = MagicMock()
+    context.bot_data = {
+        "parcel_repo": parcel_repo,
+        "user_repo": user_repo,
+        "registry": MagicMock(),
+        "detector": detector,
+        "health": health,
+        "notifier": notifier,
+        "config": config,
+        "rate_limiter": RateLimiter(default_rate_per_min=600),
+        "prefs": prefs,
+        "now": lambda: now,
+    }
+
+    await check_updates(context)
+
+    notifier.send_status_update.assert_not_called()
+    prefs.mark_sent.assert_not_called()
+    parcel_repo.update_status.assert_awaited_once()  # status update still persists
+
+
+@pytest.mark.asyncio
+async def test_check_updates_marks_sent_after_success() -> None:
+    """When prefs.is_allowed returns True, mark_sent is called with correct args."""
+    from datetime import timedelta
+
+    now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
+    parcel = Parcel(
+        tracking_number="Y",
+        user_id=1,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_check_at=now - timedelta(hours=1),
+    )
+    parcel_repo = MagicMock()
+    parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
+    parcel_repo.update_status = AsyncMock()
+    parcel_repo.set_last_check_at = AsyncMock()
+
+    user_repo = MagicMock()
+    user_repo.get_allowed_user_ids = AsyncMock(return_value=[1])
+
+    fake_tracker = MagicMock()
+    fake_tracker.name = "ft"
+    fake_tracker.fetch = AsyncMock(
+        return_value=MagicMock(found=True, status=ShipmentStatus.DELIVERED, events=[])
+    )
+    detector = MagicMock()
+    detector.detect = MagicMock(return_value=[fake_tracker])
+
+    health = MagicMock()
+    health.is_quarantined = AsyncMock(return_value=False)
+    health.record_success = AsyncMock()
+
+    notifier = MagicMock()
+    notifier.send_status_update = AsyncMock()
+    config = MagicMock()
+    config.batch_size = 10
+    prefs = MagicMock()
+    prefs.is_allowed = AsyncMock(return_value=True)
+    prefs.mark_sent = AsyncMock()
+
+    context = MagicMock()
+    context.bot_data = {
+        "parcel_repo": parcel_repo,
+        "user_repo": user_repo,
+        "registry": MagicMock(),
+        "detector": detector,
+        "health": health,
+        "notifier": notifier,
+        "config": config,
+        "rate_limiter": RateLimiter(default_rate_per_min=600),
+        "prefs": prefs,
+        "now": lambda: now,
+    }
+
+    await check_updates(context)
+    notifier.send_status_update.assert_awaited_once()
+    prefs.mark_sent.assert_awaited_once_with(1, "Y", ShipmentStatus.DELIVERED)
