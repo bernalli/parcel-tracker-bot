@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from parcel_tracker.config import Config
 from parcel_tracker.core.registry import TrackerRegistry
+from parcel_tracker.trackers.deutsche_post import DeutschePostTracker
 from parcel_tracker.trackers.dhl import DhlTracker
 from parcel_tracker.trackers.la_poste import LaPosteTracker
 from parcel_tracker.trackers.royal_mail import RoyalMailTracker
@@ -18,6 +19,7 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> None:
     registry.register(UspsTracker())
     registry.register(RoyalMailTracker())
     registry.register(LaPosteTracker())
+    registry.register(DeutschePostTracker())
     registry.register(DhlTracker())
     if config.track17_api_key:
         registry.register(Track17Tracker(api_key=config.track17_api_key))
