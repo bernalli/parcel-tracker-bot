@@ -268,6 +268,23 @@ async def test_check_updates_skips_delivered_parcels() -> None:
 
 
 @pytest.mark.asyncio
+async def test_check_updates_increments_check_total_counter() -> None:
+    """A successful check bumps CHECK_TOTAL{tracker,outcome=success}."""
+    from parcel_tracker.observability.metrics import CHECK_TOTAL
+
+    parcel = _make_parcel()
+    ctx = _make_context(parcels=[parcel])
+    fake_tracker = ctx.bot_data["detector"].detect.return_value[0]
+    # Make the tracker name unique to this test so before/after counters are isolated.
+    fake_tracker.name = "metrictest_t14"
+
+    before = CHECK_TOTAL.labels(tracker="metrictest_t14", outcome="success")._value.get()
+    await check_updates(ctx)
+    after = CHECK_TOTAL.labels(tracker="metrictest_t14", outcome="success")._value.get()
+    assert after == before + 1.0
+
+
+@pytest.mark.asyncio
 async def test_check_updates_processes_batch_in_parallel() -> None:
     """Two due parcels with same tracker run via asyncio.gather (both fetched)."""
     parcels = [

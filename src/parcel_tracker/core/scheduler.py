@@ -16,6 +16,12 @@ from parcel_tracker.core.status_intervals import is_due
 from parcel_tracker.db.models import Parcel, ShipmentStatus
 from parcel_tracker.db.repository import ParcelRepository
 from parcel_tracker.notifier.telegram import TelegramNotifier
+from parcel_tracker.observability.metrics import (
+    CHECK_LATENCY_SECONDS,
+    CHECK_TOTAL,
+    QUARANTINE_ACTIVE,
+    SCHEDULER_TICK_DURATION_SECONDS,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +59,13 @@ def _chunked(seq: list[tuple[int, Parcel]], size: int) -> list[list[tuple[int, P
 
 
 async def check_updates(context: _JobContext) -> None:
-    """Periodic job: filter due parcels, sort by priority, process in parallel batches.
+    """Periodic job: instrumented entry point. Wraps body with scheduler tick histogram."""
+    with SCHEDULER_TICK_DURATION_SECONDS.time():
+        await _check_updates_impl(context)
+
+
+async def _check_updates_impl(context: _JobContext) -> None:
+    """Filter due parcels, sort by priority, process in parallel batches.
 
     bot_data keys consumed:
       - parcel_repo, user_repo, registry, detector, health, notifier (existing)
@@ -136,12 +148,16 @@ async def _check_one(  # noqa: PLR0913
             tracker.name,
             parcel.tracking_number,
         )
+        QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(1)
+        CHECK_TOTAL.labels(tracker=tracker.name, outcome="quarantined").inc()
         return
 
+    QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(0)
     await rate_limiter.acquire(tracker.name)
 
     try:
-        result = await tracker.fetch(parcel.tracking_number)
+        with CHECK_LATENCY_SECONDS.labels(tracker=tracker.name).time():
+            result = await tracker.fetch(parcel.tracking_number)
     except Exception as exc:  # noqa: BLE001 (instrumentation)
         logger.warning(
             "Tracker %s failed for %s: %s",
@@ -149,15 +165,18 @@ async def _check_one(  # noqa: PLR0913
             parcel.tracking_number,
             exc,
         )
+        CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
         await health.record_failure(tracker.name, parcel.tracking_number)
         await parcel_repo.set_last_check_at(parcel.tracking_number, now())
         return
 
     if not result.found:
+        CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
         await health.record_failure(tracker.name, parcel.tracking_number)
         await parcel_repo.set_last_check_at(parcel.tracking_number, now())
         return
 
+    CHECK_TOTAL.labels(tracker=tracker.name, outcome="success").inc()
     await health.record_success(tracker.name, parcel.tracking_number)
     await parcel_repo.set_last_check_at(parcel.tracking_number, now())
 
