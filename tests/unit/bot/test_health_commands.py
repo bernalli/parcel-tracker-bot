@@ -129,6 +129,11 @@ async def test_cmd_health_reset_calls_repo_reset() -> None:
     health_repo = MagicMock()
     health_repo.reset_tracker = AsyncMock()
 
+    fake_dhl = MagicMock()
+    fake_dhl.name = "dhl"
+    registry = MagicMock()
+    registry.iter_all = MagicMock(return_value=iter([fake_dhl]))
+
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
@@ -136,8 +141,108 @@ async def test_cmd_health_reset_calls_repo_reset() -> None:
     context.bot_data = {
         "config": MagicMock(admin_user_ids=frozenset({1})),
         "health_repo": health_repo,
+        "registry": registry,
     }
     context.args = ["dhl"]
 
     await cmd_health_reset(update, context)
     health_repo.reset_tracker.assert_awaited_once_with("dhl")
+
+
+@pytest.mark.asyncio
+async def test_cmd_health_detail_unknown_tracker_returns_error() -> None:
+    """`/health <name>` rejects unknown trackers with a helpful message."""
+    fake_dhl = MagicMock()
+    fake_dhl.name = "dhl"
+    registry = MagicMock()
+    registry.iter_all = MagicMock(return_value=iter([fake_dhl]))
+
+    health_repo = MagicMock()
+    health_repo.get_state = AsyncMock()
+
+    update = MagicMock()
+    update.message.reply_text = AsyncMock()
+    context = MagicMock()
+    context.bot_data = {
+        "registry": registry,
+        "health_repo": health_repo,
+        "config": MagicMock(admin_user_ids=frozenset()),
+    }
+    context.args = ["nonexistent"]
+
+    await cmd_health_detail(update, context)
+
+    update.message.reply_text.assert_awaited_once()
+    text = update.message.reply_text.call_args.args[0]
+    assert "unknown tracker" in text.lower()
+    assert "nonexistent" in text
+    # get_state should NOT have been called for an unknown tracker
+    health_repo.get_state.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_cmd_health_quarantine_note_shown_when_active() -> None:
+    """`/health` lists active quarantine info inline."""
+    from parcel_tracker.db.health_repository import HealthState
+
+    state = HealthState(
+        tracker_id="dhl",
+        tracking_id="",
+        last_success_at=None,
+        last_failure_at=datetime.now(UTC),
+        consecutive_failures=10,
+        consecutive_successes=0,
+        quarantine_until=datetime.now(UTC) + timedelta(hours=2),
+        total_checks=20,
+        total_failures=15,
+    )
+    fake_dhl = MagicMock()
+    fake_dhl.name = "dhl"
+    registry = MagicMock()
+    registry.iter_all = MagicMock(return_value=iter([fake_dhl]))
+    health_repo = MagicMock()
+    health_repo.get_state = AsyncMock(return_value=state)
+
+    update = MagicMock()
+    update.message.reply_text = AsyncMock()
+    context = MagicMock()
+    context.bot_data = {
+        "registry": registry,
+        "health_repo": health_repo,
+        "config": MagicMock(admin_user_ids=frozenset()),
+    }
+
+    await cmd_health(update, context)
+    text = update.message.reply_text.call_args.args[0]
+    assert "🔴" in text  # red because quarantined
+    assert "quarantined until" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_cmd_health_reset_unknown_tracker_returns_error() -> None:
+    """`/health reset <name>` rejects unknown trackers, does NOT call reset_tracker."""
+    fake_dhl = MagicMock()
+    fake_dhl.name = "dhl"
+    registry = MagicMock()
+    registry.iter_all = MagicMock(return_value=iter([fake_dhl]))
+
+    health_repo = MagicMock()
+    health_repo.reset_tracker = AsyncMock()
+
+    update = MagicMock()
+    update.effective_user.id = 1
+    update.message.reply_text = AsyncMock()
+    context = MagicMock()
+    context.bot_data = {
+        "config": MagicMock(admin_user_ids=frozenset({1})),
+        "health_repo": health_repo,
+        "registry": registry,
+    }
+    context.args = ["nonexistent"]
+
+    await cmd_health_reset(update, context)
+
+    update.message.reply_text.assert_awaited_once()
+    text = update.message.reply_text.call_args.args[0]
+    assert "unknown tracker" in text.lower()
+    health_repo.reset_tracker.assert_not_called()
