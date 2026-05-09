@@ -8,13 +8,17 @@ from pathlib import Path
 from typing import Any
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from parcel_tracker.bot.handlers import register_handlers
 from parcel_tracker.bot.health_commands import (
     cmd_health,
     cmd_health_detail,
     cmd_health_reset,
+)
+from parcel_tracker.bot.notify_commands import (
+    cmd_notify_dispatch,
+    on_notify_callback,
 )
 from parcel_tracker.config import Config
 from parcel_tracker.core.detector import CourierDetector
@@ -23,7 +27,9 @@ from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.registry import TrackerRegistry
 from parcel_tracker.db.health_repository import HealthRepository
 from parcel_tracker.db.migrations import init_schema
+from parcel_tracker.db.notification_repository import NotificationRepository
 from parcel_tracker.db.repository import ParcelRepository, UserRepository
+from parcel_tracker.notifier.preferences import CooldownConfig, NotificationPreferences
 from parcel_tracker.notifier.telegram import TelegramNotifier
 from parcel_tracker.observability.exporter import ExporterConfig, start_metrics_exporter
 from parcel_tracker.observability.logging import configure_logging
@@ -53,6 +59,12 @@ async def _health_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 def _register_health_handlers(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
     """Register /health command family with sub-command dispatch."""
     application.add_handler(CommandHandler("health", _health_dispatch))
+
+
+def _register_notify_handlers(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Register /notify command and inline-button callback."""
+    application.add_handler(CommandHandler("notify", cmd_notify_dispatch))
+    application.add_handler(CallbackQueryHandler(on_notify_callback, pattern=r"^notify:"))
 
 
 async def build_bot_data(config: Config) -> dict[str, Any]:
@@ -90,6 +102,12 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
     for tracker_name, rate in config.rate_limit_overrides.items():
         rate_limiter.configure(tracker_name, rate)
 
+    notification_repo = NotificationRepository(config.database_path)
+    prefs = NotificationPreferences(
+        repo=notification_repo,
+        cooldown=CooldownConfig(minutes=config.notify_cooldown_minutes),
+    )
+
     return {
         "config": config,
         "parcel_repo": parcel_repo,
@@ -99,7 +117,9 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         "detector": detector,
         "health": health,
         "rate_limiter": rate_limiter,
-        # NOTE: prefs deferred to item 19; notifier added in main() after Application.build()
+        "notification_repo": notification_repo,
+        "prefs": prefs,
+        # NOTE: notifier added in main() after Application.builder().build()
     }
 
 
@@ -132,6 +152,7 @@ def main() -> None:
         registry=bot_data["registry"],
     )
     _register_health_handlers(application)
+    _register_notify_handlers(application)
 
     # Local import to avoid circular dependency at module level
     from parcel_tracker.core.scheduler import check_updates  # noqa: PLC0415
