@@ -28,6 +28,7 @@ from parcel_tracker.bot.auth_commands import (
     cmd_whoami,
 )
 from parcel_tracker.bot.callbacks import handle_callback
+from parcel_tracker.bot.lang_command import cmd_lang
 from parcel_tracker.bot.navigation_commands import (
     cmd_help,
     cmd_map,
@@ -75,6 +76,7 @@ def register_handlers(
 
     # Auth & navigation
     app.add_handler(CommandHandler("whoami", cmd_whoami))
+    app.add_handler(CommandHandler("lang", cmd_lang))
 
     # Parcel & nav commands
     parcel_nav_cmds: list[tuple[str, CommandFn]] = [

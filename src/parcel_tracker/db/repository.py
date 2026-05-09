@@ -48,6 +48,23 @@ class UserRepository:
             rows = await cursor.fetchall()
         return [row["user_id"] for row in rows]
 
+    async def get_language(self, user_id: int) -> str:
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT language FROM allowed_users WHERE user_id = ?",
+                (user_id,),
+            )
+            row = await cursor.fetchone()
+        return row["language"] if row else "en"
+
+    async def set_language(self, user_id: int, language: str) -> None:
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE allowed_users SET language = ? WHERE user_id = ?",
+                (language, user_id),
+            )
+            await conn.commit()
+
 
 class ParcelRepository:
     """CRUD for the parcels and tracking_history tables."""
