@@ -63,4 +63,5 @@ class Parcel:
     created_at: datetime | None = None
     updated_at: datetime | None = None
     delivered_at: datetime | None = None
+    last_check_at: datetime | None = None
     is_active: bool = True

@@ -99,3 +99,22 @@ async def test_add_event(parcel_repo: ParcelRepository) -> None:
     history = await parcel_repo.get_history("X")
     assert len(history) == 1
     assert history[0].description == "In transit"
+
+
+@pytest.mark.asyncio
+async def test_set_last_check_at_round_trip(parcel_repo: ParcelRepository) -> None:
+    """set_last_check_at persists the timestamp and is reflected in fetch."""
+    from datetime import UTC, datetime
+
+    await parcel_repo.create(Parcel(tracking_number="LC1", user_id=1))
+
+    when = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
+    await parcel_repo.set_last_check_at("LC1", when)
+
+    parcel = await parcel_repo.get_by_tracking_number("LC1")
+    assert parcel is not None
+    assert parcel.last_check_at is not None
+    assert parcel.last_check_at.year == 2026
+    assert parcel.last_check_at.month == 5
+    assert parcel.last_check_at.day == 9
+    assert parcel.last_check_at.hour == 12

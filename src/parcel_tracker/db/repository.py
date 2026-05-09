@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 
 import aiosqlite
 
@@ -105,6 +106,15 @@ class ParcelRepository:
             )
             await conn.commit()
 
+    async def set_last_check_at(self, tracking_number: str, when: datetime) -> None:
+        """Persist the last check timestamp for a parcel (UTC ISO 8601)."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET last_check_at = ? WHERE tracking_number = ?",
+                (when.isoformat(), tracking_number),
+            )
+            await conn.commit()
+
     async def add_event(self, tracking_number: str, event: TrackingEvent) -> None:
         async with get_connection(self._db_path) as conn:
             await conn.execute(
@@ -143,9 +153,24 @@ class ParcelRepository:
         ]
 
 
+def _parse_ts(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    cleaned = raw.replace("T", " ").split("+")[0].split("Z")[0].strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+        try:
+            dt = datetime.strptime(cleaned, fmt)  # noqa: DTZ007
+        except ValueError:
+            continue
+        return dt.replace(tzinfo=UTC)
+    return None
+
+
 def _row_to_parcel(row: aiosqlite.Row) -> Parcel:
     raw_all = row["all_carriers"]
     all_carriers: list[str] = json.loads(raw_all) if raw_all else []
+    keys = row.keys()
+    last_check_at = _parse_ts(row["last_check_at"]) if "last_check_at" in keys else None
     return Parcel(
         tracking_number=row["tracking_number"],
         user_id=row["user_id"],
@@ -156,5 +181,6 @@ def _row_to_parcel(row: aiosqlite.Row) -> Parcel:
         status=ShipmentStatus.from_str(row["status"]),
         last_event=row["last_event"],
         last_event_time=row["last_event_time"],
+        last_check_at=last_check_at,
         is_active=bool(row["is_active"]),
     )
