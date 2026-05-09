@@ -1,0 +1,39 @@
+{
+  "code": 0,
+  "data": {
+    "accepted": [
+      {
+        "number": "ABC123456",
+        "carrier": 100001,
+        "track_info": {
+          "shipping_info": {
+            "shipper_address": {"country": "US"},
+            "recipient_address": {"country": "IT"}
+          },
+          "latest_status": {
+            "status": "InTransit",
+            "sub_status": "InTransit_Other"
+          },
+          "latest_event": {
+            "time_iso": "2026-05-09T10:30:00+02:00",
+            "description": "Departed from facility",
+            "address": {"city": "Milan"}
+          },
+          "tracking": {
+            "providers": [
+              {
+                "events": [
+                  {
+                    "time_iso": "2026-05-09T10:30:00+02:00",
+                    "description": "Departed from facility",
+                    "address": {"city": "Milan"}
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
