@@ -50,7 +50,7 @@ async def _health_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await cmd_health_detail(update, context)
 
 
-def _register_health_handlers(application: Application) -> None:
+def _register_health_handlers(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
     """Register /health command family with sub-command dispatch."""
     application.add_handler(CommandHandler("health", _health_dispatch))
 
