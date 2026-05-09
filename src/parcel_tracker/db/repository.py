@@ -27,7 +27,7 @@ class UserRepository:
         async with get_connection(self._db_path) as conn:
             try:
                 await conn.execute(
-                    "INSERT INTO allowed_users (user_id, username, added_by) " "VALUES (?, ?, ?)",
+                    "INSERT INTO allowed_users (user_id, username, added_by) VALUES (?, ?, ?)",
                     (user_id, username, added_by),
                 )
                 await conn.commit()
