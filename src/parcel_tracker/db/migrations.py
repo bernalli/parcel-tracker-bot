@@ -52,6 +52,21 @@ SCHEMA_STATEMENTS: list[str] = [
     """,
     "CREATE INDEX IF NOT EXISTS idx_parcels_active ON parcels(is_active, user_id)",
     "CREATE INDEX IF NOT EXISTS idx_history_tracking ON tracking_history(tracking_number)",
+    """
+    CREATE TABLE IF NOT EXISTS tracker_health (
+        tracker_id TEXT NOT NULL,
+        tracking_id TEXT NOT NULL DEFAULT '',
+        last_success_at TIMESTAMP,
+        last_failure_at TIMESTAMP,
+        consecutive_failures INTEGER DEFAULT 0,
+        consecutive_successes INTEGER DEFAULT 0,
+        quarantine_until TIMESTAMP,
+        total_checks INTEGER DEFAULT 0,
+        total_failures INTEGER DEFAULT 0,
+        PRIMARY KEY (tracker_id, tracking_id)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_health_quarantine ON tracker_health(quarantine_until)",
 ]
 
 
