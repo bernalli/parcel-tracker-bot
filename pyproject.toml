@@ -115,7 +115,7 @@ warn_unused_ignores = true
 files = ["src/parcel_tracker"]
 
 [[tool.mypy.overrides]]
-module = ["telegram.*", "respx.*", "dotenv", "aiosqlite"]
+module = ["telegram.*", "respx.*", "dotenv", "aiosqlite", "tenacity"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
