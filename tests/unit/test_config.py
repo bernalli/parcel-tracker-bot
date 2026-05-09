@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -30,6 +31,8 @@ def env_clean(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "NOTIFY_COOLDOWN_MINUTES",
         "ADMIN_USER_IDS",
     ]:
+        monkeypatch.delenv(key, raising=False)
+    for key in [k for k in list(os.environ) if k.startswith("RATE_LIMIT_TRACKER_")]:
         monkeypatch.delenv(key, raising=False)
     yield
 
@@ -142,3 +145,23 @@ def test_config_loads_rate_limit_overrides(
     assert cfg.rate_limit_overrides == {"track17": 30, "dhl": 60}
     assert cfg.admin_user_ids == frozenset({111, 222})
     assert cfg.notify_cooldown_minutes == 30
+
+
+def test_config_admin_user_ids_invalid_raises_config_error(
+    monkeypatch: pytest.MonkeyPatch, env_clean: None
+) -> None:
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")  # noqa: S105
+    monkeypatch.setenv("OWNER_ID", "1")
+    monkeypatch.setenv("ADMIN_USER_IDS", "abc,222")
+    with pytest.raises(ConfigError, match="ADMIN_USER_IDS"):
+        Config.from_env(load_dotenv_file=False)
+
+
+def test_config_rate_limit_tracker_empty_name_raises_config_error(
+    monkeypatch: pytest.MonkeyPatch, env_clean: None
+) -> None:
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")  # noqa: S105
+    monkeypatch.setenv("OWNER_ID", "1")
+    monkeypatch.setenv("RATE_LIMIT_TRACKER_", "5")
+    with pytest.raises(ConfigError, match="tracker name"):
+        Config.from_env(load_dotenv_file=False)
