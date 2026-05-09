@@ -81,11 +81,6 @@ async def test_health_repository_reset_tracker_clears_all_entries(tmp_path: Path
     await init_schema(db_path)
     repo = HealthRepository(db_path)
 
-    # Build up consecutive_successes so the post-reset assertion is meaningful
-    await repo.record_success("dhl", "")  # global
-    await repo.record_success("dhl", "")
-    await repo.record_success("dhl", "AB123")
-
     for _ in range(3):
         await repo.record_failure("dhl", "")
         await repo.record_failure("dhl", "AB123")
@@ -99,10 +94,51 @@ async def test_health_repository_reset_tracker_clears_all_entries(tmp_path: Path
     state_ship = await repo.get_state("dhl", "AB123")
     assert state_global is not None
     assert state_global.consecutive_failures == 0
-    assert state_global.consecutive_successes == 0
     assert state_global.quarantine_until is None
     assert state_ship is not None
     assert state_ship.consecutive_failures == 0
+    assert state_ship.quarantine_until is None
+
+
+@pytest.mark.asyncio
+async def test_health_repository_reset_tracker_clears_consecutive_successes(
+    tmp_path: Path,
+) -> None:
+    """reset_tracker must clear consecutive_successes (not just failures)."""
+    db_path = str(tmp_path / "h.db")
+    await init_schema(db_path)
+    repo = HealthRepository(db_path)
+
+    # Build up consecutive_successes > 0 on both global and per-shipment rows
+    for _ in range(3):
+        await repo.record_success("dhl", "")
+        await repo.record_success("dhl", "AB123")
+
+    # Quarantine via set_quarantine — DOES NOT touch consecutive_successes
+    # (record_failure would zero it via ON CONFLICT, masking the fix)
+    until = datetime.now(UTC) + timedelta(hours=1)
+    await repo.set_quarantine("dhl", "", until)
+    await repo.set_quarantine("dhl", "AB123", until)
+
+    # Precondition: both rows have consecutive_successes > 0
+    state_global = await repo.get_state("dhl", "")
+    assert state_global is not None
+    assert state_global.consecutive_successes == 3
+
+    state_ship = await repo.get_state("dhl", "AB123")
+    assert state_ship is not None
+    assert state_ship.consecutive_successes == 3
+
+    await repo.reset_tracker("dhl")
+
+    # Both rows must have consecutive_successes == 0 (genuinely verified)
+    state_global = await repo.get_state("dhl", "")
+    assert state_global is not None
+    assert state_global.consecutive_successes == 0
+    assert state_global.quarantine_until is None
+
+    state_ship = await repo.get_state("dhl", "AB123")
+    assert state_ship is not None
     assert state_ship.consecutive_successes == 0
     assert state_ship.quarantine_until is None
 
