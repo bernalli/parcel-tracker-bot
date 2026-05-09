@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest an enhancement.
+labels: ["enhancement", "triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does it solve?
+      description: |
+        Describe the situation that motivates this request, not the solution. We will
+        propose the implementation together.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: How are you working around this today?
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope / out of scope
+      description: Help us draw the line. What should the feature *not* do?
