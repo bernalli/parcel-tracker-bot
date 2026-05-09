@@ -6,6 +6,10 @@ import logging
 from typing import Protocol
 
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
+from parcel_tracker.observability.metrics import (
+    TELEGRAM_ERRORS_TOTAL,
+    TELEGRAM_SENT_TOTAL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,4 +68,10 @@ class TelegramNotifier:
 
         text = "\n".join(lines)
 
-        await self._bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        try:
+            await self._bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        except Exception as exc:  # noqa: BLE001 (instrumentation)
+            TELEGRAM_ERRORS_TOTAL.labels(error_class=type(exc).__name__).inc()
+            raise
+        else:
+            TELEGRAM_SENT_TOTAL.labels(status_value=new_status.value).inc()
