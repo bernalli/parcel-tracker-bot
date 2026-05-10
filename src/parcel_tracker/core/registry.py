@@ -43,7 +43,8 @@ class TrackerRegistry:
             return 0
 
         loaded = 0
-        for py_file in sorted(directory.glob("*.py")):
+        # Recursive scan to support locale-organized overlays (e.g. plugins/it/*.py).
+        for py_file in sorted(directory.rglob("*.py")):
             if py_file.name.startswith("_"):
                 continue
 
