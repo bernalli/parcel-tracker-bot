@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] — 2026-05-10
+
+Promoted from `v0.1.0-rc.1` after production deploy. Includes 4 deploy
+regression fixes discovered during the migration smoke test.
+
+### Fixed
+
+- **runtime (Py3.12)**: `main.py` re-establishes the asyncio event loop after
+  `asyncio.run(build_bot_data())`. PTB v21 `run_polling()` internally calls
+  `asyncio.get_event_loop()`, which on Python 3.12 raises `RuntimeError` when no
+  loop exists in the current thread. Pre-3.12 auto-created a loop; 3.12 requires
+  explicit management. Without this fix the container crash-looped on every
+  start.
+- **plugin loader**: `registry.load_from_directory()` now scans plugin
+  directories recursively (`rglob`). Locale-organized overlays such as
+  `plugins/it/*.py` were silently ignored by the previous top-level-only
+  `glob`.
+- **i18n availability**: `available_locales()` now checks the compiled
+  `messages.mo` (gettext binary, what the runtime actually loads) instead of
+  the source `messages.po`. Distributions only ship `.mo`, so the previous
+  `.po` check yielded zero locales in production and rejected `/lang <code>`.
+- **packaging**: Dockerfile builder stage now installs `gettext` and runs
+  `msgfmt` against every `messages.po` before `pip install`. Setuptools
+  `package-data` then finds the freshly compiled `.mo` files; deployed images
+  no longer ship empty locale catalogs.
+
 ## [0.1.0-rc.1] — 2026-05-10
 
 First public release candidate. Full feature set:
