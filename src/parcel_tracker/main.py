@@ -142,6 +142,11 @@ def main() -> None:
     logger.info("Starting parcel-tracker-bot")
 
     bot_data = asyncio.run(build_bot_data(config))
+    # Py3.12: asyncio.run closes the event loop. PTB v21 run_polling internally
+    # calls asyncio.get_event_loop(), which raises RuntimeError on Py3.12 when no
+    # loop is set. Re-establish one before run_polling. (On Py<=3.11 get_event_loop
+    # auto-created a loop; Py3.12 enforces explicit loop management.)
+    asyncio.set_event_loop(asyncio.new_event_loop())
 
     application = Application.builder().token(config.telegram_bot_token).build()
 
