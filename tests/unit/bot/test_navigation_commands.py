@@ -18,6 +18,8 @@ def _make_update() -> MagicMock:
     update = MagicMock()
     update.message = MagicMock()
     update.message.reply_text = AsyncMock()
+    # PTB convention: effective_message mirrors message for command updates.
+    update.effective_message = update.message
     update.effective_user = MagicMock()
     update.effective_user.id = 1
     return update

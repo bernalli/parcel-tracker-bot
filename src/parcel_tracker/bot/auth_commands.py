@@ -85,16 +85,17 @@ async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """List allowed users (owner only)."""
     user = update.effective_user
-    if user is None or update.message is None:
+    reply_to = update.effective_message
+    if user is None or reply_to is None:
         return
     if not _is_owner(context, user.id):
-        await update.message.reply_text(messages.owner_only(), parse_mode="HTML")
+        await reply_to.reply_text(messages.owner_only(), parse_mode="HTML")
         return
 
     user_repo = context.bot_data["user_repo"]
     user_ids = await user_repo.get_allowed_user_ids()
     if not user_ids:
-        await update.message.reply_text(messages.no_users(), parse_mode="HTML")
+        await reply_to.reply_text(messages.no_users(), parse_mode="HTML")
         return
     text = "\n".join(f"• <code>{uid}</code>" for uid in user_ids)
-    await update.message.reply_text(text, parse_mode="HTML")
+    await reply_to.reply_text(text, parse_mode="HTML")

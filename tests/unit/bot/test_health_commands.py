@@ -49,6 +49,7 @@ async def test_cmd_health_lists_all_registered_trackers() -> None:
     update = MagicMock()
     update.effective_chat.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
 
     context = MagicMock()
     context.bot_data = {
@@ -205,6 +206,7 @@ async def test_cmd_health_quarantine_note_shown_when_active() -> None:
 
     update = MagicMock()
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.bot_data = {
         "registry": registry,

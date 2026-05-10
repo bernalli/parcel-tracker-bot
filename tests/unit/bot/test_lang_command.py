@@ -11,6 +11,8 @@ async def test_lang_no_args_shows_current(tmp_user_repo) -> None:
     await repo.set_language(123, "it")
     update = MagicMock()
     update.message = AsyncMock()
+    # PTB convention: effective_message mirrors message for command updates.
+    update.effective_message = update.message
     update.effective_user = MagicMock(id=123)
     context = MagicMock()
     context.args = []
@@ -26,6 +28,7 @@ async def test_lang_no_args_shows_current(tmp_user_repo) -> None:
 async def test_lang_invalid_locale(tmp_user_repo) -> None:
     update = MagicMock()
     update.message = AsyncMock()
+    update.effective_message = update.message
     update.effective_user = MagicMock(id=123)
     context = MagicMock()
     context.args = ["xx"]
@@ -41,6 +44,7 @@ async def test_lang_invalid_locale(tmp_user_repo) -> None:
 async def test_lang_switches_to_it(tmp_user_repo) -> None:
     update = MagicMock()
     update.message = AsyncMock()
+    update.effective_message = update.message
     update.effective_user = MagicMock(id=123)
     context = MagicMock()
     context.args = ["it"]

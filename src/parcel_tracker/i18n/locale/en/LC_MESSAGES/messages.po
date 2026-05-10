@@ -250,3 +250,165 @@ msgstr "Carrier"
 #, python-brace-format
 msgid "Authorised users: <b>{count}</b>"
 msgstr "Authorised users: <b>{count}</b>"
+
+#: src/parcel_tracker/bot/keyboards.py:23
+msgid "📦 Parcels"
+msgstr "📦 Parcels"
+
+#: src/parcel_tracker/bot/keyboards.py:24
+msgid "⚙️ Settings"
+msgstr "⚙️ Settings"
+
+#: src/parcel_tracker/bot/keyboards.py:27
+msgid "🔧 Advanced"
+msgstr "🔧 Advanced"
+
+#: src/parcel_tracker/bot/keyboards.py:32
+msgid "👮 Admin"
+msgstr "👮 Admin"
+
+#: src/parcel_tracker/bot/keyboards.py:40
+msgid "📋 Parcel list"
+msgstr "📋 Parcel list"
+
+#: src/parcel_tracker/bot/keyboards.py:41
+msgid "➕ Add parcel"
+msgstr "➕ Add parcel"
+
+#: src/parcel_tracker/bot/keyboards.py:53
+msgid "🌍 Language"
+msgstr "🌍 Language"
+
+#: src/parcel_tracker/bot/keyboards.py:54
+msgid "🔔 Notifications"
+msgstr "🔔 Notifications"
+
+#: src/parcel_tracker/bot/keyboards.py:66
+msgid "📊 Tracker health"
+msgstr "📊 Tracker health"
+
+#: src/parcel_tracker/bot/keyboards.py:67
+msgid "🗺 Map"
+msgstr "🗺 Map"
+
+#: src/parcel_tracker/bot/keyboards.py:70
+msgid "🔍 Parcel status"
+msgstr "🔍 Parcel status"
+
+#: src/parcel_tracker/bot/keyboards.py:74
+msgid "✏️ Rename"
+msgstr "✏️ Rename"
+
+#: src/parcel_tracker/bot/keyboards.py:86
+msgid "👥 Users"
+msgstr "👥 Users"
+
+#: src/parcel_tracker/bot/keyboards.py:87
+msgid "📈 Stats"
+msgstr "📈 Stats"
+
+#: src/parcel_tracker/bot/keyboards.py:89
+msgid "📦 Delivered"
+msgstr "📦 Delivered"
+
+#: src/parcel_tracker/bot/keyboards.py:90
+msgid "🧹 Clean"
+msgstr "🧹 Clean"
+
+#: src/parcel_tracker/bot/keyboards.py:16
+msgid "⬅️ Back"
+msgstr "⬅️ Back"
+
+#: src/parcel_tracker/bot/messages.py:158
+msgid "📦 <b>Parcels</b>"
+msgstr "📦 <b>Parcels</b>"
+
+#: src/parcel_tracker/bot/messages.py:162
+msgid "⚙️ <b>Settings</b>"
+msgstr "⚙️ <b>Settings</b>"
+
+#: src/parcel_tracker/bot/messages.py:166
+msgid "🔧 <b>Advanced</b>"
+msgstr "🔧 <b>Advanced</b>"
+
+#: src/parcel_tracker/bot/messages.py:170
+msgid "👮 <b>Admin</b>"
+msgstr "👮 <b>Admin</b>"
+
+#: src/parcel_tracker/bot/messages.py:174
+msgid ""
+"➕ <b>Add a parcel</b>\n"
+"\n"
+"Send a message in this format:\n"
+"<code>/add CODE [name] [carrier]</code>\n"
+"\n"
+"Examples:\n"
+"• <code>/add 1Z999AA10123456784</code>\n"
+"• <code>/add 1Z999AA10123456784 my package</code>\n"
+"• <code>/add 1Z999AA10123456784 my package ups</code>\n"
+"\n"
+"Carrier auto-detection works for most codes; specify it only if you want to override."
+msgstr ""
+"➕ <b>Add a parcel</b>\n"
+"\n"
+"Send a message in this format:\n"
+"<code>/add CODE [name] [carrier]</code>\n"
+"\n"
+"Examples:\n"
+"• <code>/add 1Z999AA10123456784</code>\n"
+"• <code>/add 1Z999AA10123456784 my package</code>\n"
+"• <code>/add 1Z999AA10123456784 my package ups</code>\n"
+"\n"
+"Carrier auto-detection works for most codes; specify it only if you want to override."
+
+#: src/parcel_tracker/bot/messages.py:187
+msgid ""
+"🔍 <b>Parcel status</b>\n"
+"\n"
+"Send: <code>/status CODE</code>\n"
+"Example: <code>/status 1Z999AA10123456784</code>\n"
+"\n"
+"Tip: use 📋 Parcel list to see all your codes."
+msgstr ""
+"🔍 <b>Parcel status</b>\n"
+"\n"
+"Send: <code>/status CODE</code>\n"
+"Example: <code>/status 1Z999AA10123456784</code>\n"
+"\n"
+"Tip: use 📋 Parcel list to see all your codes."
+
+#: src/parcel_tracker/bot/messages.py:196
+msgid ""
+"📋 <b>Events history</b>\n"
+"\n"
+"Send: <code>/events CODE</code>\n"
+"Example: <code>/events 1Z999AA10123456784</code>"
+msgstr ""
+"📋 <b>Events history</b>\n"
+"\n"
+"Send: <code>/events CODE</code>\n"
+"Example: <code>/events 1Z999AA10123456784</code>"
+
+#: src/parcel_tracker/bot/messages.py:204
+msgid ""
+"🗑 <b>Remove a parcel</b>\n"
+"\n"
+"Send: <code>/remove CODE</code>\n"
+"Example: <code>/remove 1Z999AA10123456784</code>"
+msgstr ""
+"🗑 <b>Remove a parcel</b>\n"
+"\n"
+"Send: <code>/remove CODE</code>\n"
+"Example: <code>/remove 1Z999AA10123456784</code>"
+
+#: src/parcel_tracker/bot/messages.py:212
+msgid ""
+"✏️ <b>Rename a parcel</b>\n"
+"\n"
+"Send: <code>/rename CODE NEW_NAME</code>\n"
+"Example: <code>/rename 1Z999AA10123456784 amazon order</code>"
+msgstr ""
+"✏️ <b>Rename a parcel</b>\n"
+"\n"
+"Send: <code>/rename CODE NEW_NAME</code>\n"
+"Example: <code>/rename 1Z999AA10123456784 amazon order</code>"

@@ -22,6 +22,7 @@ async def test_cmd_notify_displays_menu_with_all_status() -> None:
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.bot_data = {"notification_repo": notification_repo}
 
@@ -48,6 +49,7 @@ async def test_cmd_notify_dispatch_on_quick_command_all() -> None:
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.args = ["all"]
     context.bot_data = {"notification_repo": notification_repo}
@@ -67,6 +69,7 @@ async def test_cmd_notify_dispatch_on_quick_command_none() -> None:
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.args = ["none"]
     context.bot_data = {"notification_repo": notification_repo}
@@ -83,6 +86,7 @@ async def test_cmd_notify_dispatch_on_quick_command_on_specific() -> None:
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.args = ["on", "InTransit"]
     context.bot_data = {"notification_repo": notification_repo}
@@ -100,6 +104,7 @@ async def test_cmd_notify_dispatch_unknown_status_returns_error() -> None:
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.args = ["on", "BogusStatus"]
     context.bot_data = {"notification_repo": notification_repo}

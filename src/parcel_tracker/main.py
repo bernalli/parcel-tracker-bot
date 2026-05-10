@@ -7,7 +7,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from telegram import Update
+from telegram import (
+    BotCommand,
+    BotCommandScopeChat,
+    BotCommandScopeDefault,
+    Update,
+)
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from parcel_tracker.bot.handlers import register_handlers
@@ -128,6 +133,111 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
     }
 
 
+# Telegram /command listings shown in the client UI.
+# Public list = visible to everyone; admin extra = appended for admin users
+# via per-chat scope. Italian translations are pushed under language_code='it'.
+COMMANDS_PUBLIC_EN: list[tuple[str, str]] = [
+    ("start", "Start the bot"),
+    ("menu", "Interactive menu"),
+    ("list", "My parcels"),
+    ("add", "Add a parcel"),
+    ("status", "Parcel details"),
+    ("events", "Event history"),
+    ("remove", "Remove a parcel"),
+    ("rename", "Rename a parcel"),
+    ("checkall", "Refresh all parcels"),
+    ("lang", "Change language"),
+    ("notify", "Notification preferences"),
+    ("help", "Show help"),
+]
+COMMANDS_PUBLIC_IT: list[tuple[str, str]] = [
+    ("start", "Avvia il bot"),
+    ("menu", "Menu interattivo"),
+    ("list", "I miei pacchi"),
+    ("add", "Aggiungi un pacco"),
+    ("status", "Dettagli pacco"),
+    ("events", "Cronologia eventi"),
+    ("remove", "Rimuovi un pacco"),
+    ("rename", "Rinomina un pacco"),
+    ("checkall", "Aggiorna tutti i pacchi"),
+    ("lang", "Cambia lingua"),
+    ("notify", "Preferenze notifiche"),
+    ("help", "Mostra aiuto"),
+]
+COMMANDS_ADMIN_EXTRA_EN: list[tuple[str, str]] = [
+    ("health", "Tracker health dashboard"),
+    ("map", "Parcel map"),
+    ("whoami", "Show your auth info"),
+    ("users", "List authorised users"),
+    ("adduser", "Authorise a user"),
+    ("removeuser", "Revoke a user"),
+    ("stats", "Bot statistics"),
+    ("delivered", "Delivered parcels"),
+    ("clean", "Clean a parcel"),
+    ("cleanall", "Clean all delivered"),
+]
+COMMANDS_ADMIN_EXTRA_IT: list[tuple[str, str]] = [
+    ("health", "Dashboard salute tracker"),
+    ("map", "Mappa pacchi"),
+    ("whoami", "Mostra info auth"),
+    ("users", "Lista utenti autorizzati"),
+    ("adduser", "Autorizza un utente"),
+    ("removeuser", "Revoca un utente"),
+    ("stats", "Statistiche bot"),
+    ("delivered", "Pacchi consegnati"),
+    ("clean", "Ripulisci un pacco"),
+    ("cleanall", "Ripulisci tutti i consegnati"),
+]
+
+
+def _to_bot_commands(pairs: list[tuple[str, str]]) -> list[BotCommand]:
+    return [BotCommand(cmd, desc) for cmd, desc in pairs]
+
+
+async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Push the /command list to Telegram on startup.
+
+    Public scope (BotCommandScopeDefault) → COMMANDS_PUBLIC_*.
+    Per-admin scope (BotCommandScopeChat per admin id) → public + admin extras.
+    Pushes both English (default) and Italian (language_code='it') variants.
+
+    All Telegram calls are wrapped in try/except so a transient API failure does
+    not crash startup — the bot will still run with stale or default commands.
+    """
+    config = application.bot_data.get("config")
+    if config is None:
+        logger.warning("post_init: no config in bot_data, skipping set_my_commands")
+        return
+
+    bot = application.bot
+
+    # --- public scope ---
+    public_en = _to_bot_commands(COMMANDS_PUBLIC_EN)
+    public_it = _to_bot_commands(COMMANDS_PUBLIC_IT)
+    try:
+        await bot.set_my_commands(public_en, scope=BotCommandScopeDefault())
+    except Exception:  # noqa: BLE001
+        logger.warning("set_my_commands(default, en) failed", exc_info=True)
+    try:
+        await bot.set_my_commands(public_it, scope=BotCommandScopeDefault(), language_code="it")
+    except Exception:  # noqa: BLE001
+        logger.warning("set_my_commands(default, it) failed", exc_info=True)
+
+    # --- per-admin scope ---
+    admin_en = _to_bot_commands(COMMANDS_PUBLIC_EN + COMMANDS_ADMIN_EXTRA_EN)
+    admin_it = _to_bot_commands(COMMANDS_PUBLIC_IT + COMMANDS_ADMIN_EXTRA_IT)
+    for admin_id in getattr(config, "admin_user_ids", frozenset()):
+        scope = BotCommandScopeChat(chat_id=admin_id)
+        try:
+            await bot.set_my_commands(admin_en, scope=scope)
+        except Exception:  # noqa: BLE001
+            logger.warning("set_my_commands(chat=%s, en) failed", admin_id, exc_info=True)
+        try:
+            await bot.set_my_commands(admin_it, scope=scope, language_code="it")
+        except Exception:  # noqa: BLE001
+            logger.warning("set_my_commands(chat=%s, it) failed", admin_id, exc_info=True)
+
+
 def main() -> None:
     config = Config.from_env()
 
@@ -148,7 +258,9 @@ def main() -> None:
     # auto-created a loop; Py3.12 enforces explicit loop management.)
     asyncio.set_event_loop(asyncio.new_event_loop())
 
-    application = Application.builder().token(config.telegram_bot_token).build()
+    application = (
+        Application.builder().token(config.telegram_bot_token).post_init(_post_init).build()
+    )
 
     notifier = TelegramNotifier(bot=application.bot)
     bot_data["notifier"] = notifier

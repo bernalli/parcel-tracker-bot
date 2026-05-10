@@ -14,6 +14,7 @@ async def test_cmd_status_propagates_unexpected_exception() -> None:
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     update.effective_chat.id = 1
     context = MagicMock()
     context.args = ["XYZ"]

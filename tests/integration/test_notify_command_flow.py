@@ -21,6 +21,7 @@ async def test_notify_on_persists_to_db(tmp_path: Path) -> None:
     update = MagicMock()
     update.effective_user.id = 42
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.args = ["on", "InTransit"]
     context.bot_data = {"notification_repo": repo}
@@ -38,6 +39,7 @@ async def test_notify_all_then_none_round_trip(tmp_path: Path) -> None:
     update = MagicMock()
     update.effective_user.id = 1
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context_all = MagicMock()
     context_all.args = ["all"]
     context_all.bot_data = {"notification_repo": repo}
