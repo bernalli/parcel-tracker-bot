@@ -38,13 +38,17 @@ class Translator:
 
 
 def available_locales(locale_dir: Path) -> list[str]:
-    """List locale codes for which a `messages.po` file exists."""
+    """List locale codes for which a compiled `messages.mo` exists.
+
+    Checks the binary catalog (.mo) — what gettext actually loads at runtime —
+    not the source (.po), which is excluded from distributed package-data.
+    """
     if not locale_dir.is_dir():
         return []
     return sorted(
         d.name
         for d in locale_dir.iterdir()
-        if d.is_dir() and (d / "LC_MESSAGES" / "messages.po").is_file()
+        if d.is_dir() and (d / "LC_MESSAGES" / "messages.mo").is_file()
     )
 
 
