@@ -12,10 +12,17 @@ WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    gettext \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
+
+# Compile gettext catalogs (.po → .mo) so setuptools package-data
+# `locale/*/LC_MESSAGES/*.mo` finds them at install time.
+RUN set -eu; for po in src/parcel_tracker/i18n/locale/*/LC_MESSAGES/messages.po; do \
+        msgfmt "$po" -o "${po%.po}.mo"; \
+    done
 
 RUN pip install --prefix=/install --no-warn-script-location .
 
