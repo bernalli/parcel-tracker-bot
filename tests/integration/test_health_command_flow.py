@@ -26,6 +26,7 @@ async def test_cmd_health_with_real_repository(tmp_path) -> None:
 
     update = MagicMock()
     update.message.reply_text = AsyncMock()
+    update.effective_message = update.message
     context = MagicMock()
     context.bot_data = {
         "registry": registry,

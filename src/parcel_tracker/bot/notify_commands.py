@@ -45,13 +45,14 @@ def _build_keyboard(prefs: dict[str, bool]) -> InlineKeyboardMarkup:
 
 async def cmd_notify(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """`/notify` — show the inline keyboard menu of notifiable statuses."""
-    if update.message is None:
+    reply_to = update.effective_message
+    if reply_to is None:
         return
     user_id = update.effective_user.id if update.effective_user else 0
     repo = context.bot_data["notification_repo"]
     prefs: dict[str, bool] = await repo.get_all_prefs(user_id)
     keyboard = _build_keyboard(prefs)
-    await update.message.reply_text(
+    await reply_to.reply_text(
         "🔔 <b>Notification preferences</b>\n\nTap a status to toggle on/off.",
         parse_mode="HTML",
         reply_markup=keyboard,
@@ -60,7 +61,8 @@ async def cmd_notify(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def cmd_notify_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Dispatch /notify subcommands: all, none, on <status>, off <status>, default → menu."""
-    if update.message is None:
+    reply_to = update.effective_message
+    if reply_to is None:
         return
     if not context.args:
         await cmd_notify(update, context)
@@ -73,13 +75,13 @@ async def cmd_notify_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE
     if sub == "all":
         for status in _NOTIFIABLE_STATUS:
             await repo.set_pref(user_id=user_id, status_value=status.value, enabled=True)
-        await update.message.reply_text("✅ All notifications enabled.")
+        await reply_to.reply_text("✅ All notifications enabled.")
         return
 
     if sub == "none":
         for status in _NOTIFIABLE_STATUS:
             await repo.set_pref(user_id=user_id, status_value=status.value, enabled=False)
-        await update.message.reply_text("🔇 All notifications disabled.")
+        await reply_to.reply_text("🔇 All notifications disabled.")
         return
 
     if sub in {"on", "off"} and len(context.args) >= 2:
@@ -90,12 +92,12 @@ async def cmd_notify_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         if match is None:
             valid = ", ".join(s.value for s in _NOTIFIABLE_STATUS)
-            await update.message.reply_text(f"❌ Unknown status. Valid: {valid}.")
+            await reply_to.reply_text(f"❌ Unknown status. Valid: {valid}.")
             return
         enabled = sub == "on"
         await repo.set_pref(user_id=user_id, status_value=match.value, enabled=enabled)
         verb = "enabled" if enabled else "disabled"
-        await update.message.reply_text(f"🔔 <code>{match.value}</code> {verb}.", parse_mode="HTML")
+        await reply_to.reply_text(f"🔔 <code>{match.value}</code> {verb}.", parse_mode="HTML")
         return
 
     await cmd_notify(update, context)

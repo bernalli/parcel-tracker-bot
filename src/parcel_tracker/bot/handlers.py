@@ -109,6 +109,9 @@ def register_handlers(
         app.add_handler(CommandHandler(cmd, fn))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    app.add_handler(CallbackQueryHandler(handle_callback))
+    # Pattern-restricted catch-all: only handle the four prefixes we own.
+    # Other prefix-specific handlers (notify:*) are registered later in main.py
+    # and must not be shadowed by an unrestricted CallbackQueryHandler.
+    app.add_handler(CallbackQueryHandler(handle_callback, pattern=r"^(nav|action|prompt|parcel):"))
 
     logger.info("Handlers registered")

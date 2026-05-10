@@ -8,7 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] — 2026-05-10
 
 Promoted from `v0.1.0-rc.1` after production deploy. Includes 4 deploy
-regression fixes discovered during the migration smoke test.
+regression fixes discovered during the migration smoke test, plus a UX
+standardisation pass on the bot menu.
+
+### Added
+
+- **Tap-only navigation** via redesigned `/menu` inline keyboard: 4 top-level
+  sections (Parcels / Settings / Advanced / Help) with sub-menus, plus an
+  Admin section visible only to authorised admins. Every command reachable
+  by tapping; slash syntax remains optional.
+- **`set_my_commands` integration**: Telegram client dropdown ("/" button)
+  now lists 12 public commands by default scope and an extended set (12 +
+  10 admin extras) per-admin via `BotCommandScopeChat`. Both English and
+  Italian variants pushed via `language_code='en'/'it'`.
+- **Callback dispatcher** with prefix routing (`nav:*` / `action:*` /
+  `prompt:*` / `parcel:*`) — replaces the previous stub that echoed the
+  callback name. Pattern-restricted `CallbackQueryHandler` so prefix-specific
+  handlers (`notify:*`, etc.) are no longer shadowed.
+
+### Changed
+
+- `cmd_list`, `cmd_checkall`, `cmd_help`, `cmd_map`, `cmd_health`,
+  `cmd_notify_dispatch`, `cmd_lang`, `cmd_users`, `cmd_stats`, `cmd_delivered`,
+  `cmd_clean` now reply via `update.effective_message`, making them invocable
+  from both `CommandHandler` and `CallbackQueryHandler` contexts.
 
 ### Fixed
 

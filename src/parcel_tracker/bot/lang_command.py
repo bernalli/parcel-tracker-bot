@@ -19,7 +19,8 @@ LOCALE_ROOT = Path(__file__).resolve().parents[1] / "i18n" / "locale"
 
 
 async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.message is None or update.effective_user is None:
+    reply_to = update.effective_message
+    if reply_to is None or update.effective_user is None:
         return
     user_id = update.effective_user.id
     user_repo: UserRepository = context.bot_data["user_repo"]
@@ -28,7 +29,7 @@ async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not args:
         current = await user_repo.get_language(user_id)
-        await update.message.reply_text(
+        await reply_to.reply_text(
             messages.lang_current(current, available),
             parse_mode="HTML",
         )
@@ -36,7 +37,7 @@ async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     requested = args[0].strip().lower()
     if requested not in available:
-        await update.message.reply_text(
+        await reply_to.reply_text(
             messages.lang_not_supported(requested, available),
             parse_mode="HTML",
         )
@@ -44,7 +45,7 @@ async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await user_repo.set_language(user_id, requested)
     set_default_translator(Translator(locale=requested, locale_dir=LOCALE_ROOT))
-    await update.message.reply_text(
+    await reply_to.reply_text(
         messages.lang_changed(requested),
         parse_mode="HTML",
     )

@@ -32,7 +32,8 @@ def compute_color_emoji(*, success_rate: float, quarantine_until: datetime | Non
 
 async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """`/health` — list all registered trackers with health badges."""
-    if update.message is None:
+    reply_to = update.effective_message
+    if reply_to is None:
         return
     registry = context.bot_data["registry"]
     health_repo = context.bot_data["health_repo"]
@@ -60,7 +61,7 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     lines.append("")
     lines.append("Use /health &lt;name&gt; for details.")
     text = "\n".join(lines)
-    await update.message.reply_text(text, parse_mode="HTML")
+    await reply_to.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_health_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

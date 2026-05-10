@@ -154,6 +154,68 @@ def menu_header() -> str:
     return _("Main menu:")
 
 
+def menu_section_parcels() -> str:
+    return _("📦 <b>Parcels</b>")
+
+
+def menu_section_settings() -> str:
+    return _("⚙️ <b>Settings</b>")
+
+
+def menu_section_advanced() -> str:
+    return _("🔧 <b>Advanced</b>")
+
+
+def menu_section_admin() -> str:
+    return _("👮 <b>Admin</b>")
+
+
+def prompt_add() -> str:
+    return _(
+        "➕ <b>Add a parcel</b>\n\n"
+        "Send a message in this format:\n"
+        "<code>/add CODE [name] [carrier]</code>\n\n"
+        "Examples:\n"
+        "• <code>/add 1Z999AA10123456784</code>\n"
+        "• <code>/add 1Z999AA10123456784 my package</code>\n"
+        "• <code>/add 1Z999AA10123456784 my package ups</code>\n\n"
+        "Carrier auto-detection works for most codes; specify it only if you want to override."
+    )
+
+
+def prompt_status() -> str:
+    return _(
+        "🔍 <b>Parcel status</b>\n\n"
+        "Send: <code>/status CODE</code>\n"
+        "Example: <code>/status 1Z999AA10123456784</code>\n\n"
+        "Tip: use 📋 Parcel list to see all your codes."
+    )
+
+
+def prompt_events() -> str:
+    return _(
+        "📋 <b>Events history</b>\n\n"
+        "Send: <code>/events CODE</code>\n"
+        "Example: <code>/events 1Z999AA10123456784</code>"
+    )
+
+
+def prompt_remove() -> str:
+    return _(
+        "🗑 <b>Remove a parcel</b>\n\n"
+        "Send: <code>/remove CODE</code>\n"
+        "Example: <code>/remove 1Z999AA10123456784</code>"
+    )
+
+
+def prompt_rename() -> str:
+    return _(
+        "✏️ <b>Rename a parcel</b>\n\n"
+        "Send: <code>/rename CODE NEW_NAME</code>\n"
+        "Example: <code>/rename 1Z999AA10123456784 amazon order</code>"
+    )
+
+
 def no_users() -> str:
     return _("(no users)")
 

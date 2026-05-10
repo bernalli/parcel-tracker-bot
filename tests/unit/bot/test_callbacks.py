@@ -1,4 +1,4 @@
-"""Smoke tests for callbacks.handle_callback dispatcher."""
+"""Smoke tests for callbacks.handle_callback dispatcher entry point."""
 
 from __future__ import annotations
 
@@ -10,40 +10,21 @@ from parcel_tracker.bot.callbacks import handle_callback
 
 
 @pytest.mark.asyncio
-async def test_handle_callback_acks_and_edits() -> None:
-    """handle_callback acks the query and edits the message with the action."""
+async def test_handle_callback_acks_unknown_prefix() -> None:
+    """Unknown prefix → ack only, no edit."""
     update = MagicMock()
     query = MagicMock()
     query.answer = AsyncMock()
     query.edit_message_text = AsyncMock()
-    query.data = "list"
+    query.data = "totally_unknown:foo"
     update.callback_query = query
     context = MagicMock()
+    context.bot_data = {"config": MagicMock(admin_user_ids=frozenset())}
 
     await handle_callback(update, context)
 
     query.answer.assert_called_once()
-    query.edit_message_text.assert_called_once()
-    text = query.edit_message_text.call_args.args[0]
-    assert "list" in text
-
-
-@pytest.mark.asyncio
-async def test_handle_callback_handles_payload() -> None:
-    """Callback data with payload (action:payload) is split correctly."""
-    update = MagicMock()
-    query = MagicMock()
-    query.answer = AsyncMock()
-    query.edit_message_text = AsyncMock()
-    query.data = "refresh:ABC123"
-    update.callback_query = query
-    context = MagicMock()
-
-    await handle_callback(update, context)
-
-    query.edit_message_text.assert_called_once()
-    text = query.edit_message_text.call_args.args[0]
-    assert "refresh" in text
+    query.edit_message_text.assert_not_called()
 
 
 @pytest.mark.asyncio

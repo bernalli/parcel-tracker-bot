@@ -23,6 +23,8 @@ def _make_update(text: str | None = None, args: list[str] | None = None) -> Magi
     update.message = MagicMock()
     update.message.reply_text = AsyncMock()
     update.message.text = text
+    # PTB convention: effective_message mirrors message for command updates.
+    update.effective_message = update.message
     update.effective_user = MagicMock()
     update.effective_user.id = 1
     return update
