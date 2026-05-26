@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-05-26
+
+### Fixed
+
+- **Periodic scheduler skipped the owner's parcels.** The update job built its
+  list of users to poll from the allowed-users table only, which never contains
+  the owner (authorised via `OWNER_ID`) nor `ALLOWED_USER_IDS` entries. With an
+  empty table the job returned immediately, so no parcel was ever checked —
+  statuses never refreshed and delivery notifications never fired. The job now
+  polls the union of the allowed-users table, the owner, and the configured
+  allow-list, so every authorised user's parcels are checked on each tick.
+
 ## [0.1.0] — 2026-05-10
 
 Promoted from `v0.1.0-rc.1` after production deploy. Includes 4 deploy
