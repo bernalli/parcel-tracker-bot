@@ -70,6 +70,8 @@ def _make_context(
 
     config = MagicMock()
     config.batch_size = 10
+    config.owner_id = parcel.user_id
+    config.allowed_user_ids = []
 
     prefs = MagicMock()
     prefs.is_allowed = AsyncMock(return_value=True)
