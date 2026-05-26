@@ -65,6 +65,8 @@ def _make_context(
 
     config = MagicMock()
     config.batch_size = 10
+    config.owner_id = 42
+    config.allowed_user_ids = []
 
     prefs = MagicMock()
     prefs.is_allowed = AsyncMock(return_value=True)
@@ -103,8 +105,10 @@ def _make_parcel(
 
 @pytest.mark.asyncio
 async def test_check_updates_no_users() -> None:
-    """When there are no allowed users, nothing is fetched."""
+    """With no allowed users, no owner, and no env allow-list, nothing is fetched."""
     ctx = _make_context(parcels=[], user_ids=[])
+    ctx.bot_data["config"].owner_id = None
+    ctx.bot_data["config"].allowed_user_ids = []
     await check_updates(ctx)
     ctx.bot_data["parcel_repo"].list_active_for_user.assert_not_called()
 
@@ -115,6 +119,68 @@ async def test_check_updates_no_parcels_for_user() -> None:
     ctx = _make_context(parcels=[])
     await check_updates(ctx)
     ctx.bot_data["health"].is_quarantined.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_check_updates_checks_owner_parcels_when_allowlist_empty() -> None:
+    """Regression: the owner's parcels are checked even when the allowed_users DB
+    table is empty.
+
+    The owner is authorised via OWNER_ID and is never inserted into the
+    allowed_users table, so iterating that table alone (the old behaviour) skipped
+    the owner's parcels entirely — no status update or delivery notification ever
+    fired for the bot's primary user.
+    """
+    parcel = _make_parcel(status=ShipmentStatus.IN_TRANSIT)  # user_id=42
+    result = TrackingResult(
+        tracking_number="FAKE123",
+        found=True,
+        status=ShipmentStatus.DELIVERED,
+    )
+    ctx = _make_context(parcels=[parcel], tracker_result=result, user_ids=[])
+    ctx.bot_data["config"].owner_id = 42  # owner == the parcel's user
+    ctx.bot_data["config"].allowed_user_ids = []
+
+    await check_updates(ctx)
+
+    ctx.bot_data["parcel_repo"].list_active_for_user.assert_awaited_with(user_id=42)
+    ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
+        "FAKE123", ShipmentStatus.DELIVERED
+    )
+    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_check_updates_checks_env_allowed_user_parcels() -> None:
+    """Parcels owned by an env-configured ALLOWED_USER_IDS user are checked even when
+    the owner differs and the allowed_users DB table is empty."""
+    parcel = Parcel(
+        tracking_number="FAKE123",
+        user_id=777,
+        name="Pacco",
+        status=ShipmentStatus.IN_TRANSIT,
+    )
+    result = TrackingResult(
+        tracking_number="FAKE123",
+        found=True,
+        status=ShipmentStatus.DELIVERED,
+    )
+    ctx = _make_context(parcels=[parcel], tracker_result=result, user_ids=[])
+    ctx.bot_data["config"].owner_id = 1  # owner is someone else
+    ctx.bot_data["config"].allowed_user_ids = [777]
+    # Realistic per-user fetch: only user 777 owns the parcel.
+    ctx.bot_data["parcel_repo"].list_active_for_user = AsyncMock(
+        side_effect=lambda *, user_id: [parcel] if user_id == 777 else []
+    )
+
+    await check_updates(ctx)
+
+    ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
+        "FAKE123", ShipmentStatus.DELIVERED
+    )
+    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
+    call_kwargs = ctx.bot_data["notifier"].send_status_update.call_args.kwargs
+    assert call_kwargs["chat_id"] == 777
 
 
 @pytest.mark.asyncio
@@ -392,6 +458,8 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
 
     config = MagicMock()
     config.batch_size = 10
+    config.owner_id = 1
+    config.allowed_user_ids = []
 
     prefs = MagicMock()
     prefs.is_allowed = AsyncMock(return_value=False)  # blocked
@@ -454,6 +522,8 @@ async def test_check_updates_marks_sent_after_success() -> None:
     notifier.send_status_update = AsyncMock()
     config = MagicMock()
     config.batch_size = 10
+    config.owner_id = 1
+    config.allowed_user_ids = []
     prefs = MagicMock()
     prefs.is_allowed = AsyncMock(return_value=True)
     prefs.mark_sent = AsyncMock()

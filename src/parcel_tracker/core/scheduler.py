@@ -86,7 +86,15 @@ async def _check_updates_impl(context: _JobContext) -> None:
     prefs = context.bot_data.get("prefs")  # None until item 19 wires NotificationPreferences
     now: Callable[[], datetime] = context.bot_data.get("now", _now_default)
 
-    user_ids = await user_repo.get_allowed_user_ids()
+    # Users whose parcels must be tracked: the allowed_users DB table PLUS the owner
+    # and the env-configured allow-list. The owner is authorised via OWNER_ID and is
+    # never inserted into allowed_users, so iterating the table alone skipped the
+    # owner's parcels — the bot's primary user never received status updates.
+    user_ids: set[int] = set(await user_repo.get_allowed_user_ids())
+    owner_id = getattr(config, "owner_id", None)
+    if owner_id is not None:
+        user_ids.add(owner_id)
+    user_ids.update(getattr(config, "allowed_user_ids", ()) or ())
     if not user_ids:
         return
 
