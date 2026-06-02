@@ -69,3 +69,7 @@ Thumbs.db
 
 # i18n compiled (keep .po, ignore .mo)
 *.mo
+
+# Planning interni (plan/spec generati durante il lavoro) — MAI nel repo pubblico
+# (prevenzione infra-leak: vedi incidente price-tracker 2026-06-02)
+docs/notes/
