@@ -156,6 +156,23 @@ async def cmd_checkall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await reply_to.reply_text(messages.checkall_done(), parse_mode="HTML")
 
 
+async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """List archived (delivered) parcels for the user."""
+    user = update.effective_user
+    reply_to = update.effective_message
+    if user is None or reply_to is None:
+        return
+    repo = context.bot_data["parcel_repo"]
+    parcels = await repo.list_archived_for_user(user_id=user.id)
+    if not parcels:
+        await reply_to.reply_text(messages.no_history(), parse_mode="HTML")
+        return
+    lines = [messages.history_header()]
+    for p in parcels:
+        lines.append(f"✅ <code>{p.tracking_number}</code> {p.name or ''}".rstrip())
+    await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle plain text — interpret as tracking number to add (Phase 2: detector)."""
     if update.message is None or update.effective_user is None:
