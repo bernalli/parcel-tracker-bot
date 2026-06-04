@@ -57,6 +57,9 @@ class Parcel:
     status: ShipmentStatus = ShipmentStatus.NOT_FOUND
     last_event: str | None = None
     last_event_time: str | None = None
+    last_location: str | None = None
+    transport_mode: str | None = None
+    delivery_disputed: bool = False
     events: list[TrackingEvent] = field(default_factory=list)
     origin: str | None = None
     destination: str | None = None

@@ -24,6 +24,7 @@ class TrackingResult:
     destination: str | None = None
     last_event: str | None = None
     last_event_time: str | None = None
+    last_location: str | None = None
     events: list[TrackingEvent] = field(default_factory=list)
     error: str | None = None
     carrier_handoff: bool = False
