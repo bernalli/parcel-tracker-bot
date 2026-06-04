@@ -9,11 +9,12 @@ from parcel_tracker.db.models import Parcel, ShipmentStatus
 @pytest.mark.asyncio
 async def test_cmd_status_shows_position() -> None:
     repo = MagicMock()
-    repo.get_by_tracking_number = AsyncMock(
+    repo.get_for_user = AsyncMock(
         return_value=Parcel(tracking_number="TN1", user_id=7, status=ShipmentStatus.IN_TRANSIT,
                             last_event="Departed facility", last_location="Milano, Italy")
     )
     update = MagicMock()
+    update.effective_user = MagicMock(id=7)
     update.effective_message = MagicMock()
     update.effective_message.reply_text = AsyncMock()
     context = MagicMock()

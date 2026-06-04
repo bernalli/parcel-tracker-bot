@@ -66,8 +66,9 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show details of a single parcel."""
+    user = update.effective_user
     reply_to = update.effective_message
-    if reply_to is None:
+    if user is None or reply_to is None:
         return
     args = context.args or []
     if not args:
@@ -75,7 +76,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
-    parcel = await repo.get_by_tracking_number(tracking_number)
+    parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if parcel is None:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
@@ -95,8 +96,9 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show event history for a parcel."""
+    user = update.effective_user
     reply_to = update.effective_message
-    if reply_to is None:
+    if user is None or reply_to is None:
         return
     args = context.args or []
     if not args:
@@ -104,6 +106,10 @@ async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
+    parcel = await repo.get_for_user(tracking_number, user_id=user.id)
+    if parcel is None:
+        await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
+        return
     events = await repo.get_history(tracking_number, limit=20)
     if not events:
         await reply_to.reply_text(messages.no_events(tracking_number), parse_mode="HTML")
@@ -119,8 +125,9 @@ async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Remove (deactivate) a parcel."""
+    user = update.effective_user
     reply_to = update.effective_message
-    if reply_to is None:
+    if user is None or reply_to is None:
         return
     args = context.args or []
     if not args:
@@ -128,7 +135,7 @@ async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
-    parcel = await repo.get_by_tracking_number(tracking_number)
+    parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if parcel is None:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return

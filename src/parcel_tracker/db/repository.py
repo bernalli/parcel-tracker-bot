@@ -108,6 +108,16 @@ class ParcelRepository:
             row = await cursor.fetchone()
         return _row_to_parcel(row) if row else None
 
+    async def get_for_user(self, tracking_number: str, *, user_id: int) -> Parcel | None:
+        """Fetch a parcel only if it belongs to the given user (ownership-scoped)."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT * FROM parcels WHERE tracking_number = ? AND user_id = ?",
+                (tracking_number, user_id),
+            )
+            row = await cursor.fetchone()
+        return _row_to_parcel(row) if row else None
+
     async def list_active_for_user(self, *, user_id: int) -> list[Parcel]:
         async with get_connection(self._db_path) as conn:
             cursor = await conn.execute(
