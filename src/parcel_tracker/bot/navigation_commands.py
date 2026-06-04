@@ -84,12 +84,18 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     from parcel_tracker.maps.transport import infer_transport_mode  # noqa: PLC0415
 
     mode = infer_transport_mode(parcel.carrier_name, parcel.last_event)
-    png = await asyncio.to_thread(
-        map_renderer.render, lat=coord[0], lng=coord[1], mode=mode
-    )
-    await context.bot.send_photo(
-        chat_id=reply_to.chat_id,
-        photo=png,
-        caption=f"📍 {messages.esc(parcel.last_location)}",
-        parse_mode="HTML",
-    )
+    try:
+        png = await asyncio.to_thread(
+            map_renderer.render, lat=coord[0], lng=coord[1], mode=mode
+        )
+        await context.bot.send_photo(
+            chat_id=reply_to.chat_id,
+            photo=png,
+            caption=f"📍 {messages.esc(parcel.last_location)}",
+            parse_mode="HTML",
+        )
+    except Exception:  # noqa: BLE001 — map is best-effort; degrade gracefully, never crash
+        logger.warning("map render/send failed for %s", tracking_number, exc_info=True)
+        await reply_to.reply_text(
+            messages.map_no_position(tracking_number), parse_mode="HTML"
+        )

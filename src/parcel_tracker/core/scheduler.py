@@ -105,7 +105,8 @@ async def _check_updates_impl(context: _JobContext) -> None:
         parcels = await parcel_repo.list_active_for_user(user_id=user_id)
         for parcel in parcels:
             if is_due(parcel.status, parcel.last_check_at, now(),
-                      delivery_disputed=parcel.delivery_disputed):
+                      delivery_disputed=parcel.delivery_disputed,
+                      delivered_at=parcel.delivered_at):
                 all_due.append((user_id, parcel))
 
     if not all_due:
@@ -159,26 +160,29 @@ async def _persist_result(
     return new_events
 
 
-async def _handle_delivered_transition(  # noqa: PLR0913
+async def _handle_delivered_transition(
     *,
     parcel: Parcel,
     user_id: int,
     parcel_repo: ParcelRepository,
     notifier: TelegramNotifier,
-    prefs: Any | None,
     location: str | None,
     now: Callable[[], datetime],
 ) -> None:
-    """On Delivered: stamp delivered_at and ask the user to confirm receipt (no auto-archive)."""
+    """On Delivered: stamp delivered_at and ask the user to confirm receipt (no auto-archive).
+
+    The Yes/No confirmation prompt is a lifecycle action, not a routine notification:
+    it is ALWAYS sent regardless of the user's DELIVERED notification preference, so a
+    user who muted "Delivered" updates can still confirm/archive and the parcel does not
+    linger active forever.
+    """
     await parcel_repo.set_delivered(parcel.tracking_number, now())
-    enabled = prefs is None or await prefs.is_status_enabled(user_id, ShipmentStatus.DELIVERED)
-    if enabled:
-        await notifier.send_delivery_confirmation(
-            chat_id=user_id,
-            tracking_number=parcel.tracking_number,
-            parcel_name=parcel.name,
-            location=location,
-        )
+    await notifier.send_delivery_confirmation(
+        chat_id=user_id,
+        tracking_number=parcel.tracking_number,
+        parcel_name=parcel.name,
+        location=location,
+    )
 
 
 async def _maybe_render_map(
@@ -330,7 +334,6 @@ async def _check_one(  # noqa: PLR0913
             user_id=user_id,
             parcel_repo=parcel_repo,
             notifier=notifier,
-            prefs=prefs,
             location=final_result.last_location,
             now=now,
         )
