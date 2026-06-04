@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import html
+
 from parcel_tracker.i18n import _
+
+
+def esc(value: object) -> str:
+    """HTML-escape an untrusted value for safe interpolation into parse_mode='HTML' text."""
+    return html.escape(str(value), quote=False) if value is not None else ""
 
 
 def welcome() -> str:
