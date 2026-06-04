@@ -55,6 +55,24 @@ async def test_cmd_whoami_replies_with_id() -> None:
 
 
 @pytest.mark.asyncio
+async def test_cmd_whoami_replies_from_callback_context() -> None:
+    """From an inline-menu callback, update.message is None; whoami must still
+    reply via effective_message (regression: the button used to silently no-op)."""
+    update = MagicMock()
+    update.message = None
+    update.effective_message = MagicMock()
+    update.effective_message.reply_text = AsyncMock()
+    update.effective_user = MagicMock()
+    update.effective_user.id = 42
+    update.effective_user.username = "bob"
+    context = _make_context()
+    await cmd_whoami(update, context)
+    update.effective_message.reply_text.assert_awaited_once()
+    text = update.effective_message.reply_text.call_args.args[0]
+    assert "42" in text
+
+
+@pytest.mark.asyncio
 async def test_cmd_adduser_owner_only() -> None:
     """A non-owner cannot add users."""
     update = _make_update(user_id=99)

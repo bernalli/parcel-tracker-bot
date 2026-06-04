@@ -22,13 +22,18 @@ def _is_owner(context: Any, user_id: int) -> bool:
 
 
 async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Reply with the user's Telegram ID and username."""
+    """Reply with the user's Telegram ID and username.
+
+    Uses ``effective_message`` (not ``message``) so the command also works when
+    invoked from an inline-menu callback, where ``update.message`` is None.
+    """
     user = update.effective_user
-    if user is None or update.message is None:
+    reply_to = update.effective_message
+    if user is None or reply_to is None:
         return
     username = f"@{user.username}" if user.username else "(no username)"
     text = f"Your ID: <code>{user.id}</code>\nUsername: {username}"
-    await update.message.reply_text(text, parse_mode="HTML")
+    await reply_to.reply_text(text, parse_mode="HTML")
 
 
 async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

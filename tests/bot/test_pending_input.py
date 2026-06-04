@@ -28,6 +28,26 @@ async def test_pending_rename_consumes_next_message() -> None:
 
 
 @pytest.mark.asyncio
+async def test_pending_revoke_consumes_and_removes() -> None:
+    user_repo = AsyncMock()
+    user_repo.remove_user.return_value = True
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        message=SimpleNamespace(text="123", reply_text=reply),
+    )
+    context = SimpleNamespace(
+        args=[],
+        bot_data={"parcel_repo": AsyncMock(), "user_repo": user_repo},
+        user_data={"pending": {"action": "revoke"}},
+    )
+    await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
+    user_repo.remove_user.assert_awaited_once_with(123)
+    assert "pending" not in context.user_data  # state cleared
+    reply.assert_awaited()
+
+
+@pytest.mark.asyncio
 async def test_no_pending_falls_through_to_autoadd() -> None:
     repo = AsyncMock()
     repo.create.return_value = object()

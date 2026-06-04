@@ -572,6 +572,15 @@ msgstr "Scaduto"
 msgid "Alert"
 msgstr "Avviso"
 
+#: src/parcel_tracker/bot/messages.py:352
+msgid "🗑 Send the numeric user ID to revoke:"
+msgstr "🗑 Manda l'ID utente numerico da revocare:"
+
+#: src/parcel_tracker/bot/messages.py:356
+#, python-brace-format
+msgid "⚠️ User <code>{user_id}</code> is not in the authorised list."
+msgstr "⚠️ L'utente <code>{user_id}</code> non è nella lista autorizzati."
+
 #~ msgid "📦 My parcels"
 #~ msgstr "📦 I miei pacchi"
 
