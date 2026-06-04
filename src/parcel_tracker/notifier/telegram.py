@@ -28,6 +28,12 @@ class _BotLike(Protocol):
     ) -> object: ...
 
 
+def _updates_label() -> str:
+    from parcel_tracker.i18n import _  # noqa: PLC0415
+
+    return _("Updates:")
+
+
 _STATUS_EMOJI: dict[ShipmentStatus, str] = {
     ShipmentStatus.NOT_FOUND: "❓",
     ShipmentStatus.INFO_RECEIVED: "ℹ️",
@@ -117,6 +123,7 @@ class TelegramNotifier:
         chat_id: int,
         tracking_number: str,
         parcel_name: str | None,
+        carrier_name: str | None = None,
         old_status: ShipmentStatus,
         new_status: ShipmentStatus,
         status_changed: bool,
@@ -124,18 +131,28 @@ class TelegramNotifier:
         location: str | None,
         map_png: bytes | None = None,
     ) -> None:
+        from parcel_tracker.bot.formatting import fmt_event_time, status_label  # noqa: PLC0415
+
         emoji = _STATUS_EMOJI.get(new_status, "📦")
-        title = messages.esc(parcel_name or tracking_number)
-        lines = [f"{emoji} <b>{title}</b>", f"<code>{messages.esc(tracking_number)}</code>", ""]
-        if status_changed:
-            lines.append(f"Status: <i>{old_status.value}</i> → <b>{new_status.value}</b>")
+        if parcel_name:
+            header = messages.esc(parcel_name)
+        elif carrier_name:
+            header = f"{messages.esc(carrier_name)} — {status_label(new_status)}"
+        else:
+            header = status_label(new_status)
+
+        lines = [f"{emoji} <b>{header}</b>", f"<code>{messages.esc(tracking_number)}</code>"]
+        if status_changed and parcel_name:
+            lines.append(f"{status_label(old_status)} → <b>{status_label(new_status)}</b>")
         if location:
+            lines.append("")
             lines.append(f"📍 {messages.esc(location)}")
         if new_events:
             lines.append("")
-            lines.append("🆕 <b>Updates:</b>")
+            lines.append(f"🆕 <b>{messages.esc(_updates_label())}</b>")
             for ev in new_events:
-                row = f"• <i>{messages.esc(ev.time)}</i> — {messages.esc(ev.description)}"
+                when = fmt_event_time(ev.time)
+                row = f"• {messages.esc(when)} — {messages.esc(ev.description)}"
                 if ev.location:
                     row += f" ({messages.esc(ev.location)})"
                 lines.append(row)
