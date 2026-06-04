@@ -57,14 +57,13 @@ async def test_post_init_with_admins_pushes_per_admin_scope() -> None:
 
     await _post_init(application)
 
-    # 2 default + 2 per admin id × 2 langs = 2 + 4 = 6 calls
-    assert application.bot.set_my_commands.await_count == 6
+    # Admin functions are now in the inline callback menu; no per-admin scope pushed.
+    # Only 2 calls: default-en + default-it.
+    assert application.bot.set_my_commands.await_count == 2
 
-    # Collect all scopes used
     scopes = [c.kwargs["scope"] for c in application.bot.set_my_commands.await_args_list]
     chat_scopes = [s for s in scopes if isinstance(s, BotCommandScopeChat)]
-    chat_ids = {s.chat_id for s in chat_scopes}
-    assert chat_ids == {100, 200}
+    assert chat_scopes == []
 
 
 @pytest.mark.asyncio
@@ -73,19 +72,14 @@ async def test_post_init_admin_commands_include_admin_extras() -> None:
 
     await _post_init(application)
 
-    # 4 calls total. The 3rd (admin/en) should include all admin extras.
+    # Admin functions are now in the inline callback menu tree; no per-chat-scope
+    # is pushed and COMMANDS_ADMIN_EXTRA_EN is empty.
+    # Verify only the default-scope calls are made and they include the public commands.
     calls = application.bot.set_my_commands.await_args_list
-    admin_en_call = next(
-        c
-        for c in calls
-        if isinstance(c.kwargs.get("scope"), BotCommandScopeChat)
-        and c.kwargs.get("language_code") is None
-    )
-    bot_commands = admin_en_call.args[0]
+    assert len(calls) == 2
+    default_en_call = calls[0]
+    bot_commands = default_en_call.args[0]
     cmd_names = {bc.command for bc in bot_commands}
-    assert "health" in cmd_names
-    assert "stats" in cmd_names
-    # Public commands also present
     assert "list" in cmd_names
     assert "menu" in cmd_names
 
@@ -116,4 +110,6 @@ def test_command_tables_have_consistent_lengths() -> None:
     en_keys = {cmd for cmd, _ in COMMANDS_PUBLIC_EN}
     # Italian is imported lazily by name; symmetry checked below via length.
     assert len(en_keys) == len(COMMANDS_PUBLIC_EN)
-    assert len(COMMANDS_ADMIN_EXTRA_EN) > 0
+    # Admin extras are intentionally empty: admin functions live in the
+    # inline callback menu tree, not in native Telegram commands.
+    assert len(COMMANDS_ADMIN_EXTRA_EN) == 0
