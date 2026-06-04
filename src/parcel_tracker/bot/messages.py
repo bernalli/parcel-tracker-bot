@@ -246,3 +246,7 @@ def carrier_label() -> str:
 
 def authorised_users_count(count: int) -> str:
     return _("Authorised users: <b>{count}</b>").format(count=count)
+
+
+def generic_error() -> str:
+    return _("⚠️ Something went wrong. Please try again in a moment.")

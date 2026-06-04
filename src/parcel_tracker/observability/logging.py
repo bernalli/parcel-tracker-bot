@@ -96,6 +96,8 @@ def configure_logging(*, log_level: str = "INFO", log_format: str = "json") -> N
     root.addHandler(handler)
     root.setLevel(getattr(logging, log_level.upper()))
 
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 def hash_tracking_id(tracking_id: str) -> str:
     """Hash a tracking ID for privacy in structured logs.

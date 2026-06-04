@@ -15,6 +15,7 @@ from telegram import (
 )
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
+from parcel_tracker.bot import messages
 from parcel_tracker.bot.handlers import register_handlers
 from parcel_tracker.bot.health_commands import (
     cmd_health,
@@ -238,6 +239,17 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
             logger.warning("set_my_commands(chat=%s, it) failed", admin_id, exc_info=True)
 
 
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Global error handler: log the exception and, if possible, notify the user."""
+    logger.error("Unhandled exception while processing update", exc_info=context.error)
+    message = getattr(update, "effective_message", None)
+    if message is not None:
+        try:
+            await message.reply_text(messages.generic_error(), parse_mode="HTML")
+        except Exception:  # noqa: BLE001 — never let the error handler raise
+            logger.exception("Failed to deliver error message to user")
+
+
 def main() -> None:
     config = Config.from_env()
 
@@ -275,6 +287,7 @@ def main() -> None:
     )
     _register_health_handlers(application)
     _register_notify_handlers(application)
+    application.add_error_handler(on_error)
 
     # Local import to avoid circular dependency at module level
     from parcel_tracker.core.scheduler import check_updates  # noqa: PLC0415
