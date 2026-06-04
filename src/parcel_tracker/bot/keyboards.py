@@ -20,11 +20,11 @@ def main_menu(*, is_admin: bool = False) -> InlineKeyboardMarkup:
     """Top-level menu keyboard. Admin section visible only to admins."""
     rows: list[list[InlineKeyboardButton]] = [
         [
-            InlineKeyboardButton(_("📦 Parcels"), callback_data="nav:parcels"),
-            InlineKeyboardButton(_("⚙️ Settings"), callback_data="nav:settings"),
+            InlineKeyboardButton(_("📦 My parcels"), callback_data="nav:parcels"),
+            InlineKeyboardButton(_("🗺 Maps"), callback_data="nav:maps"),
         ],
         [
-            InlineKeyboardButton(_("🔧 Advanced"), callback_data="nav:advanced"),
+            InlineKeyboardButton(_("⚙️ Settings"), callback_data="nav:settings"),
             InlineKeyboardButton(_("ℹ️ Help"), callback_data="action:help"),
         ],
     ]
@@ -85,12 +85,37 @@ def admin_submenu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(_("👥 Users"), callback_data="action:users")],
-            [InlineKeyboardButton(_("📈 Stats"), callback_data="action:stats")],
+            [
+                InlineKeyboardButton(_("📈 Stats"), callback_data="action:stats"),
+                InlineKeyboardButton(_("📊 Tracker health"), callback_data="action:health"),
+            ],
             [
                 InlineKeyboardButton(_("📦 Delivered"), callback_data="action:delivered"),
-                InlineKeyboardButton(_("🧹 Clean"), callback_data="action:clean"),
+                InlineKeyboardButton(_("🧹 Cleanup"), callback_data="nav:cleanup"),
             ],
             _back_row(),
+        ]
+    )
+
+
+def cleanup_submenu() -> InlineKeyboardMarkup:
+    """Cleanup submenu — clean delivered, remove all."""
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(_("🧹 Clean delivered"), callback_data="action:clean")],
+            [InlineKeyboardButton(_("⚠️ Remove all"), callback_data="action:cleanall")],
+            [InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:admin")],
+        ]
+    )
+
+
+def users_submenu() -> InlineKeyboardMarkup:
+    """Users submenu — authorise, revoke."""
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(_("➕ Authorise user"), callback_data="action:adduser")],
+            [InlineKeyboardButton(_("🗑 Revoke user"), callback_data="action:revoke")],
+            [InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:admin")],
         ]
     )
 
@@ -112,17 +137,19 @@ def parcel_picker_keyboard(parcels: list[Parcel], action: str) -> InlineKeyboard
 
 def parcel_actions_keyboard(tracking_number: str) -> InlineKeyboardMarkup:
     """Keyboard with actions for a single parcel."""
+    tn = tracking_number
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton(
-                    _("🔄 Refresh"), callback_data=f"parcel:refresh:{tracking_number}"
-                ),
-                InlineKeyboardButton(
-                    _("📋 Events"), callback_data=f"parcel:events:{tracking_number}"
-                ),
+                InlineKeyboardButton(_("🔄 Refresh"), callback_data=f"parcel:refresh:{tn}"),
+                InlineKeyboardButton(_("📋 Events"), callback_data=f"parcel:events:{tn}"),
             ],
-            [InlineKeyboardButton(_("🗑 Remove"), callback_data=f"parcel:remove:{tracking_number}")],
+            [
+                InlineKeyboardButton(_("🗺 Map"), callback_data=f"parcel:map:{tn}"),
+                InlineKeyboardButton(_("✏️ Rename"), callback_data=f"parcel:rename:{tn}"),
+            ],
+            [InlineKeyboardButton(_("🗑 Remove"), callback_data=f"parcel:remove:{tn}")],
+            [InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:parcels")],
         ]
     )
 
