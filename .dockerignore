@@ -5,6 +5,10 @@
 *.db
 *.db-*
 data/
+# Bundled map assets live under src/.../maps/data and MUST stay in the build context
+# (the broad data/ rule above must not strip them).
+!src/parcel_tracker/maps/data
+!src/parcel_tracker/maps/data/**
 plugins/*
 !plugins/README.md
 docker-compose.override.yml
