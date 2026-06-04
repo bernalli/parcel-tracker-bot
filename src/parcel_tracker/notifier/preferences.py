@@ -10,10 +10,16 @@ from parcel_tracker.db.notification_repository import NotificationRepository
 
 _DEFAULT_ON: frozenset[str] = frozenset(
     {
-        ShipmentStatus.DELIVERED.value,
-        ShipmentStatus.EXCEPTION.value,
+        ShipmentStatus.INFO_RECEIVED.value,
+        ShipmentStatus.PICKUP.value,
+        ShipmentStatus.IN_TRANSIT.value,
+        ShipmentStatus.CUSTOMS.value,
         ShipmentStatus.OUT_FOR_DELIVERY.value,
+        ShipmentStatus.DELIVERED.value,
+        ShipmentStatus.UNDELIVERED.value,
+        ShipmentStatus.EXCEPTION.value,
         ShipmentStatus.RETURNED.value,
+        ShipmentStatus.ALERT.value,
     }
 )
 
@@ -48,6 +54,13 @@ class NotificationPreferences:
         if last is None:
             return True
         return datetime.now(UTC) >= last + timedelta(minutes=self._cooldown.minutes)
+
+    async def is_status_enabled(self, user_id: int, status: ShipmentStatus) -> bool:
+        """True if the user wants notifications for this status (no time cooldown)."""
+        if status is ShipmentStatus.NOT_FOUND:
+            return False
+        explicit = await self._repo.get_pref(user_id, status.value)
+        return explicit if explicit is not None else (status.value in _DEFAULT_ON)
 
     async def mark_sent(self, user_id: int, tracking_number: str, status: ShipmentStatus) -> None:
         await self._repo.upsert_cooldown(user_id, tracking_number, status.value)
