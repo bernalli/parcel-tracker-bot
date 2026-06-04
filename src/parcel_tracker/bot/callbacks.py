@@ -33,7 +33,6 @@ from parcel_tracker.bot.admin_commands import (
 from parcel_tracker.bot.auth_commands import cmd_users  # noqa: F401  (lazy lookup target)
 from parcel_tracker.bot.keyboards import (
     admin_submenu,
-    advanced_submenu,
     main_menu,
     parcels_submenu,
     settings_submenu,
@@ -110,13 +109,6 @@ async def _nav_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if query is None:
         return
     await _edit(query, messages.menu_section_settings(), settings_submenu())
-
-
-async def _nav_advanced(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    if query is None:
-        return
-    await _edit(query, messages.menu_section_advanced(), advanced_submenu())
 
 
 async def _nav_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -281,7 +273,6 @@ _NAV_HANDLERS = {
     "main": _nav_main,
     "parcels": _nav_parcels,
     "settings": _nav_settings,
-    "advanced": _nav_advanced,
     "admin": _nav_admin,
 }
 

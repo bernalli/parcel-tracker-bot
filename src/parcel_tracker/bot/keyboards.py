@@ -47,34 +47,14 @@ def parcels_submenu() -> InlineKeyboardMarkup:
 
 
 def settings_submenu() -> InlineKeyboardMarkup:
-    """Settings submenu — language, notifications."""
+    """Settings submenu — language, notifications, whoami."""
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(_("🌍 Language"), callback_data="action:lang"),
                 InlineKeyboardButton(_("🔔 Notifications"), callback_data="action:notify"),
             ],
-            _back_row(),
-        ]
-    )
-
-
-def advanced_submenu() -> InlineKeyboardMarkup:
-    """Advanced submenu — health, map, parcel detail prompts."""
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(_("📊 Tracker health"), callback_data="action:health"),
-                InlineKeyboardButton(_("🗺 Map"), callback_data="action:map"),
-            ],
-            [
-                InlineKeyboardButton(_("🔍 Parcel status"), callback_data="prompt:status"),
-                InlineKeyboardButton(_("📋 Events"), callback_data="prompt:events"),
-            ],
-            [
-                InlineKeyboardButton(_("✏️ Rename"), callback_data="prompt:rename"),
-                InlineKeyboardButton(_("🗑 Remove"), callback_data="prompt:remove"),
-            ],
+            [InlineKeyboardButton(_("🪴 Whoami"), callback_data="action:whoami")],
             _back_row(),
         ]
     )

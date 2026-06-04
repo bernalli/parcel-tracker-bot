@@ -38,3 +38,8 @@ def test_admin_submenu_complete() -> None:
     for action in ("action:users", "action:stats", "action:health",
                    "action:delivered", "nav:cleanup"):
         assert action in cb
+
+
+def test_settings_submenu_has_whoami() -> None:
+    cb = _all_callbacks(keyboards.settings_submenu())
+    assert "action:whoami" in cb
