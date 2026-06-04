@@ -99,9 +99,7 @@ async def test_post_init_clears_stale_per_chat_command_scopes() -> None:
 
     deleted = application.bot.delete_my_commands.await_args_list
     assert all(isinstance(c.kwargs["scope"], BotCommandScopeChat) for c in deleted)
-    chat_ids_langs = {
-        (c.kwargs["scope"].chat_id, c.kwargs.get("language_code")) for c in deleted
-    }
+    chat_ids_langs = {(c.kwargs["scope"].chat_id, c.kwargs.get("language_code")) for c in deleted}
     assert chat_ids_langs == {(42, None), (42, "it"), (99, None), (99, "it")}
 
 

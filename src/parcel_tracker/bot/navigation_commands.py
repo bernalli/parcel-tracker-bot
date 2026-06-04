@@ -71,16 +71,12 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     repo = context.bot_data["parcel_repo"]
     parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if parcel is None:
-        await reply_to.reply_text(
-            messages.parcel_not_found(tracking_number), parse_mode="HTML"
-        )
+        await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
     geocoder = context.bot_data.get("geocoder")
     map_renderer = context.bot_data.get("map_renderer")
     if map_renderer is None:
-        await reply_to.reply_text(
-            messages.map_no_position(tracking_number), parse_mode="HTML"
-        )
+        await reply_to.reply_text(messages.map_no_position(tracking_number), parse_mode="HTML")
         return
     import asyncio  # noqa: PLC0415
 
@@ -91,9 +87,7 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     history_sorted = sorted(history, key=lambda e: e.time or "")
     waypoints = build_route_waypoints(history_sorted, geocoder) if geocoder else []
     if not waypoints:
-        await reply_to.reply_text(
-            messages.map_no_position(tracking_number), parse_mode="HTML"
-        )
+        await reply_to.reply_text(messages.map_no_position(tracking_number), parse_mode="HTML")
         return
     mode = infer_transport_mode(parcel.carrier_name, parcel.last_event)
     try:
@@ -106,6 +100,4 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
     except Exception:  # noqa: BLE001 — map is best-effort; degrade gracefully, never crash
         logger.warning("map render/send failed for %s", tracking_number, exc_info=True)
-        await reply_to.reply_text(
-            messages.map_no_position(tracking_number), parse_mode="HTML"
-        )
+        await reply_to.reply_text(messages.map_no_position(tracking_number), parse_mode="HTML")

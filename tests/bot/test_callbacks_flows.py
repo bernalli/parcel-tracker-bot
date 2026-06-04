@@ -25,7 +25,10 @@ async def test_nav_parcels_lists_parcels_as_picker(monkeypatch) -> None:
     repo.list_active_for_user.return_value = [Parcel(tracking_number="A", user_id=10)]
     q = _query("nav:parcels")
     update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
-    context = SimpleNamespace(bot_data={"parcel_repo": repo, "config": SimpleNamespace(admin_user_ids=frozenset())}, user_data={})
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": repo, "config": SimpleNamespace(admin_user_ids=frozenset())},
+        user_data={},
+    )
     await callbacks.handle_callback(update, context)
     q.edit_message_text.assert_awaited()
 
@@ -71,6 +74,7 @@ async def test_parcel_map_renders_for_selected(monkeypatch) -> None:
 
     async def fake_map(update, context):
         rendered["called"] = context.args
+
     monkeypatch.setattr(callbacks, "cmd_map", fake_map)
     q = _query("parcel:map:A")
     update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))

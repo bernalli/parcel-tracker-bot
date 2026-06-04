@@ -1,4 +1,5 @@
 """Test for cmd_rename implementation."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace

@@ -1,4 +1,5 @@
 """Test the native Telegram command list configuration."""
+
 from __future__ import annotations
 
 from parcel_tracker import main

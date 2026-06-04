@@ -1,4 +1,5 @@
 """Tests for date/status formatting helpers."""
+
 from __future__ import annotations
 
 import pytest

@@ -27,8 +27,13 @@ class _T(AbstractTracker):
 @pytest.mark.asyncio
 async def test_delivered_prompt_sent_even_when_status_disabled() -> None:
     parcel = Parcel(tracking_number="FAKE1", user_id=7, status=ShipmentStatus.OUT_FOR_DELIVERY)
-    result = TrackingResult(tracking_number="FAKE1", found=True,
-                            status=ShipmentStatus.DELIVERED, last_event="Delivered", events=[])
+    result = TrackingResult(
+        tracking_number="FAKE1",
+        found=True,
+        status=ShipmentStatus.DELIVERED,
+        last_event="Delivered",
+        events=[],
+    )
     detector = MagicMock()
     detector.detect.return_value = [_T(result)]
     repo = MagicMock()
@@ -54,9 +59,17 @@ async def test_delivered_prompt_sent_even_when_status_disabled() -> None:
     prefs = MagicMock()
     prefs.is_status_enabled = AsyncMock(return_value=False)  # DELIVERED muted
     ctx = MagicMock()
-    ctx.bot_data = {"parcel_repo": repo, "registry": MagicMock(), "detector": detector,
-                    "health": health, "notifier": notifier, "user_repo": user_repo,
-                    "config": config, "rate_limiter": RateLimiter(default_rate_per_min=600),
-                    "prefs": prefs, "now": lambda: datetime(2026, 6, 4, 12, 0, tzinfo=UTC)}
+    ctx.bot_data = {
+        "parcel_repo": repo,
+        "registry": MagicMock(),
+        "detector": detector,
+        "health": health,
+        "notifier": notifier,
+        "user_repo": user_repo,
+        "config": config,
+        "rate_limiter": RateLimiter(default_rate_per_min=600),
+        "prefs": prefs,
+        "now": lambda: datetime(2026, 6, 4, 12, 0, tzinfo=UTC),
+    }
     await check_updates(ctx)
     notifier.send_delivery_confirmation.assert_awaited_once()  # prompt sent despite muted pref

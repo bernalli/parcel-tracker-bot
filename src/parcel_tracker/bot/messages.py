@@ -353,6 +353,4 @@ def prompt_revoke_value() -> str:
 
 
 def user_not_present(user_id: int) -> str:
-    return _("⚠️ User <code>{user_id}</code> is not in the authorised list.").format(
-        user_id=user_id
-    )
+    return _("⚠️ User <code>{user_id}</code> is not in the authorised list.").format(user_id=user_id)

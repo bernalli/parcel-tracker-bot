@@ -14,11 +14,20 @@ from parcel_tracker.db.models import Parcel, ShipmentStatus
 async def test_stats_counts_owner_and_parcels() -> None:
     parcel_repo = AsyncMock()
     parcel_repo.list_active_for_user.return_value = [
-        Parcel(tracking_number="A", user_id=10, carrier_name="UPS", status=ShipmentStatus.IN_TRANSIT),
-        Parcel(tracking_number="B", user_id=10, carrier_name="DHL", status=ShipmentStatus.OUT_FOR_DELIVERY),
+        Parcel(
+            tracking_number="A", user_id=10, carrier_name="UPS", status=ShipmentStatus.IN_TRANSIT
+        ),
+        Parcel(
+            tracking_number="B",
+            user_id=10,
+            carrier_name="DHL",
+            status=ShipmentStatus.OUT_FOR_DELIVERY,
+        ),
     ]
     parcel_repo.list_archived_for_user.return_value = [
-        Parcel(tracking_number="C", user_id=10, carrier_name="UPS", status=ShipmentStatus.DELIVERED),
+        Parcel(
+            tracking_number="C", user_id=10, carrier_name="UPS", status=ShipmentStatus.DELIVERED
+        ),
     ]
     parcel_repo.count_events_for_user.return_value = 42
     user_repo = AsyncMock()
@@ -43,7 +52,7 @@ async def test_stats_counts_owner_and_parcels() -> None:
     )
     await admin_commands.cmd_stats(update, context)
     text = reply.await_args.args[0]
-    assert "1" in text                 # owner counted (not 0)
+    assert "1" in text  # owner counted (not 0)
     assert "Utenti" in text or "users" in text.lower()
     assert "UPS" in text and "DHL" in text
-    assert "42" in text                # events
+    assert "42" in text  # events
