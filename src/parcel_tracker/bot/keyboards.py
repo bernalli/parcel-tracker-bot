@@ -34,11 +34,12 @@ def main_menu(*, is_admin: bool = False) -> InlineKeyboardMarkup:
 
 
 def parcels_submenu() -> InlineKeyboardMarkup:
-    """Parcels submenu — list, add (prompt), refresh all."""
+    """Parcels submenu — list, add (prompt), history, refresh all."""
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(_("📋 Parcel list"), callback_data="action:list")],
             [InlineKeyboardButton(_("➕ Add parcel"), callback_data="prompt:add")],
+            [InlineKeyboardButton(_("📦 History"), callback_data="action:history")],
             [InlineKeyboardButton(_("🔄 Refresh all"), callback_data="action:checkall")],
             _back_row(),
         ]
