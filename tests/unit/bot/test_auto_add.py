@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from parcel_tracker.bot.parcel_commands import handle_message
-from parcel_tracker.core.tracker_base import AbstractTracker
+from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult
 
 
 class _Ups(AbstractTracker):
@@ -12,7 +12,7 @@ class _Ups(AbstractTracker):
     priority = 90
     tracking_id_patterns = [re.compile(r"^1Z[0-9A-Z]{16}$")]
 
-    async def fetch(self, tracking_id: str):  # pragma: no cover
+    async def fetch(self, tracking_id: str) -> TrackingResult:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -25,13 +25,14 @@ def _update(text: str) -> MagicMock:
     return update
 
 
-def _context(created) -> MagicMock:
+def _context(created: object) -> MagicMock:
     repo = MagicMock()
     repo.create = AsyncMock(return_value=created)
     detector = MagicMock()
     detector.detect.return_value = [_Ups()]
     context = MagicMock()
     context.bot_data = {"parcel_repo": repo, "detector": detector}
+    context.user_data = {}  # no pending action
     return context
 
 
