@@ -15,27 +15,20 @@ def esc(value: object) -> str:
 def welcome() -> str:
     return _(
         "📦 <b>Parcel Tracker Bot</b>\n\n"
-        "Track your parcels automatically and get smart notifications.\n\n"
-        "<b>Getting started:</b>\n"
-        "• Send a tracking number to add it\n"
-        "• Use <code>/add CODE [name] [carrier]</code>\n"
-        "• Press /menu for the interactive menu"
+        "Track your parcels and get smart notifications with maps.\n\n"
+        "<b>Quick start:</b>\n"
+        "• Just send a tracking number to start tracking it\n"
+        "• Press /menu for everything else (buttons)"
     )
 
 
 def help_text() -> str:
     return _(
-        "<b>Available commands:</b>\n"
-        "/add CODE [name] [carrier] - add a parcel\n"
-        "/list - list active parcels\n"
-        "/status CODE - parcel details\n"
-        "/events CODE - event history\n"
-        "/remove CODE - remove parcel\n"
-        "/rename CODE NAME - rename parcel\n"
-        "/checkall - refresh all parcels\n"
-        "/menu - interactive menu\n"
-        "/lang [code] - change language\n"
-        "/help - this help"
+        "📦 <b>Parcel Tracker Bot</b>\n\n"
+        "• Send a tracking number → I track it automatically\n"
+        "• /menu — buttons for list, status, events, map, settings\n"
+        "• /list — your active parcels\n"
+        "• /help — this message"
     )
 
 
