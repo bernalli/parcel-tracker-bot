@@ -23,6 +23,7 @@ DEFAULT_INTERVALS_MIN: dict[ShipmentStatus, int] = {
 
 
 DISPUTED_INTERVAL_MIN: int = 30
+DISPUTED_MAX_AGE_HOURS: int = 72
 
 
 def get_interval_minutes(status: ShipmentStatus) -> int:
@@ -36,9 +37,20 @@ def is_due(
     now: datetime,
     *,
     delivery_disputed: bool = False,
+    delivered_at: datetime | None = None,
 ) -> bool:
-    """True if a parcel needs re-check given status, last check time, and dispute flag."""
+    """True if a parcel needs re-check given status, last check time, and dispute flag.
+
+    Disputed deliveries (user tapped "Not yet") keep polling at DISPUTED_INTERVAL_MIN
+    only within a grace window of DISPUTED_MAX_AGE_HOURS after `delivered_at`; once the
+    window elapses with no new events, polling stops to avoid re-checking forever.
+    """
     if status is ShipmentStatus.DELIVERED and delivery_disputed:
+        if (
+            delivered_at is not None
+            and now - delivered_at > timedelta(hours=DISPUTED_MAX_AGE_HOURS)
+        ):
+            return False
         interval = DISPUTED_INTERVAL_MIN
     else:
         interval = get_interval_minutes(status)
