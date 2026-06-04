@@ -38,6 +38,7 @@ def _context(created) -> MagicMock:
 @pytest.mark.asyncio
 async def test_auto_add_creates_on_valid_code() -> None:
     from parcel_tracker.db.models import Parcel
+
     update = _update("1Z999AA10123456784")
     ctx = _context(created=Parcel(tracking_number="1Z999AA10123456784", user_id=7))
     await handle_message(update, ctx)
@@ -48,7 +49,8 @@ async def test_auto_add_creates_on_valid_code() -> None:
 async def test_auto_add_ignores_chat_text() -> None:
     update = _update("ciao come stai")
     ctx = _context(created=None)
-    track17 = MagicMock(); track17.priority = 1
+    track17 = MagicMock()
+    track17.priority = 1
     ctx.bot_data["detector"].detect.return_value = [track17]  # only universal matcher
     await handle_message(update, ctx)
     ctx.bot_data["parcel_repo"].create.assert_not_awaited()
