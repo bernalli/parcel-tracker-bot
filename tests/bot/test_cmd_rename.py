@@ -38,3 +38,6 @@ async def test_cmd_rename_not_found() -> None:
     context = SimpleNamespace(args=["TNX", "whatever"], bot_data={"parcel_repo": repo})
     await parcel_commands.cmd_rename(update, context)
     repo.rename.assert_awaited_once()
+    from parcel_tracker.bot import messages
+
+    reply.assert_awaited_once_with(messages.parcel_not_found("TNX"), parse_mode="HTML")
