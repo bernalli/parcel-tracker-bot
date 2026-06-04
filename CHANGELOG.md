@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-06-04
+
+A large UX + features release. The bot is now fully button-driven — you never
+have to type a slash command — with self-hosted route maps on every update,
+cleaner notifications, a complete delivery lifecycle, and real admin tooling.
+
+### Added
+
+- **Self-hosted maps** attached to status updates and `/map`: an offline
+  GeoNames geocoder (no external geocoding service), OpenStreetMap static
+  tiles (no account), a route polyline through the parcel's geocodable event
+  chain (origin → current position), and a transport-mode icon
+  (plane / ship / train / truck / parcel) drawn on the latest point.
+- **Delivery lifecycle**: on a Delivered transition the bot asks the user to
+  confirm receipt (Yes / No), archives confirmed parcels to `/history`, keeps
+  polling disputed ("Not yet") deliveries, and offers Undo on auto-add.
+- **Button-first navigation**: a tap-driven inline `/menu` tree (My parcels /
+  Maps / Settings / Admin / Help). Per-parcel actions (refresh, events, map,
+  rename, remove) and admin tools (users, stats, tracker health, delivered,
+  cleanup) are all reachable by tapping. Actions that need text input
+  (rename, authorise/revoke user) use a guided prompt that captures your next
+  message — no slash command required.
+- **Real `/stats`**: parcels by status, breakdown by carrier, tracking activity
+  (event count, last check) and tracker health (quarantined count), with a
+  correct authorised-user count that includes the owner.
+- **Bundled GeoNames `cities15000` dataset** (CC-BY, attributed in `NOTICE`)
+  with alternate-name indexing so local city names (e.g. Milano, Roma) resolve.
+
+### Changed
+
+- **Cleaner notifications**: the tracking number appears once, the carrier and a
+  localized status label are shown, event timestamps are formatted as
+  `dd/mm/YYYY HH:MM`, and the map (when available) carries the message as its
+  caption.
+- **Slim native command list**: the Telegram "/" menu now shows only
+  `menu` / `list` / `help`; all admin functions live in the inline menu tree.
+- `/rename` now persists the new name (ownership-scoped); `/checkall` now runs a
+  real on-demand check of the user's active parcels.
+
+### Fixed
+
+- **Stale per-chat command scopes**: earlier versions pushed an expanded admin
+  command list via `BotCommandScopeChat`, which overrode the default scope and
+  kept showing the old, larger list. Startup now clears those per-chat scopes so
+  the slim default applies.
+- **Security**: per-user ownership enforced on parcel commands and confirmation
+  callbacks (IDOR), an admin gate on the authorise/revoke-user flows, HTML
+  escaping of untrusted values in bot output, a global error handler, and
+  muting of token-bearing URLs in logs.
+- Persist tracking events and refresh the denormalised latest-event fields used
+  by `/status` and notifications; notify on new events OR a status change.
+
+### Internationalisation
+
+- Italian (`it`) translations for the v0.2 UI, including status labels, the
+  stats block, menu buttons, pickers and guided prompts; English baseline.
+
 ## [0.1.1] — 2026-05-26
 
 ### Fixed
