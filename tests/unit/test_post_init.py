@@ -25,8 +25,10 @@ def _make_application(admin_user_ids: frozenset[int]) -> MagicMock:
     application = MagicMock()
     application.bot = MagicMock()
     application.bot.set_my_commands = AsyncMock()
+    application.bot.delete_my_commands = AsyncMock()
     config = MagicMock()
     config.admin_user_ids = admin_user_ids
+    config.owner_id = None
     application.bot_data = {"config": config}
     return application
 
@@ -82,6 +84,25 @@ async def test_post_init_admin_commands_include_admin_extras() -> None:
     cmd_names = {bc.command for bc in bot_commands}
     assert "list" in cmd_names
     assert "menu" in cmd_names
+
+
+@pytest.mark.asyncio
+async def test_post_init_clears_stale_per_chat_command_scopes() -> None:
+    """Earlier versions pushed an expanded admin command list per chat via
+    BotCommandScopeChat. A chat-scoped list overrides the default scope, so
+    post_init must delete those stale per-chat scopes (owner + admins, both
+    languages) so the affected chats fall back to the slim default list."""
+    application = _make_application(frozenset({42, 99}))
+    application.bot_data["config"].owner_id = 42  # owner is deduped with admins
+
+    await _post_init(application)
+
+    deleted = application.bot.delete_my_commands.await_args_list
+    assert all(isinstance(c.kwargs["scope"], BotCommandScopeChat) for c in deleted)
+    chat_ids_langs = {
+        (c.kwargs["scope"].chat_id, c.kwargs.get("language_code")) for c in deleted
+    }
+    assert chat_ids_langs == {(42, None), (42, "it"), (99, None), (99, "it")}
 
 
 @pytest.mark.asyncio
