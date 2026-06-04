@@ -54,6 +54,7 @@ def _make_context(
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
     parcel_repo.update_latest = AsyncMock()
+    parcel_repo.set_delivered = AsyncMock()
 
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[parcel.user_id])
@@ -69,6 +70,8 @@ def _make_context(
 
     notifier = MagicMock()
     notifier.send_status_update = AsyncMock()
+    notifier.send_events_update = AsyncMock()
+    notifier.send_delivery_confirmation = AsyncMock()
 
     config = MagicMock()
     config.batch_size = 10
@@ -77,6 +80,7 @@ def _make_context(
 
     prefs = MagicMock()
     prefs.is_allowed = AsyncMock(return_value=True)
+    prefs.is_status_enabled = AsyncMock(return_value=True)
     prefs.mark_sent = AsyncMock()
 
     fixed_now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
@@ -146,7 +150,7 @@ async def test_fallback_when_primary_returns_not_found() -> None:
     ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
         "FAKE123", ShipmentStatus.DELIVERED
     )
-    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
     ctx.bot_data["health"].record_failure.assert_awaited_once_with("primary_fail", "FAKE123")
     ctx.bot_data["health"].record_success.assert_awaited_once_with("secondary_success", "FAKE123")
     ctx.bot_data["parcel_repo"].set_last_check_at.assert_awaited_once()
@@ -170,7 +174,7 @@ async def test_fallback_when_primary_raises() -> None:
 
     primary.fetch.assert_awaited_once_with("FAKE123")
     secondary.fetch.assert_awaited_once_with("FAKE123")
-    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
     ctx.bot_data["health"].record_failure.assert_awaited_once_with("primary_raises", "FAKE123")
     ctx.bot_data["health"].record_success.assert_awaited_once_with("secondary_success", "FAKE123")
 
@@ -197,7 +201,7 @@ async def test_fallback_skips_quarantined_primary() -> None:
 
     primary.fetch.assert_not_awaited()  # quarantined skip means fetch not called
     secondary.fetch.assert_awaited_once_with("FAKE123")
-    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -218,7 +222,8 @@ async def test_all_matches_fail_records_each_failure_and_no_notification() -> No
 
     primary.fetch.assert_awaited_once_with("FAKE123")
     secondary.fetch.assert_awaited_once_with("FAKE123")
-    ctx.bot_data["notifier"].send_status_update.assert_not_called()
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_not_called()
+    ctx.bot_data["notifier"].send_events_update.assert_not_called()
     ctx.bot_data["parcel_repo"].update_status.assert_not_called()
 
     failure_calls = ctx.bot_data["health"].record_failure.await_args_list
@@ -249,4 +254,4 @@ async def test_primary_success_secondary_not_called() -> None:
     secondary.fetch.assert_not_awaited()
     ctx.bot_data["health"].record_success.assert_awaited_once_with("primary_success", "FAKE123")
     ctx.bot_data["health"].record_failure.assert_not_awaited()
-    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()

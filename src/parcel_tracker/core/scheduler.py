@@ -14,7 +14,7 @@ from parcel_tracker.core.health import HealthManager
 from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.status_intervals import is_due
 from parcel_tracker.core.tracker_base import TrackingResult
-from parcel_tracker.db.models import Parcel, ShipmentStatus
+from parcel_tracker.db.models import Parcel, ShipmentStatus, TrackingEvent
 from parcel_tracker.db.repository import ParcelRepository
 from parcel_tracker.notifier.telegram import TelegramNotifier
 from parcel_tracker.observability.metrics import (
@@ -136,10 +136,14 @@ async def _persist_result(
     parcel_repo: ParcelRepository,
     tracking_number: str,
     result: TrackingResult,
-) -> None:
+) -> list[TrackingEvent]:
     """Persist new events (canonical store = tracking_history) and refresh the
-    denormalised latest-event fields used by /status and notifications."""
-    await parcel_repo.add_events_dedup(tracking_number, result.events)
+    denormalised latest-event fields used by /status and notifications.
+
+    Returns the events that were genuinely new (dedup-filtered), so the caller
+    can decide whether a notification is warranted.
+    """
+    new_events = await parcel_repo.add_events_dedup(tracking_number, result.events)
     if result.last_event is not None:
         await parcel_repo.update_latest(
             tracking_number,
@@ -147,6 +151,49 @@ async def _persist_result(
             result.last_event_time,
             result.last_location,
         )
+    return new_events
+
+
+async def _handle_delivered_transition(**kwargs: Any) -> None:  # replaced by a later task (F3.3)
+    notifier = kwargs["notifier"]
+    parcel = kwargs["parcel"]
+    await notifier.send_delivery_confirmation(
+        chat_id=kwargs["user_id"],
+        tracking_number=parcel.tracking_number,
+        parcel_name=parcel.name,
+        location=kwargs["location"],
+    )
+
+
+async def _notify(  # noqa: PLR0913
+    *,
+    parcel: Parcel,
+    user_id: int,
+    notifier: TelegramNotifier,
+    prefs: Any | None,
+    final_result: TrackingResult,
+    status_changed: bool,
+    new_events: list[TrackingEvent],
+) -> None:
+    """Render a per-event update message, gated by the user's status preference.
+
+    No time cooldown: event dedup already prevents repeated notifications for the
+    same events, so an explicit cooldown would only suppress legitimate updates.
+    """
+    enabled = prefs is None or await prefs.is_status_enabled(user_id, final_result.status)
+    if not enabled:
+        return
+    ordered = sorted(new_events, key=lambda e: e.time or "")
+    await notifier.send_events_update(
+        chat_id=user_id,
+        tracking_number=parcel.tracking_number,
+        parcel_name=parcel.name,
+        old_status=parcel.status,
+        new_status=final_result.status,
+        status_changed=status_changed,
+        new_events=ordered,
+        location=final_result.last_location,
+    )
 
 
 async def _check_one(  # noqa: PLR0913
@@ -218,22 +265,35 @@ async def _check_one(  # noqa: PLR0913
     if final_result is None:
         return
 
-    await _persist_result(parcel_repo, parcel.tracking_number, final_result)
+    new_events = await _persist_result(parcel_repo, parcel.tracking_number, final_result)
 
-    if final_result.status != parcel.status:
+    status_changed = final_result.status != parcel.status
+    if status_changed:
         await parcel_repo.update_status(parcel.tracking_number, final_result.status)
-        gated = prefs is None or await prefs.is_allowed(
-            user_id, final_result.status, parcel.tracking_number
+
+    # Delivered transition: hand off to the confirmation flow (real impl added later).
+    if status_changed and final_result.status is ShipmentStatus.DELIVERED:
+        await _handle_delivered_transition(
+            parcel=parcel,
+            user_id=user_id,
+            parcel_repo=parcel_repo,
+            notifier=notifier,
+            prefs=prefs,
+            location=final_result.last_location,
+            now=now,
         )
-        if gated:
-            last_event = final_result.events[0] if final_result.events else None
-            await notifier.send_status_update(
-                chat_id=user_id,
-                tracking_number=parcel.tracking_number,
-                parcel_name=parcel.name,
-                old_status=parcel.status,
-                new_status=final_result.status,
-                last_event=last_event,
-            )
-            if prefs is not None:
-                await prefs.mark_sent(user_id, parcel.tracking_number, final_result.status)
+        return
+
+    # Notify on new events OR a coarse status change (no time cooldown — event
+    # dedup already prevents duplicate notifications for the same events).
+    if not (new_events or status_changed):
+        return
+    await _notify(
+        parcel=parcel,
+        user_id=user_id,
+        notifier=notifier,
+        prefs=prefs,
+        final_result=final_result,
+        status_changed=status_changed,
+        new_events=new_events,
+    )
