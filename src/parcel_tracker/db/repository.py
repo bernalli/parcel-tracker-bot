@@ -220,6 +220,57 @@ class ParcelRepository:
             )
             await conn.commit()
 
+    async def set_delivered(self, tracking_number: str, when: datetime) -> None:
+        """Mark a parcel Delivered and stamp delivered_at (kept active until confirmed)."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET status = ?, delivered_at = ?, updated_at = CURRENT_TIMESTAMP "
+                "WHERE tracking_number = ?",
+                (ShipmentStatus.DELIVERED.value, when.isoformat(), tracking_number),
+            )
+            await conn.commit()
+
+    async def deactivate(self, tracking_number: str) -> None:
+        """Set is_active = 0 to archive a parcel."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET is_active = 0, updated_at = CURRENT_TIMESTAMP "
+                "WHERE tracking_number = ?",
+                (tracking_number,),
+            )
+            await conn.commit()
+
+    async def reactivate(self, tracking_number: str) -> None:
+        """Set is_active = 1 to restore an archived parcel."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET is_active = 1, updated_at = CURRENT_TIMESTAMP "
+                "WHERE tracking_number = ?",
+                (tracking_number,),
+            )
+            await conn.commit()
+
+    async def set_disputed(self, tracking_number: str, disputed: bool) -> None:
+        """Toggle the delivery_disputed flag on a parcel."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET delivery_disputed = ?, updated_at = CURRENT_TIMESTAMP "
+                "WHERE tracking_number = ?",
+                (1 if disputed else 0, tracking_number),
+            )
+            await conn.commit()
+
+    async def list_archived_for_user(self, *, user_id: int) -> list[Parcel]:
+        """Return inactive parcels that were delivered, most recent first."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT * FROM parcels WHERE user_id = ? AND is_active = 0 "
+                "AND delivered_at IS NOT NULL ORDER BY delivered_at DESC",
+                (user_id,),
+            )
+            rows = await cursor.fetchall()
+        return [_row_to_parcel(row) for row in rows]
+
 
 def _parse_ts(raw: str | None) -> datetime | None:
     if not raw:
