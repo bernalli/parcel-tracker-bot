@@ -234,6 +234,17 @@ class ParcelRepository:
             )
             await conn.commit()
 
+    async def archive_delivered_for_user(self, *, user_id: int) -> int:
+        """Deactivate all active Delivered parcels for a user. Returns count archived."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "UPDATE parcels SET is_active = 0, updated_at = CURRENT_TIMESTAMP "
+                "WHERE user_id = ? AND is_active = 1 AND status = ?",
+                (user_id, ShipmentStatus.DELIVERED.value),
+            )
+            await conn.commit()
+            return cursor.rowcount
+
     async def deactivate(self, tracking_number: str) -> None:
         """Set is_active = 0 to archive a parcel."""
         async with get_connection(self._db_path) as conn:

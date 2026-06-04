@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from parcel_tracker.bot import messages
-from parcel_tracker.db.models import Parcel, ShipmentStatus
+from parcel_tracker.db.models import Parcel
 
 if TYPE_CHECKING:
     from telegram import Update
@@ -120,12 +120,11 @@ async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
-    # TODO: actual remove method on repo. For now: mark as Expired as a stand-in.
     parcel = await repo.get_by_tracking_number(tracking_number)
     if parcel is None:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
-    await repo.update_status(tracking_number, ShipmentStatus.EXPIRED)
+    await repo.deactivate(tracking_number)
     await reply_to.reply_text(messages.parcel_removed(tracking_number), parse_mode="HTML")
 
 

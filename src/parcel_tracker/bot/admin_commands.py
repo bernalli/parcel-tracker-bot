@@ -30,7 +30,8 @@ async def cmd_clean(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_owner(context, user.id):
         await reply_to.reply_text(messages.owner_only(), parse_mode="HTML")
         return
-    # TODO: actual cleaning logic via repo.archive_old / repo.delete_inactive
+    repo = context.bot_data["parcel_repo"]
+    await repo.archive_delivered_for_user(user_id=user.id)
     await reply_to.reply_text(messages.clean_done(), parse_mode="HTML")
 
 
@@ -43,19 +44,21 @@ async def cmd_cleanall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not _is_owner(context, user.id):
         await reply_to.reply_text(messages.owner_only(), parse_mode="HTML")
         return
-    # TODO: actual delete-all logic
+    repo = context.bot_data["parcel_repo"]
+    await repo.archive_delivered_for_user(user_id=user.id)
     await reply_to.reply_text(messages.cleanall_done(), parse_mode="HTML")
 
 
 async def cmd_delivered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show delivered parcels for the user."""
+    """Show delivered parcels (active + archived) for the user."""
     user = update.effective_user
     reply_to = update.effective_message
     if user is None or reply_to is None:
         return
     repo = context.bot_data["parcel_repo"]
-    parcels = await repo.list_active_for_user(user_id=user.id)
-    delivered = [p for p in parcels if p.status.value == "Delivered"]
+    active = await repo.list_active_for_user(user_id=user.id)
+    archived = await repo.list_archived_for_user(user_id=user.id)
+    delivered = [p for p in active if p.status.value == "Delivered"] + list(archived)
     if not delivered:
         await reply_to.reply_text(messages.no_delivered_parcels(), parse_mode="HTML")
         return

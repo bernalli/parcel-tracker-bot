@@ -29,6 +29,17 @@ async def test_set_delivered_and_archive(tmp_db_path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_archive_delivered_for_user(tmp_db_path) -> None:
+    from datetime import UTC, datetime
+
+    repo = await _repo(tmp_db_path)  # TN1 active InTransit
+    await repo.set_delivered("TN1", datetime(2026, 6, 3, tzinfo=UTC))
+    n = await repo.archive_delivered_for_user(user_id=7)
+    assert n == 1
+    assert await repo.list_active_for_user(user_id=7) == []
+
+
+@pytest.mark.asyncio
 async def test_disputed_roundtrip_and_reactivate(tmp_db_path) -> None:
     repo = await _repo(tmp_db_path)
     await repo.deactivate("TN1")
