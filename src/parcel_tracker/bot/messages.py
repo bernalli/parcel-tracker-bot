@@ -330,3 +330,19 @@ def parcel_added_auto(tracking_number: str) -> str:
     return _("✅ Added <code>{tracking_number}</code> and tracking it now.").format(
         tracking_number=esc(tracking_number)
     )
+
+
+def menu_maps_title() -> str:
+    return _("🗺 Choose a parcel to see its route map:")
+
+
+def parcel_detail_title(tracking_number: str) -> str:
+    return _("📦 <code>{tn}</code> — choose an action:").format(tn=tracking_number)
+
+
+def prompt_rename_value(tracking_number: str) -> str:
+    return _("✏️ Send the new name for <code>{tn}</code>:").format(tn=tracking_number)
+
+
+def prompt_adduser_value() -> str:
+    return _("➕ Send the numeric user ID to authorise:")
