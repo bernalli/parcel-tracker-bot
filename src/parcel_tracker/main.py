@@ -9,6 +9,7 @@ from typing import Any
 
 from telegram import (
     BotCommand,
+    BotCommandScopeChat,
     BotCommandScopeDefault,
     Update,
 )
@@ -200,6 +201,29 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
         await bot.set_my_commands(public_it, scope=BotCommandScopeDefault(), language_code="it")
     except Exception:  # noqa: BLE001
         logger.warning("set_my_commands(default, it) failed", exc_info=True)
+
+    # Clear stale per-chat command lists pushed by earlier versions via
+    # BotCommandScopeChat (admins used to receive an expanded native list). A
+    # chat-scoped list overrides the default scope, so without deleting it those
+    # chats keep showing the old, larger list. Admin functions now live entirely
+    # in the inline callback menu, so the slim default scope should apply to all.
+    stale_chat_ids: set[int] = set()
+    owner_id = getattr(config, "owner_id", None)
+    if isinstance(owner_id, int):
+        stale_chat_ids.add(owner_id)
+    for admin_id in getattr(config, "admin_user_ids", frozenset()):
+        if isinstance(admin_id, int):
+            stale_chat_ids.add(admin_id)
+    for chat_id in stale_chat_ids:
+        for lc in (None, "it"):
+            try:
+                await bot.delete_my_commands(
+                    scope=BotCommandScopeChat(chat_id=chat_id), language_code=lc
+                )
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "delete_my_commands(chat=%s, lc=%s) failed", chat_id, lc, exc_info=True
+                )
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
