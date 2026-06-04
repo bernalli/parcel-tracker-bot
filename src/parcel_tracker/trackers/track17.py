@@ -17,6 +17,16 @@ from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
 logger = logging.getLogger(__name__)
 
 
+def _fmt_location(address: dict[str, Any] | None) -> str | None:
+    """Build a 'City, Country' string from a 17track address object; None if empty."""
+    if not address:
+        return None
+    city = (address.get("city") or "").strip()
+    country = (address.get("country") or address.get("country_iso") or "").strip()
+    parts = [p for p in (city, country) if p]
+    return ", ".join(parts) or None
+
+
 _STATUS_MAP: dict[str, ShipmentStatus] = {
     "NotFound": ShipmentStatus.NOT_FOUND,
     "InfoReceived": ShipmentStatus.INFO_RECEIVED,
@@ -101,12 +111,14 @@ class Track17Tracker(AbstractTracker):
 
         events: list[TrackingEvent] = []
         for provider in providers:
+            provider_name = (provider.get("provider") or {}).get("name")
             for evt in provider.get("events") or []:
                 events.append(
                     TrackingEvent(
                         time=evt.get("time_iso", ""),
                         description=evt.get("description", ""),
-                        location=(evt.get("address") or {}).get("city"),
+                        location=_fmt_location(evt.get("address")),
+                        carrier=provider_name,
                     )
                 )
 
@@ -116,6 +128,7 @@ class Track17Tracker(AbstractTracker):
             status=_STATUS_MAP.get(latest.get("status", ""), ShipmentStatus.NOT_FOUND),
             last_event=latest_event.get("description"),
             last_event_time=latest_event.get("time_iso"),
+            last_location=_fmt_location(latest_event.get("address")),
             events=events,
             origin=(track_info.get("shipping_info", {}).get("shipper_address") or {}).get(
                 "country"
