@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from staticmap import IconMarker, StaticMap
+from staticmap import IconMarker, Line, StaticMap
 
 _MARKERS_DIR = Path(__file__).parent / "data" / "markers"
 _TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -45,6 +45,24 @@ class MapRenderer:
         # staticmap marker coords are (lon, lat).
         smap.add_marker(IconMarker((lng, lat), self._marker_path(mode), 20, 0))
         image = smap.render(zoom=self._zoom)
+        buf = io.BytesIO()
+        image.save(buf, format="PNG")
+        return buf.getvalue()
+
+    def render_route(self, waypoints: list[tuple[float, float]], *, mode: str) -> bytes:
+        """Render a PNG with a polyline through `waypoints` (lat,lng order) and a
+        mode icon on the final point. With a single waypoint, draws only the icon."""
+        if not waypoints:
+            raise ValueError("render_route requires at least one waypoint")
+        smap = StaticMap(
+            self._w, self._h, url_template=self._tile_url, headers={"User-Agent": self._ua}
+        )
+        lonlat = [(lng, lat) for (lat, lng) in waypoints]
+        if len(lonlat) >= 2:  # noqa: PLR2004
+            smap.add_line(Line(lonlat, "#1f6feb", 3))
+        last_lng, last_lat = lonlat[-1]
+        smap.add_marker(IconMarker((last_lng, last_lat), self._marker_path(mode), 20, 0))
+        image = smap.render()  # auto-fit to markers/lines
         buf = io.BytesIO()
         image.save(buf, format="PNG")
         return buf.getvalue()
