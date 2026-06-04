@@ -35,7 +35,12 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         name=name,
         carrier_code=carrier,
     )
-    await repo.create(parcel)
+    created = await repo.create(parcel)
+    if created is None:
+        await update.message.reply_text(
+            messages.parcel_duplicate(tracking_number), parse_mode="HTML"
+        )
+        return
     await update.message.reply_text(
         messages.parcel_added(name or tracking_number), parse_mode="HTML"
     )

@@ -44,6 +44,12 @@ def parcel_added(name: str) -> str:
     return _("✅ Parcel added: <b>{name}</b>").format(name=name)
 
 
+def parcel_duplicate(tracking_number: str) -> str:
+    return _("⚠️ Parcel <code>{tracking_number}</code> is already tracked.").format(
+        tracking_number=tracking_number
+    )
+
+
 def parcel_removed(tracking_number: str) -> str:
     return _("🗑 Parcel removed: <b>{tracking_number}</b>").format(tracking_number=tracking_number)
 
