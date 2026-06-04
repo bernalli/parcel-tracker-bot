@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class _BotLike(Protocol):
     async def send_message(
-        self, *, chat_id: int, text: str, parse_mode: str = "HTML"
+        self, *, chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: object = None
     ) -> object: ...
 
 
@@ -71,6 +71,42 @@ class TelegramNotifier:
         try:
             await self._bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
         except Exception as exc:  # noqa: BLE001 (instrumentation)
+            TELEGRAM_ERRORS_TOTAL.labels(error_class=type(exc).__name__).inc()
+            raise
+        else:
+            TELEGRAM_SENT_TOTAL.labels(status_value=new_status.value).inc()
+
+    async def send_events_update(  # noqa: PLR0913
+        self,
+        *,
+        chat_id: int,
+        tracking_number: str,
+        parcel_name: str | None,
+        old_status: ShipmentStatus,
+        new_status: ShipmentStatus,
+        status_changed: bool,
+        new_events: list[TrackingEvent],
+        location: str | None,
+    ) -> None:
+        emoji = _STATUS_EMOJI.get(new_status, "📦")
+        title = parcel_name or tracking_number
+        lines = [f"{emoji} <b>{title}</b>", f"<code>{tracking_number}</code>", ""]
+        if status_changed:
+            lines.append(f"Status: <i>{old_status.value}</i> → <b>{new_status.value}</b>")
+        if location:
+            lines.append(f"📍 {location}")
+        if new_events:
+            lines.append("")
+            lines.append("🆕 <b>Updates:</b>")
+            for ev in new_events:
+                row = f"• <i>{ev.time}</i> — {ev.description}"
+                if ev.location:
+                    row += f" ({ev.location})"
+                lines.append(row)
+        text = "\n".join(lines)
+        try:
+            await self._bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        except Exception as exc:  # noqa: BLE001
             TELEGRAM_ERRORS_TOTAL.labels(error_class=type(exc).__name__).inc()
             raise
         else:
