@@ -153,6 +153,17 @@ class HealthRepository:
             )
             await conn.commit()
 
+    async def count_quarantined(self) -> int:
+        """Number of distinct trackers currently in (non-expired) quarantine."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT COUNT(DISTINCT tracker_id) AS n FROM tracker_health "
+                "WHERE quarantine_until IS NOT NULL AND quarantine_until > ?",
+                (datetime.now(UTC).isoformat(),),
+            )
+            row = await cursor.fetchone()
+        return int(row["n"]) if row else 0
+
 
 def _parse_ts(raw: str | None) -> datetime | None:
     if not raw:

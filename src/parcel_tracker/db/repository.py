@@ -307,6 +307,18 @@ class ParcelRepository:
             await conn.commit()
             return bool(cursor.rowcount)
 
+    async def count_events_for_user(self, *, user_id: int) -> int:
+        """Count tracking-history rows belonging to a user's parcels."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT COUNT(*) AS n FROM tracking_history th "
+                "JOIN parcels p ON p.tracking_number = th.tracking_number "
+                "WHERE p.user_id = ?",
+                (user_id,),
+            )
+            row = await cursor.fetchone()
+        return int(row["n"]) if row else 0
+
 
 def _parse_ts(raw: str | None) -> datetime | None:
     if not raw:
