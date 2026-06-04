@@ -31,10 +31,11 @@ async def test_is_allowed_default_on_for_delivered() -> None:
 
 
 @pytest.mark.asyncio
-async def test_is_allowed_default_off_for_in_transit() -> None:
+async def test_is_allowed_default_on_for_in_transit() -> None:
+    # IN_TRANSIT is now default-on (user complained in-transit updates were silent).
     repo = _make_repo(get_pref_returns=None, get_last_sent_returns=None)
     prefs = NotificationPreferences(repo=repo, cooldown=CooldownConfig(minutes=60))
-    assert await prefs.is_allowed(1, ShipmentStatus.IN_TRANSIT, "ABC") is False
+    assert await prefs.is_allowed(1, ShipmentStatus.IN_TRANSIT, "ABC") is True
 
 
 @pytest.mark.asyncio
@@ -45,7 +46,8 @@ async def test_is_allowed_explicit_pref_overrides_default() -> None:
 
 
 @pytest.mark.asyncio
-async def test_is_allowed_default_off_for_pickup_can_be_enabled() -> None:
+async def test_is_allowed_explicit_true_enables_pickup() -> None:
+    # Explicit pref=True allows notification even when default would also allow it.
     repo = _make_repo(get_pref_returns=True, get_last_sent_returns=None)
     prefs = NotificationPreferences(repo=repo, cooldown=CooldownConfig(minutes=60))
     assert await prefs.is_allowed(1, ShipmentStatus.PICKUP, "ABC") is True
