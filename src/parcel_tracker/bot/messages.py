@@ -337,11 +337,11 @@ def menu_maps_title() -> str:
 
 
 def parcel_detail_title(tracking_number: str) -> str:
-    return _("📦 <code>{tn}</code> — choose an action:").format(tn=tracking_number)
+    return _("📦 <code>{tn}</code> — choose an action:").format(tn=esc(tracking_number))
 
 
 def prompt_rename_value(tracking_number: str) -> str:
-    return _("✏️ Send the new name for <code>{tn}</code>:").format(tn=tracking_number)
+    return _("✏️ Send the new name for <code>{tn}</code>:").format(tn=esc(tracking_number))
 
 
 def prompt_adduser_value() -> str:
