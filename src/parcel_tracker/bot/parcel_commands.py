@@ -155,9 +155,10 @@ async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Rename a parcel (requires repo.rename; stub reply for now)."""
+    """Rename a parcel (ownership-scoped, persisted)."""
+    user = update.effective_user
     reply_to = update.effective_message
-    if reply_to is None:
+    if user is None or reply_to is None:
         return
     args = context.args or []
     if len(args) < 2:
@@ -165,9 +166,13 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     tracking_number = args[0].strip()
     new_name = " ".join(args[1:]).strip()
+    repo = context.bot_data["parcel_repo"]
+    ok = await repo.rename(tracking_number, user_id=user.id, name=new_name)
+    if not ok:
+        await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
+        return
     await reply_to.reply_text(
-        messages.parcel_renamed(tracking_number, new_name),
-        parse_mode="HTML",
+        messages.parcel_renamed(tracking_number, new_name), parse_mode="HTML"
     )
 
 
