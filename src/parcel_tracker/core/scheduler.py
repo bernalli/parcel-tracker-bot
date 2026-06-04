@@ -59,6 +59,37 @@ def _chunked(seq: list[tuple[int, Parcel]], size: int) -> list[list[tuple[int, P
     return [seq[i : i + size] for i in range(0, len(seq), size)]
 
 
+async def check_user_now(bot_data: dict[str, Any], *, user_id: int) -> int:
+    """On-demand: check ALL active parcels for a user immediately (ignores is_due).
+    Returns the number of parcels checked. Reuses _check_one."""
+    parcel_repo: ParcelRepository = bot_data["parcel_repo"]
+    parcels = await parcel_repo.list_active_for_user(user_id=user_id)
+    if not parcels:
+        return 0
+    batch_size = int(getattr(bot_data["config"], "batch_size", 10))
+    for batch in _chunked([(user_id, p) for p in parcels], batch_size):
+        await asyncio.gather(
+            *[
+                _check_one(
+                    parcel=p,
+                    user_id=uid,
+                    parcel_repo=parcel_repo,
+                    detector=bot_data["detector"],
+                    health=bot_data["health"],
+                    notifier=bot_data["notifier"],
+                    rate_limiter=bot_data["rate_limiter"],
+                    prefs=bot_data.get("prefs"),
+                    geocoder=bot_data.get("geocoder"),
+                    map_renderer=bot_data.get("map_renderer"),
+                    now=bot_data.get("now", _now_default),
+                )
+                for (uid, p) in batch
+            ],
+            return_exceptions=True,
+        )
+    return len(parcels)
+
+
 async def check_updates(context: _JobContext) -> None:
     """Periodic job: instrumented entry point. Wraps body with scheduler tick histogram."""
     with SCHEDULER_TICK_DURATION_SECONDS.time():
