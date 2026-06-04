@@ -217,12 +217,55 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
 
 
+async def _consume_pending(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, text: str
+) -> bool:
+    """If a guided input is pending for this user, consume `text` as its value.
+    Returns True if it handled the message."""
+    pending = (context.user_data or {}).get("pending")
+    if not pending:
+        return False
+    user = update.effective_user
+    reply_to = update.message
+    if user is None or reply_to is None:
+        return True
+    action = pending.get("action")
+    if context.user_data is not None:
+        context.user_data.pop("pending", None)  # consume once
+    repo = context.bot_data["parcel_repo"]
+    if action == "rename":
+        ok = await repo.rename(pending["tn"], user_id=user.id, name=text)
+        msg = (
+            messages.parcel_renamed(pending["tn"], text)
+            if ok
+            else messages.parcel_not_found(pending["tn"])
+        )
+        await reply_to.reply_text(msg, parse_mode="HTML")
+        return True
+    if action == "adduser":
+        user_repo = context.bot_data["user_repo"]
+        try:
+            target = int(text.strip())
+        except ValueError:
+            await reply_to.reply_text(messages.adduser_usage(), parse_mode="HTML")
+            return True
+        added = await user_repo.add_user(user_id=target, added_by=user.id)
+        await reply_to.reply_text(
+            messages.user_added(target) if added else messages.user_duplicate(target),
+            parse_mode="HTML",
+        )
+        return True
+    return True
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Plain text → if it looks like a tracking number, auto-add it (no /add needed)."""
     if update.message is None or update.effective_user is None:
         return
     text = (update.message.text or "").strip()
     if not text:
+        return
+    if await _consume_pending(update, context, text):
         return
     candidate = text.split()[0]
     name = text[len(candidate):].strip() or None

@@ -34,6 +34,7 @@ def _make_context(args: list[str] | None = None, **bot_data: object) -> MagicMoc
     context = MagicMock()
     context.args = args or []
     context.bot_data = dict(bot_data)
+    context.user_data = {}  # no pending action
     return context
 
 
