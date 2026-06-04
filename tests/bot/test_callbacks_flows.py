@@ -40,6 +40,32 @@ async def test_parcel_rename_sets_pending_and_prompts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_action_adduser_rejected_for_non_admin() -> None:
+    """Security: a non-admin tapping/crafting action:adduser must be rejected and
+    must NOT enter the authorise-user flow (no pending state set)."""
+    q = _query("action:adduser")
+    update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
+    context = SimpleNamespace(
+        bot_data={"config": SimpleNamespace(admin_user_ids=frozenset())}, user_data={}
+    )
+    await callbacks.handle_callback(update, context)
+    assert "pending" not in context.user_data
+    q.edit_message_text.assert_awaited()  # unauthorized message shown
+
+
+@pytest.mark.asyncio
+async def test_action_revoke_rejected_for_non_admin() -> None:
+    """Security: a non-admin must not reach the revoke-user flow."""
+    q = _query("action:revoke")
+    update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
+    context = SimpleNamespace(
+        bot_data={"config": SimpleNamespace(admin_user_ids=frozenset())}, user_data={}
+    )
+    await callbacks.handle_callback(update, context)
+    assert "pending" not in context.user_data
+
+
+@pytest.mark.asyncio
 async def test_parcel_map_renders_for_selected(monkeypatch) -> None:
     rendered = {}
 

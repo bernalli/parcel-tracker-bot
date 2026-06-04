@@ -346,3 +346,13 @@ def prompt_rename_value(tracking_number: str) -> str:
 
 def prompt_adduser_value() -> str:
     return _("➕ Send the numeric user ID to authorise:")
+
+
+def prompt_revoke_value() -> str:
+    return _("🗑 Send the numeric user ID to revoke:")
+
+
+def user_not_present(user_id: int) -> str:
+    return _("⚠️ User <code>{user_id}</code> is not in the authorised list.").format(
+        user_id=user_id
+    )

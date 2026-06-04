@@ -241,12 +241,11 @@ async def _action_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def _action_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _admin_gate(update, context):
         return
-    # Show a user picker (prompt for now; revoke flow via pending state).
     query = update.callback_query
     if context.user_data is not None:
         context.user_data["pending"] = {"action": "revoke"}
     if query is not None:
-        await _edit(query, messages.prompt_adduser_value(), _back_only_keyboard())
+        await _edit(query, messages.prompt_revoke_value(), _back_only_keyboard())
 
 
 def _get_action_handler(name: str):  # type: ignore[no-untyped-def]

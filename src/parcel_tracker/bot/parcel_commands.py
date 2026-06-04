@@ -255,6 +255,19 @@ async def _consume_pending(
             parse_mode="HTML",
         )
         return True
+    if action == "revoke":
+        user_repo = context.bot_data["user_repo"]
+        try:
+            target = int(text.strip())
+        except ValueError:
+            await reply_to.reply_text(messages.removeuser_usage(), parse_mode="HTML")
+            return True
+        removed = await user_repo.remove_user(target)
+        await reply_to.reply_text(
+            messages.user_removed(target) if removed else messages.user_not_present(target),
+            parse_mode="HTML",
+        )
+        return True
     return True
 
 
