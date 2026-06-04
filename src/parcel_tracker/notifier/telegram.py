@@ -77,6 +77,33 @@ class TelegramNotifier:
         else:
             TELEGRAM_SENT_TOTAL.labels(status_value=new_status.value).inc()
 
+    async def send_delivery_confirmation(
+        self,
+        *,
+        chat_id: int,
+        tracking_number: str,
+        parcel_name: str | None,
+        location: str | None,
+    ) -> None:
+        from parcel_tracker.bot.keyboards import delivery_confirm_keyboard  # noqa: PLC0415
+
+        title = parcel_name or tracking_number
+        text = messages.delivery_confirm_prompt(title, tracking_number)
+        if location:
+            text += f"\n📍 {messages.esc(location)}"
+        try:
+            await self._bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=delivery_confirm_keyboard(tracking_number),
+            )
+        except Exception as exc:  # noqa: BLE001
+            TELEGRAM_ERRORS_TOTAL.labels(error_class=type(exc).__name__).inc()
+            raise
+        else:
+            TELEGRAM_SENT_TOTAL.labels(status_value=ShipmentStatus.DELIVERED.value).inc()
+
     async def send_events_update(  # noqa: PLR0913
         self,
         *,

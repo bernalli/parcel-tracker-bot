@@ -6,9 +6,10 @@ Routes callback_data of the form:
     action:<name>          → invoke a command (cmd_list / cmd_help / ...)
     prompt:<name>          → show a usage prompt for a text-arg command
     parcel:<action>:<tn>   → per-parcel action (refresh / events / remove)
+    confirm:<action>:<tn>  → delivery-confirmation action (yes / no / undo)
 
 Telegram catch-all is constrained at registration time (handlers.py) to those
-four prefixes via a regex pattern so that other prefix-specific callbacks
+five prefixes via a regex pattern so that other prefix-specific callbacks
 (notify:*) are not shadowed.
 """
 
@@ -321,11 +322,35 @@ async def _dispatch_parcel(
     await _handle_parcel(update, context, parts[1], parts[2])
 
 
+async def _dispatch_confirm(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, parts: list[str]
+) -> None:
+    if len(parts) < 3:
+        return
+    action, tracking_number = parts[1], parts[2]
+    repo = context.bot_data["parcel_repo"]
+    query = update.callback_query
+    if action == "yes":
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        await repo.set_delivered(tracking_number, datetime.now(UTC))
+        await repo.deactivate(tracking_number)
+        await _edit(query, messages.delivered_archived(tracking_number), None)
+    elif action == "no":
+        await repo.set_disputed(tracking_number, True)
+        await repo.reactivate(tracking_number)
+        await _edit(query, messages.delivery_kept_tracking(tracking_number), None)
+    elif action == "undo":
+        await repo.deactivate(tracking_number)
+        await _edit(query, messages.parcel_undone(tracking_number), None)
+
+
 _PREFIX_DISPATCH = {
     "nav": _dispatch_nav,
     "action": _dispatch_action,
     "prompt": _dispatch_prompt,
     "parcel": _dispatch_parcel,
+    "confirm": _dispatch_confirm,
 }
 
 
