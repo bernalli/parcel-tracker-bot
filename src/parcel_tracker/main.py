@@ -9,7 +9,6 @@ from typing import Any
 
 from telegram import (
     BotCommand,
-    BotCommandScopeChat,
     BotCommandScopeDefault,
     Update,
 )
@@ -152,44 +151,21 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
 
 
 # Telegram /command listings shown in the client UI.
-# Public list = visible to everyone; admin extra = appended for admin users
-# via per-chat scope. Italian translations are pushed under language_code='it'.
+# Public list = visible to everyone.
+# Admin functions live in the inline menu tree (callbacks), not in native commands.
+# Italian translations are pushed under language_code='it'.
 COMMANDS_PUBLIC_EN: list[tuple[str, str]] = [
-    ("start", "Start the bot"),
     ("menu", "📋 Open the menu"),
-    ("list", "My parcels"),
-    ("help", "Show help"),
+    ("list", "📦 My parcels"),
+    ("help", "ℹ️ Help"),
 ]
 COMMANDS_PUBLIC_IT: list[tuple[str, str]] = [
-    ("start", "Avvia il bot"),
     ("menu", "📋 Apri il menu"),
-    ("list", "I miei pacchi"),
-    ("help", "Mostra aiuto"),
+    ("list", "📦 I miei pacchi"),
+    ("help", "ℹ️ Aiuto"),
 ]
-COMMANDS_ADMIN_EXTRA_EN: list[tuple[str, str]] = [
-    ("health", "Tracker health dashboard"),
-    ("map", "Parcel map"),
-    ("whoami", "Show your auth info"),
-    ("users", "List authorised users"),
-    ("adduser", "Authorise a user"),
-    ("removeuser", "Revoke a user"),
-    ("stats", "Bot statistics"),
-    ("delivered", "Delivered parcels"),
-    ("clean", "Clean a parcel"),
-    ("cleanall", "Clean all delivered"),
-]
-COMMANDS_ADMIN_EXTRA_IT: list[tuple[str, str]] = [
-    ("health", "Dashboard salute tracker"),
-    ("map", "Mappa pacchi"),
-    ("whoami", "Mostra info auth"),
-    ("users", "Lista utenti autorizzati"),
-    ("adduser", "Autorizza un utente"),
-    ("removeuser", "Revoca un utente"),
-    ("stats", "Statistiche bot"),
-    ("delivered", "Pacchi consegnati"),
-    ("clean", "Ripulisci un pacco"),
-    ("cleanall", "Ripulisci tutti i consegnati"),
-]
+COMMANDS_ADMIN_EXTRA_EN: list[tuple[str, str]] = []
+COMMANDS_ADMIN_EXTRA_IT: list[tuple[str, str]] = []
 
 
 def _to_bot_commands(pairs: list[tuple[str, str]]) -> list[BotCommand]:
@@ -200,7 +176,7 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
     """Push the /command list to Telegram on startup.
 
     Public scope (BotCommandScopeDefault) → COMMANDS_PUBLIC_*.
-    Per-admin scope (BotCommandScopeChat per admin id) → public + admin extras.
+    Admin functions are available only through the inline callback menu tree.
     Pushes both English (default) and Italian (language_code='it') variants.
 
     All Telegram calls are wrapped in try/except so a transient API failure does
@@ -213,7 +189,7 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
 
     bot = application.bot
 
-    # --- public scope ---
+    # --- public scope only ---
     public_en = _to_bot_commands(COMMANDS_PUBLIC_EN)
     public_it = _to_bot_commands(COMMANDS_PUBLIC_IT)
     try:
@@ -224,20 +200,6 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
         await bot.set_my_commands(public_it, scope=BotCommandScopeDefault(), language_code="it")
     except Exception:  # noqa: BLE001
         logger.warning("set_my_commands(default, it) failed", exc_info=True)
-
-    # --- per-admin scope ---
-    admin_en = _to_bot_commands(COMMANDS_PUBLIC_EN + COMMANDS_ADMIN_EXTRA_EN)
-    admin_it = _to_bot_commands(COMMANDS_PUBLIC_IT + COMMANDS_ADMIN_EXTRA_IT)
-    for admin_id in getattr(config, "admin_user_ids", frozenset()):
-        scope = BotCommandScopeChat(chat_id=admin_id)
-        try:
-            await bot.set_my_commands(admin_en, scope=scope)
-        except Exception:  # noqa: BLE001
-            logger.warning("set_my_commands(chat=%s, en) failed", admin_id, exc_info=True)
-        try:
-            await bot.set_my_commands(admin_it, scope=scope, language_code="it")
-        except Exception:  # noqa: BLE001
-            logger.warning("set_my_commands(chat=%s, it) failed", admin_id, exc_info=True)
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
