@@ -1,9 +1,16 @@
-"""Offline city → (lat, lng) lookup backed by a GeoNames-derived TSV. No network."""
+"""Offline city -> (lat, lng) lookup backed by a GeoNames-derived TSV. No network.
+
+TSV columns (tab-separated): name, asciiname, alternatenames(comma-sep), lat, lng, country_code.
+Primary, ascii, and a bounded set of word-like alternate names are all indexed, so
+both English ("Milan") and local ("Milano") names resolve.
+"""
 
 from __future__ import annotations
 
 import unicodedata
 from pathlib import Path
+
+_MAX_ALTERNATES = 15  # bound per-city alternates to keep the in-memory index reasonable
 
 
 def _norm(s: str) -> str:
@@ -12,8 +19,18 @@ def _norm(s: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
+def _is_wordlike(s: str) -> bool:
+    """Keep plausible place names; drop codes, ids, urls, numerics."""
+    s = s.strip()
+    if not (2 <= len(s) <= 40):
+        return False
+    if any(ch.isdigit() for ch in s):
+        return False
+    return any(ch.isalpha() for ch in s)
+
+
 class Geocoder:
-    """Loads a TSV (name, asciiname, lat, lng, country_code) into an in-memory index."""
+    """Loads a 6-column GeoNames-derived TSV into an in-memory name->coord index."""
 
     def __init__(self, dataset_path: Path) -> None:
         self._by_city_country: dict[tuple[str, str], tuple[float, float]] = {}
@@ -22,15 +39,23 @@ class Geocoder:
             if not raw or raw.startswith("#"):
                 continue
             parts = raw.split("\t")
-            if len(parts) < 5:
+            if len(parts) < 6:
                 continue
-            name, ascii_name, lat_s, lng_s, cc = parts[:5]
+            name, ascii_name, alternates, lat_s, lng_s, cc = parts[:6]
             try:
                 coord = (float(lat_s), float(lng_s))
             except ValueError:
                 continue
             cc_n = _norm(cc)
-            for n in {_norm(name), _norm(ascii_name)}:
+            names: set[str] = {name, ascii_name}
+            count = 0
+            for alt in alternates.split(","):
+                if count >= _MAX_ALTERNATES:
+                    break
+                if _is_wordlike(alt):
+                    names.add(alt)
+                    count += 1
+            for n in {_norm(x) for x in names if x}:
                 self._by_city_country.setdefault((n, cc_n), coord)
                 self._by_city.setdefault(n, coord)
 

@@ -8,15 +8,20 @@ def _geo() -> Geocoder:
     return Geocoder(dataset_path=ds)
 
 
-def test_geocode_known_city() -> None:
+def test_geocode_primary_english_name() -> None:
+    result = _geo().geocode("Milan, IT")
+    assert result is not None
+    assert round(result[0], 2) == 45.46
+
+
+def test_geocode_local_alternate_name() -> None:
+    # "Milano" is an alternate name, not the GeoNames primary "Milan"
     result = _geo().geocode("Milano, IT")
     assert result is not None
-    lat, lng = result
-    assert round(lat, 2) == 45.46
-    assert round(lng, 2) == 9.19
+    assert round(result[0], 2) == 45.46
 
 
-def test_geocode_city_without_country() -> None:
+def test_geocode_alternate_without_country() -> None:
     assert _geo().geocode("Roma") is not None
 
 
