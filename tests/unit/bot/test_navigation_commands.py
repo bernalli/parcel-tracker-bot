@@ -40,7 +40,9 @@ async def test_cmd_help_shows_commands() -> None:
     context = MagicMock()
     await cmd_help(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "/add" in text
+    # help is now menu-first; /add is intentionally omitted (auto-add via bare code)
+    assert "Parcel Tracker" in text
+    assert "/menu" in text
     assert "/list" in text
 
 

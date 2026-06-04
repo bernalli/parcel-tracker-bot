@@ -156,30 +156,14 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
 # via per-chat scope. Italian translations are pushed under language_code='it'.
 COMMANDS_PUBLIC_EN: list[tuple[str, str]] = [
     ("start", "Start the bot"),
-    ("menu", "Interactive menu"),
+    ("menu", "📋 Open the menu"),
     ("list", "My parcels"),
-    ("add", "Add a parcel"),
-    ("status", "Parcel details"),
-    ("events", "Event history"),
-    ("remove", "Remove a parcel"),
-    ("rename", "Rename a parcel"),
-    ("checkall", "Refresh all parcels"),
-    ("lang", "Change language"),
-    ("notify", "Notification preferences"),
     ("help", "Show help"),
 ]
 COMMANDS_PUBLIC_IT: list[tuple[str, str]] = [
     ("start", "Avvia il bot"),
-    ("menu", "Menu interattivo"),
+    ("menu", "📋 Apri il menu"),
     ("list", "I miei pacchi"),
-    ("add", "Aggiungi un pacco"),
-    ("status", "Dettagli pacco"),
-    ("events", "Cronologia eventi"),
-    ("remove", "Rimuovi un pacco"),
-    ("rename", "Rinomina un pacco"),
-    ("checkall", "Aggiorna tutti i pacchi"),
-    ("lang", "Cambia lingua"),
-    ("notify", "Preferenze notifiche"),
     ("help", "Mostra aiuto"),
 ]
 COMMANDS_ADMIN_EXTRA_EN: list[tuple[str, str]] = [
