@@ -229,6 +229,8 @@ async def _action_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def _action_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _admin_gate(update, context):
+        return
     query = update.callback_query
     if context.user_data is not None:
         context.user_data["pending"] = {"action": "adduser"}
@@ -237,6 +239,8 @@ async def _action_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def _action_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _admin_gate(update, context):
+        return
     # Show a user picker (prompt for now; revoke flow via pending state).
     query = update.callback_query
     if context.user_data is not None:
