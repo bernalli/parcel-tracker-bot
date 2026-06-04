@@ -84,6 +84,8 @@ async def _check_updates_impl(context: _JobContext) -> None:
     config = context.bot_data["config"]
     rate_limiter: RateLimiter = context.bot_data["rate_limiter"]
     prefs = context.bot_data.get("prefs")  # None until NotificationPreferences is wired
+    geocoder = context.bot_data.get("geocoder")
+    map_renderer = context.bot_data.get("map_renderer")
     now: Callable[[], datetime] = context.bot_data.get("now", _now_default)
 
     # Users whose parcels must be tracked: the allowed_users DB table PLUS the owner
@@ -125,6 +127,8 @@ async def _check_updates_impl(context: _JobContext) -> None:
                     notifier=notifier,
                     rate_limiter=rate_limiter,
                     prefs=prefs,
+                    geocoder=geocoder,
+                    map_renderer=map_renderer,
                     now=now,
                 )
                 for (uid, p) in batch
@@ -177,6 +181,31 @@ async def _handle_delivered_transition(  # noqa: PLR0913
         )
 
 
+async def _maybe_render_map(
+    *,
+    geocoder: Any | None,
+    map_renderer: Any | None,
+    location: str | None,
+    new_events: list[TrackingEvent],
+) -> bytes | None:
+    """Best-effort: geocode the location and render a map PNG. Never raises."""
+    if geocoder is None or map_renderer is None or not location:
+        return None
+    coord = geocoder.geocode(location)
+    if coord is None:
+        return None
+    from parcel_tracker.maps.transport import infer_transport_mode  # noqa: PLC0415
+
+    desc = new_events[-1].description if new_events else None
+    carrier = new_events[-1].carrier if new_events else None
+    mode = infer_transport_mode(carrier, desc)
+    try:
+        return await asyncio.to_thread(map_renderer.render, lat=coord[0], lng=coord[1], mode=mode)
+    except Exception:  # noqa: BLE001 — map is best-effort; never block the notification
+        logger.warning("map render failed for %s", location, exc_info=True)
+        return None
+
+
 async def _notify(  # noqa: PLR0913
     *,
     parcel: Parcel,
@@ -186,6 +215,8 @@ async def _notify(  # noqa: PLR0913
     final_result: TrackingResult,
     status_changed: bool,
     new_events: list[TrackingEvent],
+    geocoder: Any | None = None,
+    map_renderer: Any | None = None,
 ) -> None:
     """Render a per-event update message, gated by the user's status preference.
 
@@ -196,6 +227,12 @@ async def _notify(  # noqa: PLR0913
     if not enabled:
         return
     ordered = sorted(new_events, key=lambda e: e.time or "")
+    map_png = await _maybe_render_map(
+        geocoder=geocoder,
+        map_renderer=map_renderer,
+        location=final_result.last_location,
+        new_events=ordered,
+    )
     await notifier.send_events_update(
         chat_id=user_id,
         tracking_number=parcel.tracking_number,
@@ -205,6 +242,7 @@ async def _notify(  # noqa: PLR0913
         status_changed=status_changed,
         new_events=ordered,
         location=final_result.last_location,
+        map_png=map_png,
     )
 
 
@@ -219,6 +257,8 @@ async def _check_one(  # noqa: PLR0913
     rate_limiter: RateLimiter,
     prefs: Any | None,
     now: Callable[[], datetime],
+    geocoder: Any | None = None,
+    map_renderer: Any | None = None,
 ) -> None:
     """Check a single parcel: iterate matches in priority order until one succeeds.
 
@@ -308,4 +348,6 @@ async def _check_one(  # noqa: PLR0913
         final_result=final_result,
         status_changed=status_changed,
         new_events=new_events,
+        geocoder=geocoder,
+        map_renderer=map_renderer,
     )

@@ -59,6 +59,10 @@ class Config:
     notify_cooldown_minutes: int = 60
     admin_user_ids: frozenset[int] = field(default_factory=frozenset)
 
+    maps_enabled: bool = True
+    osm_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    map_user_agent: str = "parcel-tracker-bot/0.2 (+self-hosted; OSM tiles)"
+
     @classmethod
     def from_env(cls, *, load_dotenv_file: bool = True) -> Config:  # noqa: C901
         """Build Config from environment variables (loads .env if present)."""
@@ -138,6 +142,13 @@ class Config:
             rate_limit_overrides=rate_limit_overrides,
             notify_cooldown_minutes=notify_cooldown,
             admin_user_ids=admin_ids,
+            maps_enabled=_bool_env("MAPS_ENABLED", True),
+            osm_tile_url=os.getenv(
+                "OSM_TILE_URL", "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            ),
+            map_user_agent=os.getenv(
+                "MAP_USER_AGENT", "parcel-tracker-bot/0.2 (+self-hosted; OSM tiles)"
+            ),
         )
 
 

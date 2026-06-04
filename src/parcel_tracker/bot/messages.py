@@ -147,6 +147,16 @@ def map_placeholder() -> str:
     return _("🗺 Parcel map (coming soon)")
 
 
+def map_usage() -> str:
+    return _("Usage: <code>/map CODE</code>")
+
+
+def map_no_position(tracking_number: str) -> str:
+    return _("🗺 No mappable position yet for <code>{tracking_number}</code>.").format(
+        tracking_number=esc(tracking_number)
+    )
+
+
 def lang_current(current: str, available: list[str]) -> str:
     return _("Current language: <code>{current}</code>\nAvailable: {available}").format(
         current=current, available=", ".join(available)

@@ -55,9 +55,10 @@ async def test_cmd_menu_returns_keyboard() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cmd_map_replies() -> None:
+async def test_cmd_map_without_args_shows_usage() -> None:
     update = _make_update()
     context = MagicMock()
+    context.args = []
     await cmd_map(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "Parcel map" in text or "map" in text.lower()
+    assert "/map" in text

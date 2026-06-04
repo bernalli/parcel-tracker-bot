@@ -119,6 +119,21 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         cooldown=CooldownConfig(minutes=config.notify_cooldown_minutes),
     )
 
+    geocoder = None
+    map_renderer = None
+    if config.maps_enabled:
+        from parcel_tracker.maps.geocoder import Geocoder  # noqa: PLC0415
+        from parcel_tracker.maps.renderer import MapRenderer  # noqa: PLC0415
+
+        dataset = Path(__file__).parent / "maps" / "data" / "cities15000.tsv"
+        if dataset.exists():
+            geocoder = Geocoder(dataset_path=dataset)
+            map_renderer = MapRenderer(
+                user_agent=config.map_user_agent, tile_url=config.osm_tile_url
+            )
+        else:
+            logger.warning("maps enabled but dataset %s missing; maps disabled", dataset)
+
     return {
         "config": config,
         "parcel_repo": parcel_repo,
@@ -130,6 +145,8 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         "rate_limiter": rate_limiter,
         "notification_repo": notification_repo,
         "prefs": prefs,
+        "geocoder": geocoder,
+        "map_renderer": map_renderer,
         # NOTE: notifier added in main() after Application.builder().build()
     }
 
