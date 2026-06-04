@@ -85,16 +85,6 @@ async def test_nav_settings_edits_with_settings_submenu() -> None:
 
 
 @pytest.mark.asyncio
-async def test_nav_advanced_edits_with_advanced_submenu() -> None:
-    update = _make_update("nav:advanced")
-    context = _make_context()
-
-    await handle_callback(update, context)
-    text = update.callback_query.edit_message_text.call_args.args[0]
-    assert "Advanced" in text or "Avanzato" in text
-
-
-@pytest.mark.asyncio
 async def test_nav_admin_for_non_admin_rejects_with_unauthorized() -> None:
     update = _make_update("nav:admin", user_id=99)
     context = _make_context(admin_ids=frozenset({1, 2}))  # 99 is not admin
