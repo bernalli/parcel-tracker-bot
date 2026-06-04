@@ -250,3 +250,11 @@ def authorised_users_count(count: int) -> str:
 
 def generic_error() -> str:
     return _("⚠️ Something went wrong. Please try again in a moment.")
+
+
+def history_header() -> str:
+    return _("<b>📦 Delivered (archived)</b>")
+
+
+def no_history() -> str:
+    return _("No delivered parcels in your history yet.")
