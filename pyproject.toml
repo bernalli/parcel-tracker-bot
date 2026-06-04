@@ -69,6 +69,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "parcel_tracker.i18n" = ["locale/*/LC_MESSAGES/*.mo", "locale/*.pot"]
+"parcel_tracker.maps" = ["data/cities15000.tsv", "data/markers/*.png"]
 
 [tool.ruff]
 line-length = 100

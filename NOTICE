@@ -1,0 +1,17 @@
+parcel-tracker-bot
+Copyright (c) bernalli
+Licensed under the MIT License (see LICENSE).
+
+This product includes third-party data:
+
+- City coordinates (src/parcel_tracker/maps/data/cities15000.tsv) are derived
+  from the GeoNames geographical database (https://www.geonames.org/),
+  licensed under Creative Commons Attribution 4.0 (CC BY 4.0):
+  https://creativecommons.org/licenses/by/4.0/
+  The dataset has been trimmed to the columns: name, asciiname, alternatenames,
+  latitude, longitude, country code.
+
+- Map images are rendered from OpenStreetMap tiles
+  (https://www.openstreetmap.org/). Map data © OpenStreetMap contributors,
+  available under the Open Database License (ODbL):
+  https://www.openstreetmap.org/copyright
