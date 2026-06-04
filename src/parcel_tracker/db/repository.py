@@ -169,6 +169,57 @@ class ParcelRepository:
             for row in rows
         ]
 
+    async def add_events_dedup(
+        self, tracking_number: str, events: list[TrackingEvent]
+    ) -> list[TrackingEvent]:
+        """Persist events not already in tracking_history. Dedup key = (time, description).
+
+        Returns the newly-inserted events in input order.
+        """
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT event_time, event_description FROM tracking_history "
+                "WHERE tracking_number = ?",
+                (tracking_number,),
+            )
+            seen = {
+                (row["event_time"] or "", row["event_description"] or "")
+                for row in await cursor.fetchall()
+            }
+            new_events: list[TrackingEvent] = []
+            for ev in events:
+                key = (ev.time or "", ev.description or "")
+                if key in seen:
+                    continue
+                seen.add(key)
+                await conn.execute(
+                    """
+                    INSERT INTO tracking_history
+                      (tracking_number, event_time, event_description, location, carrier)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (tracking_number, ev.time, ev.description, ev.location, ev.carrier),
+                )
+                new_events.append(ev)
+            await conn.commit()
+        return new_events
+
+    async def update_latest(
+        self,
+        tracking_number: str,
+        last_event: str | None,
+        last_event_time: str | None,
+        last_location: str | None,
+    ) -> None:
+        """Update the denormalised latest-event fields on the parcel row."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET last_event = ?, last_event_time = ?, last_location = ?, "
+                "updated_at = CURRENT_TIMESTAMP WHERE tracking_number = ?",
+                (last_event, last_event_time, last_location, tracking_number),
+            )
+            await conn.commit()
+
 
 def _parse_ts(raw: str | None) -> datetime | None:
     if not raw:
@@ -188,6 +239,7 @@ def _row_to_parcel(row: aiosqlite.Row) -> Parcel:
     all_carriers: list[str] = json.loads(raw_all) if raw_all else []
     keys = row.keys()
     last_check_at = _parse_ts(row["last_check_at"]) if "last_check_at" in keys else None
+    delivered_at = _parse_ts(row["delivered_at"]) if "delivered_at" in keys else None
     return Parcel(
         tracking_number=row["tracking_number"],
         user_id=row["user_id"],
@@ -198,6 +250,10 @@ def _row_to_parcel(row: aiosqlite.Row) -> Parcel:
         status=ShipmentStatus.from_str(row["status"]),
         last_event=row["last_event"],
         last_event_time=row["last_event_time"],
+        last_location=row["last_location"] if "last_location" in keys else None,
+        transport_mode=row["transport_mode"] if "transport_mode" in keys else None,
+        delivery_disputed=bool(row["delivery_disputed"]) if "delivery_disputed" in keys else False,
+        delivered_at=delivered_at,
         last_check_at=last_check_at,
         is_active=bool(row["is_active"]),
     )
