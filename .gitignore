@@ -9,6 +9,8 @@
 *.db-shm
 *.db-wal
 data/
+!src/parcel_tracker/maps/data/
+!src/parcel_tracker/maps/data/**
 
 # Plugins overlay (private italian plugins live here on production, never committed)
 plugins/*

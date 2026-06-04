@@ -28,6 +28,7 @@ dependencies = [
     "beautifulsoup4>=4.12.3",
     "lxml>=5.2.2",
     "Pillow>=10.3.0",
+    "staticmap>=0.5.7",
     "tenacity>=9.0.0,<10",
     "structlog>=24.1",
     "prometheus-client>=0.20",
@@ -122,7 +123,7 @@ warn_unused_ignores = true
 files = ["src/parcel_tracker"]
 
 [[tool.mypy.overrides]]
-module = ["telegram.*", "dotenv", "aiosqlite", "tenacity"]
+module = ["telegram.*", "dotenv", "aiosqlite", "tenacity", "staticmap"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
