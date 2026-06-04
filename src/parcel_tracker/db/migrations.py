@@ -99,7 +99,23 @@ async def init_schema(db_path: str) -> None:
             await conn.execute(statement)
         await _add_parcels_last_check_at(conn)
         await _add_allowed_users_language(conn)
+        await _add_parcels_v2_columns(conn)
         await conn.commit()
+
+
+async def _add_parcels_v2_columns(conn: aiosqlite.Connection) -> None:
+    """Idempotent ALTER: add v0.2 parcel columns if missing (upgrade path)."""
+    cursor = await conn.execute("PRAGMA table_info(parcels)")
+    rows = await cursor.fetchall()
+    columns = {row[1] for row in rows}
+    if "last_location" not in columns:
+        await conn.execute("ALTER TABLE parcels ADD COLUMN last_location TEXT")
+    if "transport_mode" not in columns:
+        await conn.execute("ALTER TABLE parcels ADD COLUMN transport_mode TEXT")
+    if "delivery_disputed" not in columns:
+        await conn.execute(
+            "ALTER TABLE parcels ADD COLUMN delivery_disputed INTEGER DEFAULT 0"
+        )
 
 
 async def _add_allowed_users_language(conn: aiosqlite.Connection) -> None:
