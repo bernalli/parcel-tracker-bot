@@ -22,6 +22,9 @@ DEFAULT_INTERVALS_MIN: dict[ShipmentStatus, int] = {
 }
 
 
+DISPUTED_INTERVAL_MIN: int = 30
+
+
 def get_interval_minutes(status: ShipmentStatus) -> int:
     """Return the polling interval (minutes) for a given status. 0 = stop polling."""
     return DEFAULT_INTERVALS_MIN[status]
@@ -31,14 +34,14 @@ def is_due(
     status: ShipmentStatus,
     last_check_at: datetime | None,
     now: datetime,
+    *,
+    delivery_disputed: bool = False,
 ) -> bool:
-    """True if a parcel needs re-check given its status and last check time.
-
-    Returns False if the status interval is 0 (stop polling).
-    Returns True if last_check_at is None (never checked).
-    Returns True if (now - last_check_at) >= interval (boundary inclusive).
-    """
-    interval = get_interval_minutes(status)
+    """True if a parcel needs re-check given status, last check time, and dispute flag."""
+    if status is ShipmentStatus.DELIVERED and delivery_disputed:
+        interval = DISPUTED_INTERVAL_MIN
+    else:
+        interval = get_interval_minutes(status)
     if interval == 0:
         return False
     if last_check_at is None:

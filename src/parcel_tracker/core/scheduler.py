@@ -102,7 +102,8 @@ async def _check_updates_impl(context: _JobContext) -> None:
     for user_id in user_ids:
         parcels = await parcel_repo.list_active_for_user(user_id=user_id)
         for parcel in parcels:
-            if is_due(parcel.status, parcel.last_check_at, now()):
+            if is_due(parcel.status, parcel.last_check_at, now(),
+                      delivery_disputed=parcel.delivery_disputed):
                 all_due.append((user_id, parcel))
 
     if not all_due:
