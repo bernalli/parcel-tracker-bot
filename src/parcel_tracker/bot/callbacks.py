@@ -49,6 +49,7 @@ from parcel_tracker.bot.notify_commands import (
 from parcel_tracker.bot.parcel_commands import (
     cmd_checkall,  # noqa: F401  (lazy lookup target)
     cmd_events,  # noqa: F401  (lazy lookup target)
+    cmd_history,  # noqa: F401  (lazy lookup target)
     cmd_list,  # noqa: F401  (lazy lookup target)
     cmd_remove,  # noqa: F401  (lazy lookup target)
     cmd_status,  # noqa: F401  (lazy lookup target)
@@ -193,6 +194,7 @@ def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
     table = {
         "list": "cmd_list",
         "checkall": "cmd_checkall",
+        "history": "cmd_history",
         "help": "cmd_help",
         "map": "cmd_map",
         "health": "_action_health",
