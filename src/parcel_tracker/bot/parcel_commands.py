@@ -79,12 +79,17 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if parcel is None:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
-    text = (
-        f"<b>{messages.esc(parcel.name or parcel.tracking_number)}</b>\n"
-        f"<code>{messages.esc(parcel.tracking_number)}</code>\n"
-        f"Status: <i>{parcel.status.value}</i>\n"
-        f"{messages.carrier_label()}: {messages.esc(parcel.carrier_name or parcel.carrier_code or '?')}"
-    )
+    lines = [
+        f"<b>{messages.esc(parcel.name or parcel.tracking_number)}</b>",
+        f"<code>{messages.esc(parcel.tracking_number)}</code>",
+        f"Status: <i>{parcel.status.value}</i>",
+        f"{messages.carrier_label()}: {messages.esc(parcel.carrier_name or parcel.carrier_code or '?')}",
+    ]
+    if parcel.last_location:
+        lines.append(f"📍 {messages.esc(parcel.last_location)}")
+    if parcel.last_event:
+        lines.append(f"🛈 {messages.esc(parcel.last_event)}")
+    text = "\n".join(lines)
     await reply_to.reply_text(text, parse_mode="HTML")
 
 
