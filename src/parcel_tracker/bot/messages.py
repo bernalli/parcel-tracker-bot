@@ -262,6 +262,35 @@ def authorised_users_count(count: int) -> str:
     return _("Authorised users: <b>{count}</b>").format(count=count)
 
 
+def stats_full(  # noqa: PLR0913
+    *,
+    by_status: str,
+    by_carrier: str,
+    events: int,
+    last_check: str,
+    quarantined: int,
+    total_trackers: int,
+    users: int,
+) -> str:
+    return _(
+        "<b>📊 Statistics</b>\n\n"
+        "<b>Parcels:</b> {by_status}\n"
+        "<b>By carrier:</b> {by_carrier}\n"
+        "<b>Activity:</b> {events} events · last check {last_check}\n"
+        "<b>Health:</b> {ok}/{total} trackers ok · {quarantined} quarantined\n"
+        "<b>Authorised users:</b> {users}"
+    ).format(
+        by_status=by_status,
+        by_carrier=by_carrier or "—",
+        events=events,
+        last_check=last_check or "—",
+        ok=total_trackers - quarantined,
+        total=total_trackers,
+        quarantined=quarantined,
+        users=users,
+    )
+
+
 def generic_error() -> str:
     return _("⚠️ Something went wrong. Please try again in a moment.")
 

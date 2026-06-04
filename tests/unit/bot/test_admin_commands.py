@@ -30,14 +30,24 @@ def _make_context(
     owner_id: int = 1,
     parcel_repo: MagicMock | None = None,
     user_repo: MagicMock | None = None,
+    health_repo: MagicMock | None = None,
 ) -> MagicMock:
     context = MagicMock()
     config = MagicMock()
     config.owner_id = owner_id
+    config.allowed_user_ids = ()
+    _parcel_repo = parcel_repo or MagicMock(
+        list_active_for_user=AsyncMock(return_value=[]),
+        list_archived_for_user=AsyncMock(return_value=[]),
+        count_events_for_user=AsyncMock(return_value=0),
+    )
+    _health_repo = health_repo or MagicMock(count_quarantined=AsyncMock(return_value=0))
     context.bot_data = {
         "config": config,
-        "parcel_repo": parcel_repo or MagicMock(),
+        "parcel_repo": _parcel_repo,
         "user_repo": user_repo or MagicMock(),
+        "health_repo": _health_repo,
+        "registry": [],
     }
     return context
 
@@ -89,8 +99,9 @@ async def test_cmd_delivered_no_delivered_replies_empty() -> None:
 @pytest.mark.asyncio
 async def test_cmd_stats_owner_shows_count() -> None:
     update = _make_update(user_id=1)
-    user_repo = MagicMock(get_allowed_user_ids=AsyncMock(return_value=[1, 2, 3]))
+    user_repo = MagicMock(get_allowed_user_ids=AsyncMock(return_value=[2, 3]))
     context = _make_context(owner_id=1, user_repo=user_repo)
     await cmd_stats(update, context)
     text = update.message.reply_text.call_args.args[0]
+    # owner_id=1 plus [2, 3] from user_repo → 3 total users
     assert "3" in text
