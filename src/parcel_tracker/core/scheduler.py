@@ -154,15 +154,26 @@ async def _persist_result(
     return new_events
 
 
-async def _handle_delivered_transition(**kwargs: Any) -> None:  # replaced by a later task (F3.3)
-    notifier = kwargs["notifier"]
-    parcel = kwargs["parcel"]
-    await notifier.send_delivery_confirmation(
-        chat_id=kwargs["user_id"],
-        tracking_number=parcel.tracking_number,
-        parcel_name=parcel.name,
-        location=kwargs["location"],
-    )
+async def _handle_delivered_transition(  # noqa: PLR0913
+    *,
+    parcel: Parcel,
+    user_id: int,
+    parcel_repo: ParcelRepository,
+    notifier: TelegramNotifier,
+    prefs: Any | None,
+    location: str | None,
+    now: Callable[[], datetime],
+) -> None:
+    """On Delivered: stamp delivered_at and ask the user to confirm receipt (no auto-archive)."""
+    await parcel_repo.set_delivered(parcel.tracking_number, now())
+    enabled = prefs is None or await prefs.is_status_enabled(user_id, ShipmentStatus.DELIVERED)
+    if enabled:
+        await notifier.send_delivery_confirmation(
+            chat_id=user_id,
+            tracking_number=parcel.tracking_number,
+            parcel_name=parcel.name,
+            location=location,
+        )
 
 
 async def _notify(  # noqa: PLR0913
