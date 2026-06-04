@@ -171,9 +171,7 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not ok:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
-    await reply_to.reply_text(
-        messages.parcel_renamed(tracking_number, new_name), parse_mode="HTML"
-    )
+    await reply_to.reply_text(messages.parcel_renamed(tracking_number, new_name), parse_mode="HTML")
 
 
 async def cmd_checkall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -217,9 +215,7 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
 
 
-async def _consume_pending(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, text: str
-) -> bool:
+async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
     """If a guided input is pending for this user, consume `text` as its value.
     Returns True if it handled the message."""
     pending = (context.user_data or {}).get("pending")
@@ -281,7 +277,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if await _consume_pending(update, context, text):
         return
     candidate = text.split()[0]
-    name = text[len(candidate):].strip() or None
+    name = text[len(candidate) :].strip() or None
 
     detector = context.bot_data.get("detector")
     specific_match = False

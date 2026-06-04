@@ -46,9 +46,8 @@ def is_due(
     window elapses with no new events, polling stops to avoid re-checking forever.
     """
     if status is ShipmentStatus.DELIVERED and delivery_disputed:
-        if (
-            delivered_at is not None
-            and now - delivered_at > timedelta(hours=DISPUTED_MAX_AGE_HOURS)
+        if delivered_at is not None and now - delivered_at > timedelta(
+            hours=DISPUTED_MAX_AGE_HOURS
         ):
             return False
         interval = DISPUTED_INTERVAL_MIN

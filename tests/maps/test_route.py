@@ -1,4 +1,5 @@
 """Tests for route waypoint building from tracking events."""
+
 from __future__ import annotations
 
 from parcel_tracker.db.models import TrackingEvent

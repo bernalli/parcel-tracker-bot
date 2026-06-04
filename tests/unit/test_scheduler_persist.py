@@ -50,10 +50,16 @@ def _ctx(parcel: Parcel, result: TrackingResult) -> MagicMock:
     prefs.mark_sent = AsyncMock()
     ctx = MagicMock()
     ctx.bot_data = {
-        "parcel_repo": repo, "registry": MagicMock(), "detector": detector,
-        "health": health, "notifier": notifier, "user_repo": user_repo,
-        "config": config, "rate_limiter": RateLimiter(default_rate_per_min=600),
-        "prefs": prefs, "now": lambda: datetime(2026, 6, 4, 12, 0, tzinfo=UTC),
+        "parcel_repo": repo,
+        "registry": MagicMock(),
+        "detector": detector,
+        "health": health,
+        "notifier": notifier,
+        "user_repo": user_repo,
+        "config": config,
+        "rate_limiter": RateLimiter(default_rate_per_min=600),
+        "prefs": prefs,
+        "now": lambda: datetime(2026, 6, 4, 12, 0, tzinfo=UTC),
     }
     return ctx
 
@@ -61,11 +67,17 @@ def _ctx(parcel: Parcel, result: TrackingResult) -> MagicMock:
 @pytest.mark.asyncio
 async def test_scheduler_persists_events_and_latest() -> None:
     parcel = Parcel(tracking_number="FAKE1", user_id=7, status=ShipmentStatus.IN_TRANSIT)
-    ev = TrackingEvent(time="2026-06-04T10:00:00Z", description="Departed", location="Milano, Italy")
+    ev = TrackingEvent(
+        time="2026-06-04T10:00:00Z", description="Departed", location="Milano, Italy"
+    )
     result = TrackingResult(
-        tracking_number="FAKE1", found=True, status=ShipmentStatus.IN_TRANSIT,
-        last_event="Departed", last_event_time="2026-06-04T10:00:00Z",
-        last_location="Milano, Italy", events=[ev],
+        tracking_number="FAKE1",
+        found=True,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_event="Departed",
+        last_event_time="2026-06-04T10:00:00Z",
+        last_location="Milano, Italy",
+        events=[ev],
     )
     ctx = _ctx(parcel, result)
     await check_updates(ctx)

@@ -19,9 +19,7 @@ async def test_cmd_status_propagates_unexpected_exception() -> None:
     context = MagicMock()
     context.args = ["XYZ"]
     context.bot_data = {
-        "parcel_repo": MagicMock(
-            get_for_user=AsyncMock(side_effect=RuntimeError("unexpected"))
-        )
+        "parcel_repo": MagicMock(get_for_user=AsyncMock(side_effect=RuntimeError("unexpected")))
     }
 
     with pytest.raises(RuntimeError, match="unexpected"):

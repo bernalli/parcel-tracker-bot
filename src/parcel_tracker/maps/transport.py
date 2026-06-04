@@ -7,8 +7,20 @@ _KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("plane", ("flight", "airport", "air ", "by air", "aircraft", "aereo", "volo")),
     ("ship", ("vessel", "port of", "seaport", "by sea", "nave", "porto", "maritime")),
     ("train", ("rail", "train", "treno", "ferroviar")),
-    ("truck", ("out for delivery", "courier", "van", "truck", "road", "in consegna",
-               "camion", "su strada", "delivery vehicle")),
+    (
+        "truck",
+        (
+            "out for delivery",
+            "courier",
+            "van",
+            "truck",
+            "road",
+            "in consegna",
+            "camion",
+            "su strada",
+            "delivery vehicle",
+        ),
+    ),
 ]
 
 

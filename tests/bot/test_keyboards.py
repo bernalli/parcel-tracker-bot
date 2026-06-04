@@ -35,8 +35,13 @@ def test_picker_lists_parcels_with_action_prefix() -> None:
 
 def test_admin_submenu_complete() -> None:
     cb = _all_callbacks(keyboards.admin_submenu())
-    for action in ("action:users", "action:stats", "action:health",
-                   "action:delivered", "nav:cleanup"):
+    for action in (
+        "action:users",
+        "action:stats",
+        "action:health",
+        "action:delivered",
+        "nav:cleanup",
+    ):
         assert action in cb
 
 

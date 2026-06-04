@@ -6,9 +6,11 @@ from parcel_tracker.maps.renderer import MapRenderer
 
 
 def test_render_route_draws_line_and_icon_for_multiple_points() -> None:
-    with patch("parcel_tracker.maps.renderer.StaticMap") as smap_cls, \
-         patch("parcel_tracker.maps.renderer.Line") as line_cls, \
-         patch("parcel_tracker.maps.renderer.IconMarker") as icon_cls:
+    with (
+        patch("parcel_tracker.maps.renderer.StaticMap") as smap_cls,
+        patch("parcel_tracker.maps.renderer.Line") as line_cls,
+        patch("parcel_tracker.maps.renderer.IconMarker") as icon_cls,
+    ):
         smap = smap_cls.return_value
         img = MagicMock()
         smap.render.return_value = img
@@ -23,9 +25,11 @@ def test_render_route_draws_line_and_icon_for_multiple_points() -> None:
 
 
 def test_render_route_single_point_only_marker_no_line() -> None:
-    with patch("parcel_tracker.maps.renderer.StaticMap") as smap_cls, \
-         patch("parcel_tracker.maps.renderer.Line") as line_cls, \
-         patch("parcel_tracker.maps.renderer.IconMarker"):
+    with (
+        patch("parcel_tracker.maps.renderer.StaticMap") as smap_cls,
+        patch("parcel_tracker.maps.renderer.Line") as line_cls,
+        patch("parcel_tracker.maps.renderer.IconMarker"),
+    ):
         smap = smap_cls.return_value
         smap.render.return_value = MagicMock()
         r = MapRenderer(user_agent="ua")

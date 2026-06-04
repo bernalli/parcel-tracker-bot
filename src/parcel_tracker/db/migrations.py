@@ -113,9 +113,7 @@ async def _add_parcels_v2_columns(conn: aiosqlite.Connection) -> None:
     if "transport_mode" not in columns:
         await conn.execute("ALTER TABLE parcels ADD COLUMN transport_mode TEXT")
     if "delivery_disputed" not in columns:
-        await conn.execute(
-            "ALTER TABLE parcels ADD COLUMN delivery_disputed INTEGER DEFAULT 0"
-        )
+        await conn.execute("ALTER TABLE parcels ADD COLUMN delivery_disputed INTEGER DEFAULT 0")
 
 
 async def _add_allowed_users_language(conn: aiosqlite.Connection) -> None:

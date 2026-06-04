@@ -52,10 +52,16 @@ def _ctx(parcel: Parcel, result: TrackingResult, new_events: list[TrackingEvent]
     prefs.is_status_enabled = AsyncMock(return_value=True)
     ctx = MagicMock()
     ctx.bot_data = {
-        "parcel_repo": repo, "registry": MagicMock(), "detector": detector,
-        "health": health, "notifier": notifier, "user_repo": user_repo,
-        "config": config, "rate_limiter": RateLimiter(default_rate_per_min=600),
-        "prefs": prefs, "now": lambda: datetime(2026, 6, 4, 12, 0, tzinfo=UTC),
+        "parcel_repo": repo,
+        "registry": MagicMock(),
+        "detector": detector,
+        "health": health,
+        "notifier": notifier,
+        "user_repo": user_repo,
+        "config": config,
+        "rate_limiter": RateLimiter(default_rate_per_min=600),
+        "prefs": prefs,
+        "now": lambda: datetime(2026, 6, 4, 12, 0, tzinfo=UTC),
     }
     return ctx
 
@@ -63,10 +69,17 @@ def _ctx(parcel: Parcel, result: TrackingResult, new_events: list[TrackingEvent]
 @pytest.mark.asyncio
 async def test_notifies_on_new_event_same_status() -> None:
     parcel = Parcel(tracking_number="FAKE1", user_id=7, status=ShipmentStatus.IN_TRANSIT)
-    ev = TrackingEvent(time="2026-06-04T10:00:00Z", description="Arrived at hub", location="Roma, Italy")
-    result = TrackingResult(tracking_number="FAKE1", found=True,
-                            status=ShipmentStatus.IN_TRANSIT, last_event="Arrived at hub",
-                            last_location="Roma, Italy", events=[ev])
+    ev = TrackingEvent(
+        time="2026-06-04T10:00:00Z", description="Arrived at hub", location="Roma, Italy"
+    )
+    result = TrackingResult(
+        tracking_number="FAKE1",
+        found=True,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_event="Arrived at hub",
+        last_location="Roma, Italy",
+        events=[ev],
+    )
     ctx = _ctx(parcel, result, new_events=[ev])
     await check_updates(ctx)
     ctx.bot_data["notifier"].send_events_update.assert_awaited_once()
@@ -75,8 +88,13 @@ async def test_notifies_on_new_event_same_status() -> None:
 @pytest.mark.asyncio
 async def test_no_notify_when_no_new_events_and_no_change() -> None:
     parcel = Parcel(tracking_number="FAKE1", user_id=7, status=ShipmentStatus.IN_TRANSIT)
-    result = TrackingResult(tracking_number="FAKE1", found=True,
-                            status=ShipmentStatus.IN_TRANSIT, last_event="x", events=[])
+    result = TrackingResult(
+        tracking_number="FAKE1",
+        found=True,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_event="x",
+        events=[],
+    )
     ctx = _ctx(parcel, result, new_events=[])
     await check_updates(ctx)
     ctx.bot_data["notifier"].send_events_update.assert_not_awaited()

@@ -1,5 +1,6 @@
 """The rendered notification text must be clean: no duplicate tracking number,
 carrier shown, human dates, localized status."""
+
 from __future__ import annotations
 
 from typing import Any
