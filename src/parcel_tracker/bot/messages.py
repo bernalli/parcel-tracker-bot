@@ -124,6 +124,10 @@ def checkall_done() -> str:
     return _("✅ Check complete.")
 
 
+def checkall_done_count(n: int) -> str:
+    return _("✅ Checked {n} parcel(s).").format(n=n)
+
+
 def clean_done() -> str:
     return _("🧹 Cleanup complete.")
 

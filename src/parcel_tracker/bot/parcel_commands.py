@@ -177,13 +177,25 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def cmd_checkall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Trigger an update for all the user's parcels (scheduler call not wired yet)."""
+    """Trigger an immediate update for all the user's parcels."""
+    # Lazy import to avoid circular dependency (scheduler → notifier → bot → parcel_commands).
+    # check_user_now is also looked up via globals() so tests can monkeypatch it.
+    from parcel_tracker.core import scheduler as _sched  # noqa: PLC0415
+
+    _fn = globals().get("check_user_now", _sched.check_user_now)
+
+    user = update.effective_user
     reply_to = update.effective_message
-    if reply_to is None:
+    if user is None or reply_to is None:
         return
     await reply_to.reply_text(messages.checkall_started(), parse_mode="HTML")
-    # TODO: enqueue background task
-    await reply_to.reply_text(messages.checkall_done(), parse_mode="HTML")
+    try:
+        n = await _fn(context.bot_data, user_id=user.id)
+    except Exception:  # noqa: BLE001 — surface a friendly message, never crash the handler
+        logger.exception("checkall failed for user %s", user.id)
+        await reply_to.reply_text(messages.generic_error(), parse_mode="HTML")
+        return
+    await reply_to.reply_text(messages.checkall_done_count(n), parse_mode="HTML")
 
 
 async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
