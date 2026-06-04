@@ -91,7 +91,7 @@ async def test_cmd_add_creates_parcel() -> None:
 @pytest.mark.asyncio
 async def test_cmd_status_not_found() -> None:
     update = _make_update()
-    repo = MagicMock(get_by_tracking_number=AsyncMock(return_value=None))
+    repo = MagicMock(get_for_user=AsyncMock(return_value=None))
     context = _make_context(args=["NOPE"], parcel_repo=repo)
     await cmd_status(update, context)
     text = update.message.reply_text.call_args.args[0]
@@ -108,7 +108,7 @@ async def test_cmd_status_returns_details() -> None:
         status=ShipmentStatus.IN_TRANSIT,
     )
     update = _make_update()
-    repo = MagicMock(get_by_tracking_number=AsyncMock(return_value=parcel))
+    repo = MagicMock(get_for_user=AsyncMock(return_value=parcel))
     context = _make_context(args=["ABC"], parcel_repo=repo)
     await cmd_status(update, context)
     text = update.message.reply_text.call_args.args[0]
@@ -119,7 +119,11 @@ async def test_cmd_status_returns_details() -> None:
 @pytest.mark.asyncio
 async def test_cmd_events_empty() -> None:
     update = _make_update()
-    repo = MagicMock(get_history=AsyncMock(return_value=[]))
+    owned = Parcel(tracking_number="ABC", user_id=1, status=ShipmentStatus.IN_TRANSIT)
+    repo = MagicMock(
+        get_for_user=AsyncMock(return_value=owned),
+        get_history=AsyncMock(return_value=[]),
+    )
     context = _make_context(args=["ABC"], parcel_repo=repo)
     await cmd_events(update, context)
     text = update.message.reply_text.call_args.args[0]
@@ -129,8 +133,12 @@ async def test_cmd_events_empty() -> None:
 @pytest.mark.asyncio
 async def test_cmd_events_lists_history() -> None:
     update = _make_update()
+    owned = Parcel(tracking_number="ABC", user_id=1, status=ShipmentStatus.IN_TRANSIT)
     events = [TrackingEvent(time="2026-05-09", description="Picked up", location="Milan")]
-    repo = MagicMock(get_history=AsyncMock(return_value=events))
+    repo = MagicMock(
+        get_for_user=AsyncMock(return_value=owned),
+        get_history=AsyncMock(return_value=events),
+    )
     context = _make_context(args=["ABC"], parcel_repo=repo)
     await cmd_events(update, context)
     text = update.message.reply_text.call_args.args[0]
@@ -141,7 +149,7 @@ async def test_cmd_events_lists_history() -> None:
 @pytest.mark.asyncio
 async def test_cmd_remove_not_found() -> None:
     update = _make_update()
-    repo = MagicMock(get_by_tracking_number=AsyncMock(return_value=None))
+    repo = MagicMock(get_for_user=AsyncMock(return_value=None))
     context = _make_context(args=["MISSING"], parcel_repo=repo)
     await cmd_remove(update, context)
     text = update.message.reply_text.call_args.args[0]

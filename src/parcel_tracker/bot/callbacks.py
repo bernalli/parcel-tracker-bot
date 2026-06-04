@@ -330,6 +330,14 @@ async def _dispatch_confirm(
     action, tracking_number = parts[1], parts[2]
     repo = context.bot_data["parcel_repo"]
     query = update.callback_query
+    if query is None:
+        return
+    # Defense-in-depth: ownership check before any write.
+    user_id = query.from_user.id
+    parcel = await repo.get_for_user(tracking_number, user_id=user_id)
+    if parcel is None:
+        await _edit(query, messages.parcel_not_found(tracking_number), None)
+        return
     if action == "yes":
         from datetime import UTC, datetime  # noqa: PLC0415
 

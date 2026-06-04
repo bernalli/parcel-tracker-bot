@@ -20,7 +20,7 @@ async def test_cmd_status_propagates_unexpected_exception() -> None:
     context.args = ["XYZ"]
     context.bot_data = {
         "parcel_repo": MagicMock(
-            get_by_tracking_number=AsyncMock(side_effect=RuntimeError("unexpected"))
+            get_for_user=AsyncMock(side_effect=RuntimeError("unexpected"))
         )
     }
 

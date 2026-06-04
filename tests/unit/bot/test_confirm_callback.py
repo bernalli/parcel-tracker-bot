@@ -3,19 +3,26 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from parcel_tracker.bot.callbacks import handle_callback
+from parcel_tracker.db.models import Parcel, ShipmentStatus
 
 
-def _q(data: str) -> MagicMock:
+def _q(data: str, uid: int = 7) -> MagicMock:
     q = MagicMock()
     q.data = data
     q.answer = AsyncMock()
     q.edit_message_text = AsyncMock()
+    q.from_user = MagicMock(id=uid)
     return q
+
+
+def _owned_parcel() -> Parcel:
+    return Parcel(tracking_number="TN1", user_id=7, status=ShipmentStatus.IN_TRANSIT)
 
 
 @pytest.mark.asyncio
 async def test_confirm_yes_archives() -> None:
     repo = MagicMock()
+    repo.get_for_user = AsyncMock(return_value=_owned_parcel())
     repo.set_delivered = AsyncMock()
     repo.deactivate = AsyncMock()
     update = MagicMock()
@@ -29,6 +36,7 @@ async def test_confirm_yes_archives() -> None:
 @pytest.mark.asyncio
 async def test_confirm_no_keeps_tracking() -> None:
     repo = MagicMock()
+    repo.get_for_user = AsyncMock(return_value=_owned_parcel())
     repo.set_disputed = AsyncMock()
     repo.reactivate = AsyncMock()
     update = MagicMock()
@@ -42,6 +50,7 @@ async def test_confirm_no_keeps_tracking() -> None:
 @pytest.mark.asyncio
 async def test_confirm_undo_removes() -> None:
     repo = MagicMock()
+    repo.get_for_user = AsyncMock(return_value=_owned_parcel())
     repo.deactivate = AsyncMock()
     update = MagicMock()
     update.callback_query = _q("confirm:undo:TN1")
