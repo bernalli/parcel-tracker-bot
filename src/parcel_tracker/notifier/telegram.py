@@ -20,6 +20,10 @@ class _BotLike(Protocol):
         self, *, chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: object = None
     ) -> object: ...
 
+    async def send_photo(
+        self, *, chat_id: int, photo: object, caption: str, parse_mode: str = "HTML"
+    ) -> object: ...
+
 
 _STATUS_EMOJI: dict[ShipmentStatus, str] = {
     ShipmentStatus.NOT_FOUND: "❓",
@@ -115,6 +119,7 @@ class TelegramNotifier:
         status_changed: bool,
         new_events: list[TrackingEvent],
         location: str | None,
+        map_png: bytes | None = None,
     ) -> None:
         emoji = _STATUS_EMOJI.get(new_status, "📦")
         title = messages.esc(parcel_name or tracking_number)
@@ -132,10 +137,37 @@ class TelegramNotifier:
                     row += f" ({messages.esc(ev.location)})"
                 lines.append(row)
         text = "\n".join(lines)
+        if map_png is not None:
+            await self._send_photo_instrumented(
+                chat_id=chat_id, photo=map_png, caption=text, status_value=new_status.value
+            )
+            return
+        await self._send_message_instrumented(
+            chat_id=chat_id, text=text, status_value=new_status.value
+        )
+
+    async def _send_message_instrumented(
+        self, *, chat_id: int, text: str, status_value: str
+    ) -> None:
+        """send_message with success/failure metric instrumentation."""
         try:
             await self._bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
         except Exception as exc:  # noqa: BLE001
             TELEGRAM_ERRORS_TOTAL.labels(error_class=type(exc).__name__).inc()
             raise
         else:
-            TELEGRAM_SENT_TOTAL.labels(status_value=new_status.value).inc()
+            TELEGRAM_SENT_TOTAL.labels(status_value=status_value).inc()
+
+    async def _send_photo_instrumented(
+        self, *, chat_id: int, photo: bytes, caption: str, status_value: str
+    ) -> None:
+        """send_photo with success/failure metric instrumentation."""
+        try:
+            await self._bot.send_photo(
+                chat_id=chat_id, photo=photo, caption=caption, parse_mode="HTML"
+            )
+        except Exception as exc:  # noqa: BLE001
+            TELEGRAM_ERRORS_TOTAL.labels(error_class=type(exc).__name__).inc()
+            raise
+        else:
+            TELEGRAM_SENT_TOTAL.labels(status_value=status_value).inc()

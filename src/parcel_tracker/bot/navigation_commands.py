@@ -50,8 +50,46 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """/map — placeholder for parcel map view (Phase 3)."""
+    """/map CODE — on-demand best-effort map of a parcel's last known position."""
+    user = update.effective_user
     reply_to = update.effective_message
-    if reply_to is None:
+    if user is None or reply_to is None:
         return
-    await reply_to.reply_text(messages.map_placeholder(), parse_mode="HTML")
+    args = context.args or []
+    if not args:
+        await reply_to.reply_text(messages.map_usage(), parse_mode="HTML")
+        return
+    tracking_number = args[0].strip()
+    repo = context.bot_data["parcel_repo"]
+    parcel = await repo.get_for_user(tracking_number, user_id=user.id)
+    if parcel is None:
+        await reply_to.reply_text(
+            messages.parcel_not_found(tracking_number), parse_mode="HTML"
+        )
+        return
+    geocoder = context.bot_data.get("geocoder")
+    map_renderer = context.bot_data.get("map_renderer")
+    coord = (
+        geocoder.geocode(parcel.last_location)
+        if (geocoder and parcel.last_location)
+        else None
+    )
+    if coord is None or map_renderer is None:
+        await reply_to.reply_text(
+            messages.map_no_position(tracking_number), parse_mode="HTML"
+        )
+        return
+    import asyncio  # noqa: PLC0415
+
+    from parcel_tracker.maps.transport import infer_transport_mode  # noqa: PLC0415
+
+    mode = infer_transport_mode(parcel.carrier_name, parcel.last_event)
+    png = await asyncio.to_thread(
+        map_renderer.render, lat=coord[0], lng=coord[1], mode=mode
+    )
+    await context.bot.send_photo(
+        chat_id=reply_to.chat_id,
+        photo=png,
+        caption=f"📍 {messages.esc(parcel.last_location)}",
+        parse_mode="HTML",
+    )
