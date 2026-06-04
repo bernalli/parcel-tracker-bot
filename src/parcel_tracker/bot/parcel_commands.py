@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from parcel_tracker.bot import messages
@@ -13,6 +14,16 @@ if TYPE_CHECKING:
     from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
+
+_TRACKING_SHAPE = re.compile(r"^[A-Z0-9]{8,35}$")
+
+
+def _looks_like_tracking(candidate: str) -> bool:
+    """Strict heuristic: alphanumeric, 8-35 chars, with at least 3 digits."""
+    up = candidate.upper()
+    if not _TRACKING_SHAPE.fullmatch(up):
+        return False
+    return sum(c.isdigit() for c in up) >= 3
 
 
 async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -190,12 +201,34 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle plain text — interpret as tracking number to add (Phase 2: detector)."""
+    """Plain text → if it looks like a tracking number, auto-add it (no /add needed)."""
     if update.message is None or update.effective_user is None:
         return
     text = (update.message.text or "").strip()
     if not text:
         return
-    logger.debug("handle_message received: %s", text)
-    # F1 minimal: just echo back a hint. Phase 2: detector + create parcel.
-    await update.message.reply_text(messages.to_add_use(text), parse_mode="HTML")
+    candidate = text.split()[0]
+    name = text[len(candidate):].strip() or None
+
+    detector = context.bot_data.get("detector")
+    specific_match = False
+    if detector is not None:
+        specific_match = any(t.priority > 1 for t in detector.detect(candidate))
+
+    if not (specific_match or _looks_like_tracking(candidate)):
+        await update.message.reply_text(messages.to_add_use(candidate), parse_mode="HTML")
+        return
+
+    tn = candidate.upper()
+    repo = context.bot_data["parcel_repo"]
+    created = await repo.create(
+        Parcel(tracking_number=tn, user_id=update.effective_user.id, name=name)
+    )
+    if created is None:
+        await update.message.reply_text(messages.parcel_duplicate(tn), parse_mode="HTML")
+        return
+    from parcel_tracker.bot.keyboards import undo_keyboard  # noqa: PLC0415
+
+    await update.message.reply_text(
+        messages.parcel_added_auto(tn), parse_mode="HTML", reply_markup=undo_keyboard(tn)
+    )

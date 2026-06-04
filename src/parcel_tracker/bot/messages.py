@@ -288,3 +288,9 @@ def parcel_undone(tracking_number: str) -> str:
     return _("↩️ Removed <code>{tracking_number}</code>.").format(
         tracking_number=esc(tracking_number)
     )
+
+
+def parcel_added_auto(tracking_number: str) -> str:
+    return _("✅ Added <code>{tracking_number}</code> and tracking it now.").format(
+        tracking_number=esc(tracking_number)
+    )
