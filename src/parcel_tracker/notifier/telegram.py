@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Protocol
+from typing import Any, Protocol
 
 from parcel_tracker.bot import messages
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
@@ -16,12 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 class _BotLike(Protocol):
+    # reply_markup/photo are typed Any (not object) so the real PTB ExtBot — whose
+    # params are narrower unions — structurally satisfies this Protocol (params are
+    # contravariant: an `object` param would demand ExtBot accept ANY value, which it does not).
     async def send_message(
-        self, *, chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: object = None
+        self, *, chat_id: int, text: str, parse_mode: str = "HTML", reply_markup: Any = None
     ) -> object: ...
 
     async def send_photo(
-        self, *, chat_id: int, photo: object, caption: str, parse_mode: str = "HTML"
+        self, *, chat_id: int, photo: Any, caption: str, parse_mode: str = "HTML"
     ) -> object: ...
 
 
