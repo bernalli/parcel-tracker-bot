@@ -34,6 +34,7 @@ def _ctx(parcel: Parcel, result: TrackingResult, new_events: list[TrackingEvent]
     repo.add_events_dedup = AsyncMock(return_value=new_events)
     repo.update_latest = AsyncMock()
     repo.set_delivered = AsyncMock()
+    repo.get_history = AsyncMock(return_value=[])
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[])
     health = MagicMock()

@@ -189,24 +189,26 @@ async def _maybe_render_map(
     *,
     geocoder: Any | None,
     map_renderer: Any | None,
-    location: str | None,
+    history: list[TrackingEvent],
     new_events: list[TrackingEvent],
 ) -> bytes | None:
-    """Best-effort: geocode the location and render a map PNG. Never raises."""
-    if geocoder is None or map_renderer is None or not location:
+    """Best-effort: build a route from the geocodable event chain and render it.
+    Never raises."""
+    if geocoder is None or map_renderer is None or not history:
         return None
-    coord = geocoder.geocode(location)
-    if coord is None:
-        return None
+    from parcel_tracker.maps.route import build_route_waypoints  # noqa: PLC0415
     from parcel_tracker.maps.transport import infer_transport_mode  # noqa: PLC0415
 
+    waypoints = build_route_waypoints(history, geocoder)
+    if not waypoints:
+        return None
     desc = new_events[-1].description if new_events else None
     carrier = new_events[-1].carrier if new_events else None
     mode = infer_transport_mode(carrier, desc)
     try:
-        return await asyncio.to_thread(map_renderer.render, lat=coord[0], lng=coord[1], mode=mode)
+        return await asyncio.to_thread(map_renderer.render_route, waypoints, mode=mode)
     except Exception:  # noqa: BLE001 — map is best-effort; never block the notification
-        logger.warning("map render failed for %s", location, exc_info=True)
+        logger.warning("route map render failed", exc_info=True)
         return None
 
 
@@ -214,6 +216,7 @@ async def _notify(  # noqa: PLR0913
     *,
     parcel: Parcel,
     user_id: int,
+    parcel_repo: ParcelRepository,
     notifier: TelegramNotifier,
     prefs: Any | None,
     final_result: TrackingResult,
@@ -231,16 +234,19 @@ async def _notify(  # noqa: PLR0913
     if not enabled:
         return
     ordered = sorted(new_events, key=lambda e: e.time or "")
+    history = await parcel_repo.get_history(parcel.tracking_number, limit=50)
+    history = sorted(history, key=lambda e: e.time or "")
     map_png = await _maybe_render_map(
         geocoder=geocoder,
         map_renderer=map_renderer,
-        location=final_result.last_location,
+        history=history,
         new_events=ordered,
     )
     await notifier.send_events_update(
         chat_id=user_id,
         tracking_number=parcel.tracking_number,
         parcel_name=parcel.name,
+        carrier_name=final_result.carrier_name or parcel.carrier_name,
         old_status=parcel.status,
         new_status=final_result.status,
         status_changed=status_changed,
@@ -346,6 +352,7 @@ async def _check_one(  # noqa: PLR0913
     await _notify(
         parcel=parcel,
         user_id=user_id,
+        parcel_repo=parcel_repo,
         notifier=notifier,
         prefs=prefs,
         final_result=final_result,
