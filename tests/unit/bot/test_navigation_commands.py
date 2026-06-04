@@ -57,10 +57,13 @@ async def test_cmd_menu_returns_keyboard() -> None:
 
 
 @pytest.mark.asyncio
-async def test_cmd_map_without_args_shows_usage() -> None:
+async def test_cmd_map_without_args_shows_picker() -> None:
     update = _make_update()
     context = MagicMock()
     context.args = []
+    repo = AsyncMock()
+    repo.list_active_for_user = AsyncMock(return_value=[])
+    context.bot_data = {"parcel_repo": repo}
     await cmd_map(update, context)
-    text = update.message.reply_text.call_args.args[0]
-    assert "/map" in text
+    kwargs = update.message.reply_text.call_args.kwargs
+    assert kwargs.get("reply_markup") is not None

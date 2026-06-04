@@ -57,7 +57,15 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     args = context.args or []
     if not args:
-        await reply_to.reply_text(messages.map_usage(), parse_mode="HTML")
+        from parcel_tracker.bot.keyboards import parcel_picker_keyboard  # noqa: PLC0415
+
+        repo = context.bot_data["parcel_repo"]
+        parcels = await repo.list_active_for_user(user_id=user.id)
+        await reply_to.reply_text(
+            messages.menu_maps_title(),
+            reply_markup=parcel_picker_keyboard(parcels, "map"),
+            parse_mode="HTML",
+        )
         return
     tracking_number = args[0].strip()
     repo = context.bot_data["parcel_repo"]
@@ -69,29 +77,31 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     geocoder = context.bot_data.get("geocoder")
     map_renderer = context.bot_data.get("map_renderer")
-    coord = (
-        geocoder.geocode(parcel.last_location)
-        if (geocoder and parcel.last_location)
-        else None
-    )
-    if coord is None or map_renderer is None:
+    if map_renderer is None:
         await reply_to.reply_text(
             messages.map_no_position(tracking_number), parse_mode="HTML"
         )
         return
     import asyncio  # noqa: PLC0415
 
+    from parcel_tracker.maps.route import build_route_waypoints  # noqa: PLC0415
     from parcel_tracker.maps.transport import infer_transport_mode  # noqa: PLC0415
 
+    history = await repo.get_history(tracking_number, limit=50)
+    history_sorted = sorted(history, key=lambda e: e.time or "")
+    waypoints = build_route_waypoints(history_sorted, geocoder) if geocoder else []
+    if not waypoints:
+        await reply_to.reply_text(
+            messages.map_no_position(tracking_number), parse_mode="HTML"
+        )
+        return
     mode = infer_transport_mode(parcel.carrier_name, parcel.last_event)
     try:
-        png = await asyncio.to_thread(
-            map_renderer.render, lat=coord[0], lng=coord[1], mode=mode
-        )
+        png = await asyncio.to_thread(map_renderer.render_route, waypoints, mode=mode)
         await context.bot.send_photo(
             chat_id=reply_to.chat_id,
             photo=png,
-            caption=f"📍 {messages.esc(parcel.last_location)}",
+            caption=f"📍 {messages.esc(parcel.last_location or tracking_number)}",
             parse_mode="HTML",
         )
     except Exception:  # noqa: BLE001 — map is best-effort; degrade gracefully, never crash
