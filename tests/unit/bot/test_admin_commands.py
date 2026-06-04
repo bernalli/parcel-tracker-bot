@@ -54,8 +54,10 @@ async def test_cmd_clean_owner_only() -> None:
 @pytest.mark.asyncio
 async def test_cmd_clean_owner_runs() -> None:
     update = _make_update(user_id=1)
-    context = _make_context(owner_id=1)
+    parcel_repo = MagicMock(archive_delivered_for_user=AsyncMock(return_value=0))
+    context = _make_context(owner_id=1, parcel_repo=parcel_repo)
     await cmd_clean(update, context)
+    parcel_repo.archive_delivered_for_user.assert_awaited_once_with(user_id=1)
     text = update.message.reply_text.call_args.args[0]
     assert "Cleanup complete" in text
 
@@ -63,8 +65,10 @@ async def test_cmd_clean_owner_runs() -> None:
 @pytest.mark.asyncio
 async def test_cmd_cleanall_owner_runs() -> None:
     update = _make_update(user_id=1)
-    context = _make_context(owner_id=1)
+    parcel_repo = MagicMock(archive_delivered_for_user=AsyncMock(return_value=0))
+    context = _make_context(owner_id=1, parcel_repo=parcel_repo)
     await cmd_cleanall(update, context)
+    parcel_repo.archive_delivered_for_user.assert_awaited_once_with(user_id=1)
     text = update.message.reply_text.call_args.args[0]
     assert "removed" in text.lower()
 
@@ -72,7 +76,10 @@ async def test_cmd_cleanall_owner_runs() -> None:
 @pytest.mark.asyncio
 async def test_cmd_delivered_no_delivered_replies_empty() -> None:
     update = _make_update(user_id=1)
-    parcel_repo = MagicMock(list_active_for_user=AsyncMock(return_value=[]))
+    parcel_repo = MagicMock(
+        list_active_for_user=AsyncMock(return_value=[]),
+        list_archived_for_user=AsyncMock(return_value=[]),
+    )
     context = _make_context(owner_id=1, parcel_repo=parcel_repo)
     await cmd_delivered(update, context)
     text = update.message.reply_text.call_args.args[0]
