@@ -265,3 +265,26 @@ def history_header() -> str:
 
 def no_history() -> str:
     return _("No delivered parcels in your history yet.")
+
+
+def delivery_confirm_prompt(title: str, tracking_number: str) -> str:
+    return _(
+        "✅ <b>{title}</b>\n<code>{tracking_number}</code>\n\n"
+        "This parcel looks <b>delivered</b>. Did you receive it?"
+    ).format(title=esc(title), tracking_number=esc(tracking_number))
+
+
+def delivered_archived(tracking_number: str) -> str:  # noqa: ARG001
+    return _("📦 Marked as received and archived. See /history.")
+
+
+def delivery_kept_tracking(tracking_number: str) -> str:
+    return _("👀 OK, I'll keep tracking <code>{tracking_number}</code>.").format(
+        tracking_number=esc(tracking_number)
+    )
+
+
+def parcel_undone(tracking_number: str) -> str:
+    return _("↩️ Removed <code>{tracking_number}</code>.").format(
+        tracking_number=esc(tracking_number)
+    )

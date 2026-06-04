@@ -124,3 +124,35 @@ def parcel_actions_keyboard(tracking_number: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(_("🗑 Remove"), callback_data=f"parcel:remove:{tracking_number}")],
         ]
     )
+
+
+def delivery_confirm_keyboard(tracking_number: str) -> InlineKeyboardMarkup:
+    """Yes/No keyboard shown when a parcel is detected as delivered."""
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    _("✅ Yes, received"),
+                    callback_data=f"confirm:yes:{tracking_number}",
+                ),
+                InlineKeyboardButton(
+                    _("❌ Not yet"),
+                    callback_data=f"confirm:no:{tracking_number}",
+                ),
+            ]
+        ]
+    )
+
+
+def undo_keyboard(tracking_number: str) -> InlineKeyboardMarkup:
+    """Undo button shown after an auto-added parcel."""
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    _("↩️ Undo"),
+                    callback_data=f"confirm:undo:{tracking_number}",
+                )
+            ]
+        ]
+    )
