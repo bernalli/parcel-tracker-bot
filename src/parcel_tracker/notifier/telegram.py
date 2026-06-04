@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
+from parcel_tracker.bot import messages
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
 from parcel_tracker.observability.metrics import (
     TELEGRAM_ERRORS_TOTAL,
@@ -51,20 +52,20 @@ class TelegramNotifier:
         last_event: TrackingEvent | None,
     ) -> None:
         emoji = _STATUS_EMOJI.get(new_status, "📦")
-        title = parcel_name or tracking_number
+        title = messages.esc(parcel_name or tracking_number)
         lines = [
             f"{emoji} <b>{title}</b>",
-            f"<code>{tracking_number}</code>",
+            f"<code>{messages.esc(tracking_number)}</code>",
             "",
             f"Status: <i>{old_status.value}</i> → <b>{new_status.value}</b>",
         ]
         if last_event:
             lines.append("")
-            lines.append(f"📍 {last_event.description}")
+            lines.append(f"📍 {messages.esc(last_event.description)}")
             if last_event.location:
-                lines.append(f"   {last_event.location}")
+                lines.append(f"   {messages.esc(last_event.location)}")
             if last_event.time:
-                lines.append(f"   <i>{last_event.time}</i>")
+                lines.append(f"   <i>{messages.esc(last_event.time)}</i>")
 
         text = "\n".join(lines)
 
@@ -89,19 +90,19 @@ class TelegramNotifier:
         location: str | None,
     ) -> None:
         emoji = _STATUS_EMOJI.get(new_status, "📦")
-        title = parcel_name or tracking_number
-        lines = [f"{emoji} <b>{title}</b>", f"<code>{tracking_number}</code>", ""]
+        title = messages.esc(parcel_name or tracking_number)
+        lines = [f"{emoji} <b>{title}</b>", f"<code>{messages.esc(tracking_number)}</code>", ""]
         if status_changed:
             lines.append(f"Status: <i>{old_status.value}</i> → <b>{new_status.value}</b>")
         if location:
-            lines.append(f"📍 {location}")
+            lines.append(f"📍 {messages.esc(location)}")
         if new_events:
             lines.append("")
             lines.append("🆕 <b>Updates:</b>")
             for ev in new_events:
-                row = f"• <i>{ev.time}</i> — {ev.description}"
+                row = f"• <i>{messages.esc(ev.time)}</i> — {messages.esc(ev.description)}"
                 if ev.location:
-                    row += f" ({ev.location})"
+                    row += f" ({messages.esc(ev.location)})"
                 lines.append(row)
         text = "\n".join(lines)
         try:

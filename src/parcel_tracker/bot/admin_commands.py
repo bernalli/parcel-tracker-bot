@@ -63,7 +63,8 @@ async def cmd_delivered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await reply_to.reply_text(messages.no_delivered_parcels(), parse_mode="HTML")
         return
     text = "\n".join(
-        f"✅ <code>{p.tracking_number}</code> {p.name or ''}".rstrip() for p in delivered
+        f"✅ <code>{messages.esc(p.tracking_number)}</code> {messages.esc(p.name or '')}".rstrip()
+        for p in delivered
     )
     await reply_to.reply_text(text, parse_mode="HTML")
 

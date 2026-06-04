@@ -57,7 +57,10 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not parcels:
         await reply_to.reply_text(messages.no_parcels_active(), parse_mode="HTML")
         return
-    text = "\n".join(f"• <code>{p.tracking_number}</code> {p.name or ''}".rstrip() for p in parcels)
+    text = "\n".join(
+        f"• <code>{messages.esc(p.tracking_number)}</code> {messages.esc(p.name or '')}".rstrip()
+        for p in parcels
+    )
     await reply_to.reply_text(text, parse_mode="HTML")
 
 
@@ -77,10 +80,10 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
     text = (
-        f"<b>{parcel.name or parcel.tracking_number}</b>\n"
-        f"<code>{parcel.tracking_number}</code>\n"
+        f"<b>{messages.esc(parcel.name or parcel.tracking_number)}</b>\n"
+        f"<code>{messages.esc(parcel.tracking_number)}</code>\n"
         f"Status: <i>{parcel.status.value}</i>\n"
-        f"{messages.carrier_label()}: {parcel.carrier_name or parcel.carrier_code or '?'}"
+        f"{messages.carrier_label()}: {messages.esc(parcel.carrier_name or parcel.carrier_code or '?')}"
     )
     await reply_to.reply_text(text, parse_mode="HTML")
 
@@ -102,9 +105,9 @@ async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     lines = [messages.events_for(tracking_number)]
     for ev in events:
-        line = f"• <i>{ev.time}</i> — {ev.description}"
+        line = f"• <i>{messages.esc(ev.time)}</i> — {messages.esc(ev.description)}"
         if ev.location:
-            line += f" ({ev.location})"
+            line += f" ({messages.esc(ev.location)})"
         lines.append(line)
     await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
 
@@ -168,7 +171,9 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     lines = [messages.history_header()]
     for p in parcels:
-        lines.append(f"✅ <code>{p.tracking_number}</code> {p.name or ''}".rstrip())
+        lines.append(
+            f"✅ <code>{messages.esc(p.tracking_number)}</code> {messages.esc(p.name or '')}".rstrip()
+        )
     await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
 
 
