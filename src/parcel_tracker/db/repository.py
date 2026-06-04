@@ -296,6 +296,17 @@ class ParcelRepository:
             rows = await cursor.fetchall()
         return [_row_to_parcel(row) for row in rows]
 
+    async def rename(self, tracking_number: str, *, user_id: int, name: str) -> bool:
+        """Set a parcel's display name, scoped to its owner. Returns True if a row changed."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "UPDATE parcels SET name = ?, updated_at = CURRENT_TIMESTAMP "
+                "WHERE tracking_number = ? AND user_id = ?",
+                (name, tracking_number, user_id),
+            )
+            await conn.commit()
+            return bool(cursor.rowcount)
+
 
 def _parse_ts(raw: str | None) -> datetime | None:
     if not raw:
