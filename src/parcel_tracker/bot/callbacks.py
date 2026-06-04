@@ -27,14 +27,17 @@ from parcel_tracker.bot import messages
 # referenced directly in this module's body; the noqa suppresses ruff's F401.
 from parcel_tracker.bot.admin_commands import (
     cmd_clean,  # noqa: F401  (lazy lookup target)
+    cmd_cleanall,  # noqa: F401  (lazy lookup target)
     cmd_delivered,  # noqa: F401  (lazy lookup target)
     cmd_stats,  # noqa: F401  (lazy lookup target)
 )
-from parcel_tracker.bot.auth_commands import cmd_users  # noqa: F401  (lazy lookup target)
+from parcel_tracker.bot.auth_commands import (
+    cmd_users,  # noqa: F401  (lazy lookup target)
+    cmd_whoami,  # noqa: F401  (lazy lookup target)
+)
 from parcel_tracker.bot.keyboards import (
     admin_submenu,
     main_menu,
-    parcels_submenu,
     settings_submenu,
 )
 from parcel_tracker.bot.lang_command import cmd_lang  # noqa: F401  (lazy lookup target)
@@ -97,11 +100,26 @@ async def _nav_main(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await _edit(query, messages.menu_header(), main_menu(is_admin=is_admin))
 
 
-async def _nav_parcels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def _show_picker(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    action: str,
+    *,
+    title: str,
+) -> None:
+    from parcel_tracker.bot.keyboards import parcel_picker_keyboard  # noqa: PLC0415
+
     query = update.callback_query
-    if query is None:
+    user = update.effective_user
+    if query is None or user is None:
         return
-    await _edit(query, messages.menu_section_parcels(), parcels_submenu())
+    repo = context.bot_data["parcel_repo"]
+    parcels = await repo.list_active_for_user(user_id=user.id)
+    await _edit(query, title, parcel_picker_keyboard(parcels, action))
+
+
+async def _nav_parcels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _show_picker(update, context, "open", title=messages.menu_section_parcels())
 
 
 async def _nav_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -119,6 +137,30 @@ async def _nav_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await _edit(query, messages.unauthorized(), _back_only_keyboard())
         return
     await _edit(query, messages.menu_section_admin(), admin_submenu())
+
+
+async def _nav_maps(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _show_picker(update, context, "map", title=messages.menu_maps_title())
+
+
+async def _nav_cleanup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from parcel_tracker.bot.keyboards import cleanup_submenu  # noqa: PLC0415
+
+    query = update.callback_query
+    if query is None:
+        return
+    if not await _admin_gate(update, context):
+        return
+    await _edit(query, messages.menu_section_admin(), cleanup_submenu())
+
+
+async def _nav_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None:
+        return
+    if not await _admin_gate(update, context):
+        return
+    await cmd_users(update, context)
 
 
 # --- action:* handlers -----------------------------------------------------
@@ -176,6 +218,33 @@ async def _action_clean(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await cmd_clean(update, context)
 
 
+async def _action_cleanall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _admin_gate(update, context):
+        return
+    await cmd_cleanall(update, context)
+
+
+async def _action_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await cmd_whoami(update, context)
+
+
+async def _action_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if context.user_data is not None:
+        context.user_data["pending"] = {"action": "adduser"}
+    if query is not None:
+        await _edit(query, messages.prompt_adduser_value(), _back_only_keyboard())
+
+
+async def _action_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Show a user picker (prompt for now; revoke flow via pending state).
+    query = update.callback_query
+    if context.user_data is not None:
+        context.user_data["pending"] = {"action": "revoke"}
+    if query is not None:
+        await _edit(query, messages.prompt_adduser_value(), _back_only_keyboard())
+
+
 def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
     """Resolve an action name to its handler at dispatch time.
 
@@ -196,6 +265,10 @@ def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
         "stats": "_action_stats",
         "delivered": "_action_delivered",
         "clean": "_action_clean",
+        "cleanall": "_action_cleanall",
+        "whoami": "_action_whoami",
+        "adduser": "_action_adduser",
+        "revoke": "_action_revoke",
     }
     attr = table.get(name)
     if attr is None:
@@ -210,10 +283,6 @@ def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
 
 _PROMPT_TEXTS: dict[str, object] = {
     "add": messages.prompt_add,
-    "status": messages.prompt_status,
-    "events": messages.prompt_events,
-    "rename": messages.prompt_rename,
-    "remove": messages.prompt_remove,
 }
 
 
@@ -243,6 +312,7 @@ def _get_parcel_handler(action: str):  # type: ignore[no-untyped-def]
         "refresh": "cmd_status",
         "events": "cmd_events",
         "remove": "cmd_remove",
+        "map": "cmd_map",
     }
     attr = table.get(action)
     if attr is None:
@@ -258,6 +328,24 @@ async def _handle_parcel(
     action: str,
     tracking_number: str,
 ) -> None:
+    if action == "rename":
+        if context.user_data is not None:
+            context.user_data["pending"] = {"action": "rename", "tn": tracking_number}
+        query = update.callback_query
+        if query is not None:
+            await _edit(query, messages.prompt_rename_value(tracking_number), _back_only_keyboard())
+        return
+    if action == "open":
+        from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
+
+        query = update.callback_query
+        if query is not None:
+            await _edit(
+                query,
+                messages.parcel_detail_title(tracking_number),
+                parcel_actions_keyboard(tracking_number),
+            )
+        return
     handler = _get_parcel_handler(action)
     if handler is None:
         logger.debug("Unknown parcel action: %s", action)
@@ -274,6 +362,9 @@ _NAV_HANDLERS = {
     "parcels": _nav_parcels,
     "settings": _nav_settings,
     "admin": _nav_admin,
+    "maps": _nav_maps,
+    "cleanup": _nav_cleanup,
+    "users": _nav_users,
 }
 
 

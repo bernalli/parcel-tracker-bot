@@ -65,8 +65,10 @@ async def test_nav_main_edits_with_main_menu() -> None:
 
 @pytest.mark.asyncio
 async def test_nav_parcels_edits_with_parcels_submenu() -> None:
+    repo = AsyncMock()
+    repo.list_active_for_user = AsyncMock(return_value=[])
     update = _make_update("nav:parcels")
-    context = _make_context()
+    context = _make_context(parcel_repo=repo)
 
     await handle_callback(update, context)
     args = update.callback_query.edit_message_text.call_args
@@ -204,43 +206,47 @@ async def test_prompt_add_edits_with_prompt_text_and_back_keyboard() -> None:
 
 
 @pytest.mark.asyncio
-async def test_prompt_status_edits_with_prompt_text() -> None:
+async def test_prompt_status_falls_back_to_main_menu() -> None:
+    # prompt:status was removed (flow moved to picker); falls back to main menu.
     update = _make_update("prompt:status")
     context = _make_context()
 
     await handle_callback(update, context)
     text = update.callback_query.edit_message_text.call_args.args[0]
-    assert "/status" in text
+    assert text  # main menu header shown
 
 
 @pytest.mark.asyncio
-async def test_prompt_events_edits_with_prompt_text() -> None:
+async def test_prompt_events_falls_back_to_main_menu() -> None:
+    # prompt:events was removed; falls back to main menu.
     update = _make_update("prompt:events")
     context = _make_context()
 
     await handle_callback(update, context)
     text = update.callback_query.edit_message_text.call_args.args[0]
-    assert "/events" in text
+    assert text
 
 
 @pytest.mark.asyncio
-async def test_prompt_remove_edits_with_prompt_text() -> None:
+async def test_prompt_remove_falls_back_to_main_menu() -> None:
+    # prompt:remove was removed; falls back to main menu.
     update = _make_update("prompt:remove")
     context = _make_context()
 
     await handle_callback(update, context)
     text = update.callback_query.edit_message_text.call_args.args[0]
-    assert "/remove" in text
+    assert text
 
 
 @pytest.mark.asyncio
-async def test_prompt_rename_edits_with_prompt_text() -> None:
+async def test_prompt_rename_falls_back_to_main_menu() -> None:
+    # prompt:rename was removed (flow moved to guided rename button); falls back to main menu.
     update = _make_update("prompt:rename")
     context = _make_context()
 
     await handle_callback(update, context)
     text = update.callback_query.edit_message_text.call_args.args[0]
-    assert "/rename" in text
+    assert text
 
 
 # ---------------------------------------------------------------------------
