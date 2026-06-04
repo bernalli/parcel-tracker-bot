@@ -79,7 +79,8 @@ async def test_cmd_add_no_args_returns_usage() -> None:
 @pytest.mark.asyncio
 async def test_cmd_add_creates_parcel() -> None:
     update = _make_update()
-    repo = MagicMock(create=AsyncMock(return_value=None))
+    created_parcel = Parcel(tracking_number="XYZ", user_id=1, name="Mio pacco")
+    repo = MagicMock(create=AsyncMock(return_value=created_parcel))
     context = _make_context(args=["XYZ", "Mio pacco"], parcel_repo=repo)
     await cmd_add(update, context)
     repo.create.assert_called_once()

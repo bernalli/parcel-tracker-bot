@@ -72,27 +72,31 @@ class ParcelRepository:
     def __init__(self, db_path: str) -> None:
         self._db_path = db_path
 
-    async def create(self, parcel: Parcel) -> Parcel:
+    async def create(self, parcel: Parcel) -> Parcel | None:
+        """Insert a parcel. Returns the parcel, or None if the tracking_number already exists."""
         async with get_connection(self._db_path) as conn:
-            await conn.execute(
-                """
-                INSERT INTO parcels (
-                    tracking_number, name, carrier_code, carrier_name,
-                    all_carriers, status, user_id, is_active
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    parcel.tracking_number,
-                    parcel.name,
-                    parcel.carrier_code,
-                    parcel.carrier_name,
-                    json.dumps(parcel.all_carriers),
-                    parcel.status.value,
-                    parcel.user_id,
-                    int(parcel.is_active),
-                ),
-            )
-            await conn.commit()
+            try:
+                await conn.execute(
+                    """
+                    INSERT INTO parcels (
+                        tracking_number, name, carrier_code, carrier_name,
+                        all_carriers, status, user_id, is_active
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        parcel.tracking_number,
+                        parcel.name,
+                        parcel.carrier_code,
+                        parcel.carrier_name,
+                        json.dumps(parcel.all_carriers),
+                        parcel.status.value,
+                        parcel.user_id,
+                        int(parcel.is_active),
+                    ),
+                )
+                await conn.commit()
+            except aiosqlite.IntegrityError:
+                return None
         return parcel
 
     async def get_by_tracking_number(self, tracking_number: str) -> Parcel | None:

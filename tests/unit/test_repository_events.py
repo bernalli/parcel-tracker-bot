@@ -34,3 +34,10 @@ async def test_update_latest_roundtrips(tmp_db_path) -> None:
     assert p is not None
     assert p.last_event == "Out for delivery"
     assert p.last_location == "Torino, IT"
+
+
+@pytest.mark.asyncio
+async def test_create_returns_none_on_duplicate(tmp_db_path) -> None:
+    repo = await _repo(tmp_db_path)  # already created TN1
+    dup = await repo.create(Parcel(tracking_number="TN1", user_id=1))
+    assert dup is None
