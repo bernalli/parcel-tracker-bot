@@ -132,6 +132,23 @@ async def _check_updates_impl(context: _JobContext) -> None:
         )
 
 
+async def _persist_result(
+    parcel_repo: ParcelRepository,
+    tracking_number: str,
+    result: TrackingResult,
+) -> None:
+    """Persist new events (canonical store = tracking_history) and refresh the
+    denormalised latest-event fields used by /status and notifications."""
+    await parcel_repo.add_events_dedup(tracking_number, result.events)
+    if result.last_event is not None:
+        await parcel_repo.update_latest(
+            tracking_number,
+            result.last_event,
+            result.last_event_time,
+            result.last_location,
+        )
+
+
 async def _check_one(  # noqa: PLR0913
     *,
     parcel: Parcel,
@@ -200,6 +217,8 @@ async def _check_one(  # noqa: PLR0913
 
     if final_result is None:
         return
+
+    await _persist_result(parcel_repo, parcel.tracking_number, final_result)
 
     if final_result.status != parcel.status:
         await parcel_repo.update_status(parcel.tracking_number, final_result.status)

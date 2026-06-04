@@ -52,6 +52,8 @@ def _make_context(
     parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
+    parcel_repo.add_events_dedup = AsyncMock(return_value=[])
+    parcel_repo.update_latest = AsyncMock()
 
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[parcel.user_id])
