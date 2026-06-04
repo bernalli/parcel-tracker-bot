@@ -54,23 +54,32 @@ class TelegramNotifier:
     def __init__(self, *, bot: _BotLike) -> None:
         self._bot = bot
 
-    async def send_status_update(
+    async def send_status_update(  # noqa: PLR0913
         self,
         *,
         chat_id: int,
         tracking_number: str,
         parcel_name: str | None,
+        carrier_name: str | None = None,
         old_status: ShipmentStatus,
         new_status: ShipmentStatus,
         last_event: TrackingEvent | None,
     ) -> None:
+        from parcel_tracker.bot.formatting import fmt_event_time, status_label  # noqa: PLC0415
+
         emoji = _STATUS_EMOJI.get(new_status, "📦")
-        title = messages.esc(parcel_name or tracking_number)
+        if parcel_name:
+            header = messages.esc(parcel_name)
+        elif carrier_name:
+            header = f"{messages.esc(carrier_name)} — {status_label(new_status)}"
+        else:
+            header = status_label(new_status)
+
         lines = [
-            f"{emoji} <b>{title}</b>",
+            f"{emoji} <b>{header}</b>",
             f"<code>{messages.esc(tracking_number)}</code>",
             "",
-            f"Status: <i>{old_status.value}</i> → <b>{new_status.value}</b>",
+            f"{status_label(old_status)} → <b>{status_label(new_status)}</b>",
         ]
         if last_event:
             lines.append("")
@@ -78,7 +87,7 @@ class TelegramNotifier:
             if last_event.location:
                 lines.append(f"   {messages.esc(last_event.location)}")
             if last_event.time:
-                lines.append(f"   <i>{messages.esc(last_event.time)}</i>")
+                lines.append(f"   <i>{messages.esc(fmt_event_time(last_event.time))}</i>")
 
         text = "\n".join(lines)
 
