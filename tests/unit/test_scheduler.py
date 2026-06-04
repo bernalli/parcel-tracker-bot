@@ -54,6 +54,7 @@ def _make_context(
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
     parcel_repo.update_latest = AsyncMock()
     parcel_repo.set_delivered = AsyncMock()
+    parcel_repo.get_history = AsyncMock(return_value=[])
 
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[42] if user_ids is None else user_ids)
@@ -456,6 +457,7 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[ev])
     parcel_repo.update_latest = AsyncMock()
+    parcel_repo.get_history = AsyncMock(return_value=[])
 
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[1])
@@ -530,6 +532,7 @@ async def test_check_updates_notifies_event_when_status_enabled() -> None:
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[ev])
     parcel_repo.update_latest = AsyncMock()
+    parcel_repo.get_history = AsyncMock(return_value=[])
 
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[1])
