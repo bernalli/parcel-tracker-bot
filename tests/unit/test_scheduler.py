@@ -12,7 +12,7 @@ import pytest
 from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.scheduler import check_updates, sort_by_priority
 from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult
-from parcel_tracker.db.models import Parcel, ShipmentStatus
+from parcel_tracker.db.models import Parcel, ShipmentStatus, TrackingEvent
 
 
 class _FakeTracker(AbstractTracker):
@@ -53,6 +53,7 @@ def _make_context(
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
     parcel_repo.update_latest = AsyncMock()
+    parcel_repo.set_delivered = AsyncMock()
 
     user_repo = MagicMock()
     user_repo.get_allowed_user_ids = AsyncMock(return_value=[42] if user_ids is None else user_ids)
@@ -64,6 +65,8 @@ def _make_context(
 
     notifier = MagicMock()
     notifier.send_status_update = AsyncMock()
+    notifier.send_events_update = AsyncMock()
+    notifier.send_delivery_confirmation = AsyncMock()
 
     config = MagicMock()
     config.batch_size = 10
@@ -72,6 +75,7 @@ def _make_context(
 
     prefs = MagicMock()
     prefs.is_allowed = AsyncMock(return_value=True)
+    prefs.is_status_enabled = AsyncMock(return_value=True)
     prefs.mark_sent = AsyncMock()
 
     fixed_now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
@@ -149,7 +153,9 @@ async def test_check_updates_checks_owner_parcels_when_allowlist_empty() -> None
     ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
         "FAKE123", ShipmentStatus.DELIVERED
     )
-    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
+    # DELIVERED transition hands off to the delivery-confirmation flow.
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
+    ctx.bot_data["notifier"].send_events_update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -180,8 +186,9 @@ async def test_check_updates_checks_env_allowed_user_parcels() -> None:
     ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
         "FAKE123", ShipmentStatus.DELIVERED
     )
-    ctx.bot_data["notifier"].send_status_update.assert_awaited_once()
-    call_kwargs = ctx.bot_data["notifier"].send_status_update.call_args.kwargs
+    # DELIVERED transition hands off to the delivery-confirmation flow.
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
+    call_kwargs = ctx.bot_data["notifier"].send_delivery_confirmation.call_args.kwargs
     assert call_kwargs["chat_id"] == 777
 
 
@@ -262,24 +269,27 @@ async def test_check_updates_status_unchanged_no_notification() -> None:
 
 @pytest.mark.asyncio
 async def test_check_updates_status_changed_sends_notification() -> None:
-    """When status changes, update_status and send_status_update are called."""
+    """A non-delivered status change calls update_status and notifies via
+    send_events_update with status_changed=True and old/new status set."""
     parcel = _make_parcel(status=ShipmentStatus.IN_TRANSIT)
     result = TrackingResult(
         tracking_number="FAKE123",
         found=True,
-        status=ShipmentStatus.DELIVERED,
+        status=ShipmentStatus.OUT_FOR_DELIVERY,
     )
     ctx = _make_context(parcels=[parcel], tracker_result=result)
 
     await check_updates(ctx)
 
     ctx.bot_data["parcel_repo"].update_status.assert_called_once_with(
-        "FAKE123", ShipmentStatus.DELIVERED
+        "FAKE123", ShipmentStatus.OUT_FOR_DELIVERY
     )
-    ctx.bot_data["notifier"].send_status_update.assert_called_once()
-    call_kwargs: dict[str, Any] = ctx.bot_data["notifier"].send_status_update.call_args.kwargs
+    ctx.bot_data["notifier"].send_events_update.assert_called_once()
+    ctx.bot_data["notifier"].send_delivery_confirmation.assert_not_called()
+    call_kwargs: dict[str, Any] = ctx.bot_data["notifier"].send_events_update.call_args.kwargs
     assert call_kwargs["old_status"] == ShipmentStatus.IN_TRANSIT
-    assert call_kwargs["new_status"] == ShipmentStatus.DELIVERED
+    assert call_kwargs["new_status"] == ShipmentStatus.OUT_FOR_DELIVERY
+    assert call_kwargs["status_changed"] is True
     assert call_kwargs["chat_id"] == 42
 
 
@@ -382,24 +392,27 @@ async def test_check_updates_processes_batch_in_parallel() -> None:
 
 @pytest.mark.asyncio
 async def test_check_updates_prefs_none_notifies_without_gating() -> None:
-    """Pre-item 19: when bot_data has no 'prefs' key, notifications go through and
-    no mark_sent() is invoked (no preference store exists)."""
+    """When bot_data has no 'prefs' key, an event-only notification still goes
+    through (gating bypassed when prefs is None)."""
     parcel = _make_parcel(status=ShipmentStatus.IN_TRANSIT)
+    ev = TrackingEvent(time="2026-05-09T11:00:00Z", description="Arrived", location="Hub")
     result = TrackingResult(
         tracking_number="FAKE123",
         found=True,
-        status=ShipmentStatus.DELIVERED,
+        status=ShipmentStatus.IN_TRANSIT,
+        last_event="Arrived",
+        events=[ev],
     )
     ctx = _make_context(parcels=[parcel], tracker_result=result)
+    # New events are present so a notification is warranted even without a status change.
+    ctx.bot_data["parcel_repo"].add_events_dedup = AsyncMock(return_value=[ev])
     # Remove 'prefs' to exercise the get(...) → None path
     del ctx.bot_data["prefs"]
 
     await check_updates(ctx)
 
     # Notification must still go through (gating bypassed when prefs is None)
-    ctx.bot_data["notifier"].send_status_update.assert_called_once()
-    # No mark_sent — there is no preference store to record into
-    # (prefs is None so the guard skips the call entirely)
+    ctx.bot_data["notifier"].send_events_update.assert_called_once()
 
 
 def test_sort_by_priority_orders_out_for_delivery_first() -> None:
@@ -424,7 +437,8 @@ def test_sort_by_priority_preserves_unknowns_at_end() -> None:
 
 @pytest.mark.asyncio
 async def test_check_updates_skips_send_when_prefs_disallow() -> None:
-    """When prefs.is_allowed returns False, notifier.send_status_update is NOT called."""
+    """When prefs.is_status_enabled returns False, notifier.send_events_update is
+    NOT called, but the status change still persists."""
     from datetime import timedelta
 
     now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
@@ -435,11 +449,12 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
         last_check_at=now - timedelta(hours=1),
     )
 
+    ev = TrackingEvent(time="2026-05-09T11:00:00Z", description="Out for delivery", location="Hub")
     parcel_repo = MagicMock()
     parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
-    parcel_repo.add_events_dedup = AsyncMock(return_value=[])
+    parcel_repo.add_events_dedup = AsyncMock(return_value=[ev])
     parcel_repo.update_latest = AsyncMock()
 
     user_repo = MagicMock()
@@ -448,7 +463,13 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
     fake_tracker = MagicMock()
     fake_tracker.name = "ft"
     fake_tracker.fetch = AsyncMock(
-        return_value=MagicMock(found=True, status=ShipmentStatus.DELIVERED, events=[])
+        return_value=TrackingResult(
+            tracking_number="X",
+            found=True,
+            status=ShipmentStatus.OUT_FOR_DELIVERY,
+            last_event="Out for delivery",
+            events=[ev],
+        )
     )
     detector = MagicMock()
     detector.detect = MagicMock(return_value=[fake_tracker])
@@ -458,7 +479,8 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
     health.record_success = AsyncMock()
 
     notifier = MagicMock()
-    notifier.send_status_update = AsyncMock()
+    notifier.send_events_update = AsyncMock()
+    notifier.send_delivery_confirmation = AsyncMock()
 
     config = MagicMock()
     config.batch_size = 10
@@ -466,8 +488,7 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
     config.allowed_user_ids = []
 
     prefs = MagicMock()
-    prefs.is_allowed = AsyncMock(return_value=False)  # blocked
-    prefs.mark_sent = AsyncMock()
+    prefs.is_status_enabled = AsyncMock(return_value=False)  # blocked
 
     context = MagicMock()
     context.bot_data = {
@@ -485,14 +506,14 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
 
     await check_updates(context)
 
-    notifier.send_status_update.assert_not_called()
-    prefs.mark_sent.assert_not_called()
+    notifier.send_events_update.assert_not_called()
     parcel_repo.update_status.assert_awaited_once()  # status update still persists
 
 
 @pytest.mark.asyncio
-async def test_check_updates_marks_sent_after_success() -> None:
-    """When prefs.is_allowed returns True, mark_sent is called with correct args."""
+async def test_check_updates_notifies_event_when_status_enabled() -> None:
+    """When prefs.is_status_enabled returns True and there are new events,
+    send_events_update is awaited once with the enabled status."""
     from datetime import timedelta
 
     now = datetime(2026, 5, 9, 12, 0, tzinfo=UTC)
@@ -502,11 +523,12 @@ async def test_check_updates_marks_sent_after_success() -> None:
         status=ShipmentStatus.IN_TRANSIT,
         last_check_at=now - timedelta(hours=1),
     )
+    ev = TrackingEvent(time="2026-05-09T11:00:00Z", description="Departed", location="Hub")
     parcel_repo = MagicMock()
     parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
-    parcel_repo.add_events_dedup = AsyncMock(return_value=[])
+    parcel_repo.add_events_dedup = AsyncMock(return_value=[ev])
     parcel_repo.update_latest = AsyncMock()
 
     user_repo = MagicMock()
@@ -515,7 +537,13 @@ async def test_check_updates_marks_sent_after_success() -> None:
     fake_tracker = MagicMock()
     fake_tracker.name = "ft"
     fake_tracker.fetch = AsyncMock(
-        return_value=MagicMock(found=True, status=ShipmentStatus.DELIVERED, events=[])
+        return_value=TrackingResult(
+            tracking_number="Y",
+            found=True,
+            status=ShipmentStatus.IN_TRANSIT,
+            last_event="Departed",
+            events=[ev],
+        )
     )
     detector = MagicMock()
     detector.detect = MagicMock(return_value=[fake_tracker])
@@ -525,14 +553,14 @@ async def test_check_updates_marks_sent_after_success() -> None:
     health.record_success = AsyncMock()
 
     notifier = MagicMock()
-    notifier.send_status_update = AsyncMock()
+    notifier.send_events_update = AsyncMock()
+    notifier.send_delivery_confirmation = AsyncMock()
     config = MagicMock()
     config.batch_size = 10
     config.owner_id = 1
     config.allowed_user_ids = []
     prefs = MagicMock()
-    prefs.is_allowed = AsyncMock(return_value=True)
-    prefs.mark_sent = AsyncMock()
+    prefs.is_status_enabled = AsyncMock(return_value=True)
 
     context = MagicMock()
     context.bot_data = {
@@ -549,5 +577,5 @@ async def test_check_updates_marks_sent_after_success() -> None:
     }
 
     await check_updates(context)
-    notifier.send_status_update.assert_awaited_once()
-    prefs.mark_sent.assert_awaited_once_with(1, "Y", ShipmentStatus.DELIVERED)
+    notifier.send_events_update.assert_awaited_once()
+    prefs.is_status_enabled.assert_awaited_once_with(1, ShipmentStatus.IN_TRANSIT)
