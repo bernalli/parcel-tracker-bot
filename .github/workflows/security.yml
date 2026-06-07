@@ -16,6 +16,10 @@ permissions:
 jobs:
   gitleaks:
     runs-on: ubuntu-latest
+    # Dependabot-triggered runs get a read-only GITHUB_TOKEN: gitleaks-action
+    # cannot post its PR comment and dies with HTTP 403. Dependabot diffs are
+    # dependency manifests only; the push/schedule scans still cover everything.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v4
         with:
