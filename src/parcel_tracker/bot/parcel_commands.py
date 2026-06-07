@@ -29,6 +29,16 @@ def _looks_like_tracking(candidate: str) -> bool:
 _NAME_MAX_LEN = 64
 
 
+def _parcel_line(parcel: Parcel) -> str:
+    """One-line label: bold name with code aside, or just the code when unnamed."""
+    if parcel.name:
+        return (
+            f"<b>{messages.esc(parcel.name)}</b> — "
+            f"<code>{messages.esc(parcel.tracking_number)}</code>"
+        )
+    return f"<code>{messages.esc(parcel.tracking_number)}</code>"
+
+
 async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Add a new parcel for the user. Args: tracking_number [name…] (multi-word name)."""
     user = update.effective_user
@@ -78,10 +88,7 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not parcels:
         await reply_to.reply_text(messages.no_parcels_active(), parse_mode="HTML")
         return
-    text = "\n".join(
-        f"• <code>{messages.esc(p.tracking_number)}</code> {messages.esc(p.name or '')}".rstrip()
-        for p in parcels
-    )
+    text = "\n".join(f"• {_parcel_line(p)}" for p in parcels)
     await reply_to.reply_text(text, parse_mode="HTML")
 
 
@@ -219,9 +226,7 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     lines = [messages.history_header()]
     for p in parcels:
-        lines.append(
-            f"✅ <code>{messages.esc(p.tracking_number)}</code> {messages.esc(p.name or '')}".rstrip()
-        )
+        lines.append(f"✅ {_parcel_line(p)}")
     await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
 
 
