@@ -65,9 +65,7 @@ async def test_check_parcel_now_returns_none_for_foreign_parcel() -> None:
 @pytest.mark.asyncio
 async def test_check_parcel_now_quarantined_outcome() -> None:
     tracker = _FakeTracker(
-        result=TrackingResult(
-            tracking_number="TN1", found=True, status=ShipmentStatus.IN_TRANSIT
-        )
+        result=TrackingResult(tracking_number="TN1", found=True, status=ShipmentStatus.IN_TRANSIT)
     )
     bd = _bot_data(tracker, quarantined=True)
     bd["parcel_repo"].get_for_user.return_value = _parcel()
@@ -96,16 +94,14 @@ async def test_check_parcel_now_updates_without_notifying() -> None:
     bd = _bot_data(tracker)
     bd["parcel_repo"].get_for_user.return_value = _parcel()
     outcome = await scheduler.check_parcel_now(bd, user_id=10, tracking_number="TN1")
-    assert outcome == "updated"                       # status changed
+    assert outcome == "updated"  # status changed
     bd["parcel_repo"].update_status.assert_awaited()  # persistito
     bd["notifier"].send_events_update.assert_not_awaited()  # MAI notifiche da refresh manuale
 
 
 @pytest.mark.asyncio
 async def test_check_parcel_now_delivered_still_sends_confirmation() -> None:
-    result = TrackingResult(
-        tracking_number="TN1", found=True, status=ShipmentStatus.DELIVERED
-    )
+    result = TrackingResult(tracking_number="TN1", found=True, status=ShipmentStatus.DELIVERED)
     tracker = _FakeTracker(result=result)
     bd = _bot_data(tracker)
     bd["parcel_repo"].get_for_user.return_value = _parcel()
