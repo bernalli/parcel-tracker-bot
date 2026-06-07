@@ -50,7 +50,7 @@ class Config:
     fedex_secret_key: str | None = None
 
     metrics_enabled: bool = True
-    metrics_bind_host: str = "0.0.0.0"  # noqa: S104 — Docker network scope; override via METRICS_BIND_HOST
+    metrics_bind_host: str = "0.0.0.0"  # noqa: S104 — Docker network scope; override via METRICS_BIND_HOST  # nosec B104
     metrics_port: int = 9090
 
     batch_size: int = 10
@@ -135,7 +135,7 @@ class Config:
             fedex_api_key=_optional_env("FEDEX_API_KEY"),
             fedex_secret_key=_optional_env("FEDEX_SECRET_KEY"),
             metrics_enabled=_bool_env("METRICS_ENABLED", True),
-            metrics_bind_host=os.getenv("METRICS_BIND_HOST", "0.0.0.0").strip() or "0.0.0.0",  # noqa: S104
+            metrics_bind_host=os.getenv("METRICS_BIND_HOST", "0.0.0.0").strip() or "0.0.0.0",  # noqa: S104  # nosec B104
             metrics_port=_int_env("METRICS_PORT", 9090),
             batch_size=batch_size,
             rate_limit_default_per_min=rate_limit_default,
