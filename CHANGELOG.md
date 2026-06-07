@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-06-07
+
+### Added
+- Post-add name prompt: after adding a parcel without a name the bot asks for one
+  (skippable; pasting another tracking number just adds it instead).
+- Parcel detail card: opening a parcel from the menu (and `/status`) now shows name,
+  code, localized status, carrier, last location, last event time and last check time.
+- Live refresh: the "🔄 Update now" button queries the carrier on demand
+  (rate-limit and quarantine aware), without duplicate notifications.
+- Parcel names shown first in menu pickers, `/list` and `/history`.
+
+### Changed
+- **BREAKING**: `/add CODE [name]` — the name is now multi-word; the positional
+  `carrier` argument was removed (carrier auto-detection covers it).
+- Delivery confirmation no longer repeats the tracking code for unnamed parcels;
+  update notifications for unnamed parcels include a rename hint.
+
+### Fixed
+- `/add CODE my package` no longer mis-parses `package` as a carrier override.
+- Event timestamps in `/events` are now formatted (`dd/mm/YYYY HH:MM`) instead of raw ISO.
+
 ## [0.2.0] — 2026-06-04
 
 A large UX + features release. The bot is now fully button-driven — you never
@@ -191,9 +212,5 @@ First public release candidate. Full feature set:
 - + prometheus-client ≥0.20
 - + freezegun ≥1.5 (dev only)
 
-## [Unreleased]
-
-### Added
-- Initial scaffolding (pyproject, license, gitignore, pre-commit)
-
-[Unreleased]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.2.0...v0.3.0

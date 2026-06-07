@@ -291,7 +291,7 @@ async def _notify(  # noqa: PLR0913
     )
 
 
-async def _check_one(  # noqa: PLR0913
+async def _check_one(  # noqa: PLR0913, C901
     *,
     parcel: Parcel,
     user_id: int,
@@ -304,20 +304,27 @@ async def _check_one(  # noqa: PLR0913
     now: Callable[[], datetime],
     geocoder: Any | None = None,
     map_renderer: Any | None = None,
-) -> None:
+    notify_events: bool = True,
+) -> str:
     """Check a single parcel: iterate matches in priority order until one succeeds.
 
     Phase 3 fallback semantics: when matches[0] fails (raises or returns
     found=False) or is quarantined, try matches[1], matches[2], ... until one
     returns found=True. Each tracker still records its own success/failure
     against its quarantine ladder; rate limit is acquired per tracker per call.
+
+    Returns one of: "updated" | "no_change" | "failed" | "quarantined" |
+    "no_tracker" | "delivered".
+
+    Batch callers (asyncio.gather) ignore the return value — backward compatible.
     """
     matches = detector.detect(parcel.tracking_number)
     if not matches:
         logger.debug("No tracker matches for %s", parcel.tracking_number)
-        return
+        return "no_tracker"
 
     final_result: TrackingResult | None = None
+    attempted = False
 
     for tracker in matches:
         if await health.is_quarantined(tracker.name, parcel.tracking_number):
@@ -330,6 +337,7 @@ async def _check_one(  # noqa: PLR0913
             CHECK_TOTAL.labels(tracker=tracker.name, outcome="quarantined").inc()
             continue
 
+        attempted = True
         QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(0)
         await rate_limiter.acquire(tracker.name)
 
@@ -360,7 +368,7 @@ async def _check_one(  # noqa: PLR0913
     await parcel_repo.set_last_check_at(parcel.tracking_number, now())
 
     if final_result is None:
-        return
+        return "failed" if attempted else "quarantined"
 
     new_events = await _persist_result(parcel_repo, parcel.tracking_number, final_result)
 
@@ -378,21 +386,52 @@ async def _check_one(  # noqa: PLR0913
             location=final_result.last_location,
             now=now,
         )
-        return
+        return "delivered"
 
     # Notify on new events OR a coarse status change (no time cooldown — event
     # dedup already prevents duplicate notifications for the same events).
     if not (new_events or status_changed):
-        return
-    await _notify(
+        return "no_change"
+    if notify_events:
+        await _notify(
+            parcel=parcel,
+            user_id=user_id,
+            parcel_repo=parcel_repo,
+            notifier=notifier,
+            prefs=prefs,
+            final_result=final_result,
+            status_changed=status_changed,
+            new_events=new_events,
+            geocoder=geocoder,
+            map_renderer=map_renderer,
+        )
+    return "updated"
+
+
+async def check_parcel_now(
+    bot_data: dict[str, Any], *, user_id: int, tracking_number: str
+) -> str | None:
+    """On-demand check of a SINGLE parcel (manual refresh from the detail card).
+
+    Ownership-scoped: returns None when the parcel does not belong to the user.
+    Event notifications are suppressed (the user is looking at the card); the
+    delivered-confirmation lifecycle prompt is still sent.
+    """
+    parcel_repo: ParcelRepository = bot_data["parcel_repo"]
+    parcel = await parcel_repo.get_for_user(tracking_number, user_id=user_id)
+    if parcel is None:
+        return None
+    return await _check_one(
         parcel=parcel,
         user_id=user_id,
         parcel_repo=parcel_repo,
-        notifier=notifier,
-        prefs=prefs,
-        final_result=final_result,
-        status_changed=status_changed,
-        new_events=new_events,
-        geocoder=geocoder,
-        map_renderer=map_renderer,
+        detector=bot_data["detector"],
+        health=bot_data["health"],
+        notifier=bot_data["notifier"],
+        rate_limiter=bot_data["rate_limiter"],
+        prefs=bot_data.get("prefs"),
+        geocoder=bot_data.get("geocoder"),
+        map_renderer=bot_data.get("map_renderer"),
+        now=bot_data.get("now", _now_default),
+        notify_events=False,
     )

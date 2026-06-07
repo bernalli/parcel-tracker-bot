@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -255,15 +256,28 @@ async def test_prompt_rename_falls_back_to_main_menu() -> None:
 
 
 @pytest.mark.asyncio
-async def test_parcel_refresh_invokes_cmd_status_with_tn_arg() -> None:
-    update = _make_update("parcel:refresh:1Z999AA10123456784")
-    context = _make_context()
+async def test_parcel_refresh_invokes_check_parcel_now_with_tn() -> None:
+    from parcel_tracker.db.models import Parcel, ShipmentStatus
 
-    with patch.object(callbacks, "cmd_status", new=AsyncMock()) as mock_status:
+    repo = AsyncMock()
+    repo.get_for_user = AsyncMock(
+        return_value=Parcel(
+            tracking_number="1Z999AA10123456784",
+            user_id=42,
+            status=ShipmentStatus.IN_TRANSIT,
+        )
+    )
+    update = _make_update("parcel:refresh:1Z999AA10123456784")
+    context = _make_context(parcel_repo=repo)
+
+    with patch.object(
+        callbacks, "check_parcel_now", new=AsyncMock(return_value="updated"), create=True
+    ) as mock_chk:
         await handle_callback(update, context)
 
-    mock_status.assert_awaited_once_with(update, context)
-    assert context.args == ["1Z999AA10123456784"]
+    mock_chk.assert_awaited_once_with(
+        context.bot_data, user_id=42, tracking_number="1Z999AA10123456784"
+    )
 
 
 @pytest.mark.asyncio
@@ -327,3 +341,58 @@ def test_main_menu_with_is_admin_false_hides_admin_row() -> None:
     flat = [btn for row in keyboard.inline_keyboard for btn in row]
     callback_datas = [b.callback_data for b in flat]
     assert "nav:admin" not in callback_datas
+
+
+# ---------------------------------------------------------------------------
+# parcel:skipname + confirm:undo pending cleanup
+# ---------------------------------------------------------------------------
+
+
+def _cb_update(data: str, user_id: int = 10) -> SimpleNamespace:
+    query = SimpleNamespace(
+        data=data,
+        answer=AsyncMock(),
+        edit_message_text=AsyncMock(),
+        from_user=SimpleNamespace(id=user_id),
+    )
+    return SimpleNamespace(
+        callback_query=query,
+        effective_user=SimpleNamespace(id=user_id),
+    )
+
+
+@pytest.mark.asyncio
+async def test_skipname_clears_matching_pending() -> None:
+    update = _cb_update("parcel:skipname:TN1")
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": AsyncMock()},
+        user_data={"pending": {"action": "name", "tn": "TN1"}},
+    )
+    await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
+    assert "pending" not in context.user_data
+    update.callback_query.edit_message_text.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_skipname_keeps_unrelated_pending() -> None:
+    update = _cb_update("parcel:skipname:TN1")
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": AsyncMock()},
+        user_data={"pending": {"action": "name", "tn": "OTHER"}},
+    )
+    await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
+    assert context.user_data["pending"] == {"action": "name", "tn": "OTHER"}
+
+
+@pytest.mark.asyncio
+async def test_undo_clears_matching_name_pending() -> None:
+    repo = AsyncMock()
+    repo.get_for_user.return_value = object()
+    update = _cb_update("confirm:undo:TN1")
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": repo},
+        user_data={"pending": {"action": "name", "tn": "TN1"}},
+    )
+    await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
+    repo.deactivate.assert_awaited_once_with("TN1")
+    assert "pending" not in context.user_data

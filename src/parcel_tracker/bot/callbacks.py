@@ -54,7 +54,6 @@ from parcel_tracker.bot.parcel_commands import (
     cmd_history,  # noqa: F401  (lazy lookup target)
     cmd_list,  # noqa: F401  (lazy lookup target)
     cmd_remove,  # noqa: F401  (lazy lookup target)
-    cmd_status,  # noqa: F401  (lazy lookup target)
 )
 from parcel_tracker.i18n import _
 
@@ -305,6 +304,47 @@ async def _handle_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE, nam
 # --- parcel:<action>:<tn> handlers -----------------------------------------
 
 
+_REFRESH_IN_FLIGHT: set[str] = set()
+
+
+async def _refresh_parcel(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, tracking_number: str
+) -> None:
+    """Live single-parcel check (rate-limit + quarantine aware), then re-render the card."""
+    # Lazy import to avoid circular dependency (scheduler → notifier → bot → callbacks).
+    # check_parcel_now is also looked up via globals() so tests can monkeypatch it.
+    from parcel_tracker.core import scheduler as _sched  # noqa: PLC0415
+
+    _check_parcel_now = globals().get("check_parcel_now", _sched.check_parcel_now)
+    from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
+
+    query = update.callback_query
+    user = update.effective_user
+    if query is None or user is None:
+        return
+    if tracking_number in _REFRESH_IN_FLIGHT:
+        return  # il messaggio mostra già "checking…"
+    _REFRESH_IN_FLIGHT.add(tracking_number)
+    try:
+        await _edit(query, messages.refresh_in_progress(), None)
+        outcome = await _check_parcel_now(
+            context.bot_data, user_id=user.id, tracking_number=tracking_number
+        )
+    finally:
+        _REFRESH_IN_FLIGHT.discard(tracking_number)
+    repo = context.bot_data["parcel_repo"]
+    parcel = await repo.get_for_user(tracking_number, user_id=user.id)
+    if outcome is None or parcel is None:
+        await _edit(query, messages.parcel_not_found(tracking_number), _back_only_keyboard())
+        return
+    card = messages.parcel_detail_card(parcel)
+    if outcome == "quarantined":
+        card = messages.refresh_quarantined() + "\n\n" + card
+    elif outcome in ("failed", "no_tracker"):
+        card = messages.refresh_failed() + "\n\n" + card
+    await _edit(query, card, parcel_actions_keyboard(tracking_number))
+
+
 def _get_parcel_handler(action: str):  # type: ignore[no-untyped-def]
     """Resolve parcel:<action>:<tn> action to its cmd_* handler.
 
@@ -312,7 +352,6 @@ def _get_parcel_handler(action: str):  # type: ignore[no-untyped-def]
     the cmd_* references via patch.object(callbacks, ...).
     """
     table = {
-        "refresh": "cmd_status",
         "events": "cmd_events",
         "remove": "cmd_remove",
         "map": "cmd_map",
@@ -325,12 +364,53 @@ def _get_parcel_handler(action: str):  # type: ignore[no-untyped-def]
     return getattr(sys.modules[__name__], attr, None)
 
 
+def _clear_name_pending_if_matching(
+    context: ContextTypes.DEFAULT_TYPE, tracking_number: str
+) -> None:
+    """Remove a pending ``name`` prompt from user_data if it matches *tracking_number*.
+
+    Called from both the ``skipname`` and ``undo`` branches so the condition
+    lives in exactly one place.
+    """
+    if context.user_data is None:
+        return
+    pend = context.user_data.get("pending")
+    if pend and pend.get("action") == "name" and pend.get("tn") == tracking_number:
+        context.user_data.pop("pending", None)
+
+
+async def _open_parcel(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, tracking_number: str
+) -> None:
+    """Show the detail card for a single parcel (ownership-scoped)."""
+    from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
+
+    query = update.callback_query
+    user = update.effective_user
+    if query is None or user is None:
+        return
+    repo = context.bot_data["parcel_repo"]
+    parcel = await repo.get_for_user(tracking_number, user_id=user.id)
+    if parcel is None:
+        await _edit(query, messages.parcel_not_found(tracking_number), _back_only_keyboard())
+        return
+    await _edit(
+        query, messages.parcel_detail_card(parcel), parcel_actions_keyboard(tracking_number)
+    )
+
+
 async def _handle_parcel(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     action: str,
     tracking_number: str,
 ) -> None:
+    if action == "skipname":
+        _clear_name_pending_if_matching(context, tracking_number)
+        query = update.callback_query
+        if query is not None:
+            await _edit(query, messages.parcel_added_auto(tracking_number), None)
+        return
     if action == "rename":
         if context.user_data is not None:
             context.user_data["pending"] = {"action": "rename", "tn": tracking_number}
@@ -339,15 +419,10 @@ async def _handle_parcel(
             await _edit(query, messages.prompt_rename_value(tracking_number), _back_only_keyboard())
         return
     if action == "open":
-        from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
-
-        query = update.callback_query
-        if query is not None:
-            await _edit(
-                query,
-                messages.parcel_detail_title(tracking_number),
-                parcel_actions_keyboard(tracking_number),
-            )
+        await _open_parcel(update, context, tracking_number)
+        return
+    if action == "refresh":
+        await _refresh_parcel(update, context, tracking_number)
         return
     handler = _get_parcel_handler(action)
     if handler is None:
@@ -436,6 +511,7 @@ async def _dispatch_confirm(
         await repo.reactivate(tracking_number)
         await _edit(query, messages.delivery_kept_tracking(tracking_number), None)
     elif action == "undo":
+        _clear_name_pending_if_matching(context, tracking_number)
         await repo.deactivate(tracking_number)
         await _edit(query, messages.parcel_undone(tracking_number), None)
 

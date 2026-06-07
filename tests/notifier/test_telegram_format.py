@@ -3,10 +3,13 @@ carrier shown, human dates, localized status."""
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
+from parcel_tracker.bot import messages
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
 from parcel_tracker.notifier.telegram import TelegramNotifier
 
@@ -93,3 +96,50 @@ async def test_events_update_uses_parcel_name_when_set() -> None:
     text = bot.messages[0]["text"]
     assert "Amazon order" in text
     assert text.count("ABC123456") == 1
+
+
+@pytest.mark.asyncio
+async def test_delivery_confirmation_unnamed_shows_code_once() -> None:
+    bot = SimpleNamespace(send_message=AsyncMock(), send_photo=AsyncMock())
+    notifier = TelegramNotifier(bot=bot)
+    await notifier.send_delivery_confirmation(
+        chat_id=1, tracking_number="TN12345678", parcel_name=None, location=None
+    )
+    text = bot.send_message.await_args.kwargs["text"]
+    assert text.count("TN12345678") == 1
+
+
+@pytest.mark.asyncio
+async def test_events_update_unnamed_includes_rename_hint() -> None:
+    bot = SimpleNamespace(send_message=AsyncMock(), send_photo=AsyncMock())
+    notifier = TelegramNotifier(bot=bot)
+    await notifier.send_events_update(
+        chat_id=1,
+        tracking_number="TN12345678",
+        parcel_name=None,
+        old_status=ShipmentStatus.IN_TRANSIT,
+        new_status=ShipmentStatus.IN_TRANSIT,
+        status_changed=False,
+        new_events=[],
+        location=None,
+    )
+    text = bot.send_message.await_args.kwargs["text"]
+    assert messages.name_hint() in text
+
+
+@pytest.mark.asyncio
+async def test_events_update_named_has_no_hint() -> None:
+    bot = SimpleNamespace(send_message=AsyncMock(), send_photo=AsyncMock())
+    notifier = TelegramNotifier(bot=bot)
+    await notifier.send_events_update(
+        chat_id=1,
+        tracking_number="TN12345678",
+        parcel_name="iPhone",
+        old_status=ShipmentStatus.IN_TRANSIT,
+        new_status=ShipmentStatus.IN_TRANSIT,
+        status_changed=False,
+        new_events=[],
+        location=None,
+    )
+    text = bot.send_message.await_args.kwargs["text"]
+    assert messages.name_hint() not in text

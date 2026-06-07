@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import html
+from typing import TYPE_CHECKING
 
 from parcel_tracker.i18n import _
+
+if TYPE_CHECKING:
+    from parcel_tracker.db.models import Parcel
 
 
 def esc(value: object) -> str:
@@ -41,7 +45,7 @@ def owner_only() -> str:
 
 
 def parcel_added(name: str) -> str:
-    return _("✅ Parcel added: <b>{name}</b>").format(name=name)
+    return _("✅ Parcel added: <b>{name}</b>").format(name=esc(name))
 
 
 def parcel_duplicate(tracking_number: str) -> str:
@@ -62,7 +66,7 @@ def parcel_not_found(tracking_number: str) -> str:
 
 def parcel_renamed(tracking_number: str, name: str) -> str:
     return _("✏️ Parcel <code>{tracking_number}</code> renamed to <b>{name}</b>.").format(
-        tracking_number=tracking_number, name=name
+        tracking_number=esc(tracking_number), name=esc(name)
     )
 
 
@@ -77,7 +81,7 @@ def no_events(tracking_number: str) -> str:
 
 
 def add_usage() -> str:
-    return _("Usage: <code>/add CODE [name] [carrier]</code>")
+    return _("Usage: <code>/add CODE [name]</code>")
 
 
 def remove_usage() -> str:
@@ -193,13 +197,11 @@ def menu_section_admin() -> str:
 def prompt_add() -> str:
     return _(
         "➕ <b>Add a parcel</b>\n\n"
-        "Send a message in this format:\n"
-        "<code>/add CODE [name] [carrier]</code>\n\n"
-        "Examples:\n"
-        "• <code>/add 1Z999AA10123456784</code>\n"
-        "• <code>/add 1Z999AA10123456784 my package</code>\n"
-        "• <code>/add 1Z999AA10123456784 my package ups</code>\n\n"
-        "Carrier auto-detection works for most codes; specify it only if you want to override."
+        "Just paste the tracking number here — I'll detect the carrier automatically.\n\n"
+        "You can also use:\n"
+        "<code>/add CODE [name]</code>\n"
+        "Example: <code>/add 1Z999AA10123456784 new phone</code>\n\n"
+        "Right after adding, I'll ask you for a name so the parcel is easy to recognise."
     )
 
 
@@ -303,11 +305,16 @@ def no_history() -> str:
     return _("No delivered parcels in your history yet.")
 
 
-def delivery_confirm_prompt(title: str, tracking_number: str) -> str:
+def delivery_confirm_prompt(title: str | None, tracking_number: str) -> str:
+    if title:
+        return _(
+            "✅ <b>{title}</b>\n<code>{tracking_number}</code>\n\n"
+            "This parcel looks <b>delivered</b>. Did you receive it?"
+        ).format(title=esc(title), tracking_number=esc(tracking_number))
     return _(
-        "✅ <b>{title}</b>\n<code>{tracking_number}</code>\n\n"
+        "✅ <code>{tracking_number}</code>\n\n"
         "This parcel looks <b>delivered</b>. Did you receive it?"
-    ).format(title=esc(title), tracking_number=esc(tracking_number))
+    ).format(tracking_number=esc(tracking_number))
 
 
 def delivered_archived(tracking_number: str) -> str:  # noqa: ARG001
@@ -336,10 +343,6 @@ def menu_maps_title() -> str:
     return _("🗺 Choose a parcel to see its route map:")
 
 
-def parcel_detail_title(tracking_number: str) -> str:
-    return _("📦 <code>{tn}</code> — choose an action:").format(tn=esc(tracking_number))
-
-
 def prompt_rename_value(tracking_number: str) -> str:
     return _("✏️ Send the new name for <code>{tn}</code>:").format(tn=esc(tracking_number))
 
@@ -354,3 +357,52 @@ def prompt_revoke_value() -> str:
 
 def user_not_present(user_id: int) -> str:
     return _("⚠️ User <code>{user_id}</code> is not in the authorised list.").format(user_id=user_id)
+
+
+def ask_parcel_name() -> str:
+    return _("📛 What name do you want to give this parcel? Send it now (e.g. «iPhone 15»).")
+
+
+def refresh_in_progress() -> str:
+    return _("🔄 Checking with the carrier…")
+
+
+def refresh_quarantined() -> str:
+    return _("⏳ Tracker temporarily unavailable (quarantined). Showing last known data.")
+
+
+def refresh_failed() -> str:
+    return _("⚠️ Couldn't reach the carrier. Showing last known data.")
+
+
+def name_hint() -> str:
+    return _("✏️ Tip: give this parcel a name from the menu (Rename).")
+
+
+def parcel_detail_card(parcel: Parcel) -> str:
+    """Single source of truth for the parcel detail view (menu card and /status)."""
+    from parcel_tracker.bot.formatting import (  # noqa: PLC0415 — avoid import cycle at module load
+        fmt_check_time,
+        fmt_event_time,
+        status_emoji,
+        status_label,
+    )
+
+    lines = [
+        f"📦 <b>{esc(parcel.name or parcel.tracking_number)}</b>",
+        f"<code>{esc(parcel.tracking_number)}</code>",
+        f"{_('Status')}: {status_emoji(parcel.status)} <b>{status_label(parcel.status)}</b>",
+        f"{carrier_label()}: {esc(parcel.carrier_name or parcel.carrier_code or '?')}",
+    ]
+    if parcel.last_location:
+        lines.append(f"📍 {esc(parcel.last_location)}")
+    if parcel.last_event:
+        row = f"🛈 {esc(parcel.last_event)}"
+        when = fmt_event_time(parcel.last_event_time)
+        if when:
+            row += f" — <i>{esc(when)}</i>"
+        lines.append(row)
+    checked = fmt_check_time(parcel.last_check_at)
+    if checked:
+        lines.append(f"{_('Last check')}: {checked}")
+    return "\n".join(lines)
