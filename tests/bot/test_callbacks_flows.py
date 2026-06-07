@@ -137,6 +137,7 @@ async def test_parcel_open_idor_different_user_not_served() -> None:
     await callbacks.handle_callback(update, context)
     # Must query with the CALLER's user_id (99), not owner's (10)
     repo.get_for_user.assert_awaited_once_with("TN_USER10", user_id=99)
-    # Must not expose the parcel detail
+    # Must not expose the parcel detail card — only the "not found" message
     text_sent = q.edit_message_text.await_args.args[0]
-    assert "<code>TN_USER10</code>" not in text_sent or "not found" in text_sent.lower() or "non" in text_sent.lower()
+    assert "not found" in text_sent.lower()  # not-found message was shown
+    assert "Status:" not in text_sent  # detail card always has this; not_found never does
