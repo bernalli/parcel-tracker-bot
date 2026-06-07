@@ -325,74 +325,45 @@ def _get_parcel_handler(action: str):  # type: ignore[no-untyped-def]
     return getattr(sys.modules[__name__], attr, None)
 
 
-def _clear_name_pending_if_matching(context: ContextTypes.DEFAULT_TYPE, tracking_number: str) -> None:
-    """Remove 'pending' from user_data when it matches a name-prompt for tracking_number."""
-    if context.user_data is not None:
-        pend = context.user_data.get("pending")
-        if pend and pend.get("action") == "name" and pend.get("tn") == tracking_number:
-            context.user_data.pop("pending", None)
-
-
-async def _handle_parcel_skipname(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    tracking_number: str,
-) -> None:
-    _clear_name_pending_if_matching(context, tracking_number)
-    query = update.callback_query
-    if query is not None:
-        await _edit(query, messages.parcel_added_auto(tracking_number), None)
-
-
-async def _handle_parcel_rename(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    tracking_number: str,
-) -> None:
-    if context.user_data is not None:
-        context.user_data["pending"] = {"action": "rename", "tn": tracking_number}
-    query = update.callback_query
-    if query is not None:
-        await _edit(query, messages.prompt_rename_value(tracking_number), _back_only_keyboard())
-
-
-async def _handle_parcel_open(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE,
-    tracking_number: str,
-) -> None:
-    from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
-
-    query = update.callback_query
-    user = update.effective_user
-    if query is None or user is None:
-        return
-    repo = context.bot_data["parcel_repo"]
-    parcel = await repo.get_for_user(tracking_number, user_id=user.id)
-    if parcel is None:
-        await _edit(query, messages.parcel_not_found(tracking_number), _back_only_keyboard())
-        return
-    await _edit(
-        query,
-        messages.parcel_detail_card(parcel),
-        parcel_actions_keyboard(tracking_number),
-    )
-
-
-async def _handle_parcel(
+async def _handle_parcel(  # noqa: C901
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     action: str,
     tracking_number: str,
 ) -> None:
     if action == "skipname":
-        await _handle_parcel_skipname(update, context, tracking_number)
+        if context.user_data is not None:
+            pend = context.user_data.get("pending")
+            if pend and pend.get("action") == "name" and pend.get("tn") == tracking_number:
+                context.user_data.pop("pending", None)
+        query = update.callback_query
+        if query is not None:
+            await _edit(query, messages.parcel_added_auto(tracking_number), None)
         return
     if action == "rename":
-        await _handle_parcel_rename(update, context, tracking_number)
+        if context.user_data is not None:
+            context.user_data["pending"] = {"action": "rename", "tn": tracking_number}
+        query = update.callback_query
+        if query is not None:
+            await _edit(query, messages.prompt_rename_value(tracking_number), _back_only_keyboard())
         return
     if action == "open":
-        await _handle_parcel_open(update, context, tracking_number)
+        from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
+
+        query = update.callback_query
+        user = update.effective_user
+        if query is None or user is None:
+            return
+        repo = context.bot_data["parcel_repo"]
+        parcel = await repo.get_for_user(tracking_number, user_id=user.id)
+        if parcel is None:
+            await _edit(query, messages.parcel_not_found(tracking_number), _back_only_keyboard())
+            return
+        await _edit(
+            query,
+            messages.parcel_detail_card(parcel),
+            parcel_actions_keyboard(tracking_number),
+        )
         return
     handler = _get_parcel_handler(action)
     if handler is None:
