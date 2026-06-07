@@ -298,6 +298,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(messages.to_add_use(candidate), parse_mode="HTML")
         return
 
+    name = name[:_NAME_MAX_LEN] if name else None
     tn = candidate.upper()
     repo = context.bot_data["parcel_repo"]
     created = await repo.create(
@@ -306,8 +307,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if created is None:
         await update.message.reply_text(messages.parcel_duplicate(tn), parse_mode="HTML")
         return
-    from parcel_tracker.bot.keyboards import undo_keyboard  # noqa: PLC0415
+    from parcel_tracker.bot.keyboards import name_prompt_keyboard, undo_keyboard  # noqa: PLC0415
 
+    if name is None:
+        if context.user_data is not None:
+            context.user_data["pending"] = {"action": "name", "tn": tn}
+        await update.message.reply_text(
+            messages.parcel_added_auto(tn) + "\n\n" + messages.ask_parcel_name(),
+            parse_mode="HTML",
+            reply_markup=name_prompt_keyboard(tn, include_undo=True),
+        )
+        return
     await update.message.reply_text(
         messages.parcel_added_auto(tn), parse_mode="HTML", reply_markup=undo_keyboard(tn)
     )
