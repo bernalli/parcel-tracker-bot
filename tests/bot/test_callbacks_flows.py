@@ -81,3 +81,62 @@ async def test_parcel_map_renders_for_selected(monkeypatch) -> None:
     context = SimpleNamespace(bot_data={}, user_data={})
     await callbacks.handle_callback(update, context)
     assert rendered["called"] == ["A"]
+
+
+# --- open action: ownership-scoping (anti-IDOR) tests -----------------------
+
+
+@pytest.mark.asyncio
+async def test_parcel_open_shows_detail_card_for_owned_parcel() -> None:
+    """Happy path: owned parcel -> detail card with <code>TN…</code> is shown."""
+    from unittest.mock import AsyncMock as AM
+
+    repo = AM()
+    repo.get_for_user = AM(
+        return_value=Parcel(tracking_number="TN123", user_id=10, name="My Parcel")
+    )
+    q = _query("parcel:open:TN123")
+    update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
+    context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
+    await callbacks.handle_callback(update, context)
+    repo.get_for_user.assert_awaited_once_with("TN123", user_id=10)
+    q.edit_message_text.assert_awaited()
+    text_sent = q.edit_message_text.await_args.args[0]
+    assert "<code>TN123</code>" in text_sent
+
+
+@pytest.mark.asyncio
+async def test_parcel_open_not_found_shows_not_found_message() -> None:
+    """If the parcel is not owned by the user, show not-found (no detail leaked)."""
+    from unittest.mock import AsyncMock as AM
+
+    repo = AM()
+    repo.get_for_user = AM(return_value=None)  # not owned / not existing
+    q = _query("parcel:open:TN_OTHER")
+    update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
+    context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
+    await callbacks.handle_callback(update, context)
+    repo.get_for_user.assert_awaited_once_with("TN_OTHER", user_id=10)
+    q.edit_message_text.assert_awaited()
+    text_sent = q.edit_message_text.await_args.args[0]
+    # not-found message, not the detail card
+    assert "<code>TN123</code>" not in text_sent
+    assert "TN_OTHER" in text_sent or "not found" in text_sent.lower() or "non" in text_sent.lower()
+
+
+@pytest.mark.asyncio
+async def test_parcel_open_idor_different_user_not_served() -> None:
+    """IDOR: user 99 must not see a parcel owned by user 10 via open action."""
+    from unittest.mock import AsyncMock as AM
+
+    repo = AM()
+    repo.get_for_user = AM(return_value=None)  # repo enforces ownership, returns None for user 99
+    q = _query("parcel:open:TN_USER10")
+    update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=99))
+    context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
+    await callbacks.handle_callback(update, context)
+    # Must query with the CALLER's user_id (99), not owner's (10)
+    repo.get_for_user.assert_awaited_once_with("TN_USER10", user_id=99)
+    # Must not expose the parcel detail
+    text_sent = q.edit_message_text.await_args.args[0]
+    assert "<code>TN_USER10</code>" not in text_sent or "not found" in text_sent.lower() or "non" in text_sent.lower()
