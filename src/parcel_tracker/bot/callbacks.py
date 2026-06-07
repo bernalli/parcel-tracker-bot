@@ -323,11 +323,9 @@ async def _refresh_parcel(
     _REFRESH_IN_FLIGHT.add(tracking_number)
     try:
         await _edit(query, messages.refresh_in_progress(), None)
-        import sys  # noqa: PLC0415
-
-        _attr = "check_parcel_now"
-        _fn = getattr(sys.modules[__name__], _attr)
-        outcome = await _fn(context.bot_data, user_id=user.id, tracking_number=tracking_number)
+        outcome = await check_parcel_now(
+            context.bot_data, user_id=user.id, tracking_number=tracking_number
+        )
     finally:
         _REFRESH_IN_FLIGHT.discard(tracking_number)
     repo = context.bot_data["parcel_repo"]
@@ -392,7 +390,9 @@ async def _open_parcel(
     if parcel is None:
         await _edit(query, messages.parcel_not_found(tracking_number), _back_only_keyboard())
         return
-    await _edit(query, messages.parcel_detail_card(parcel), parcel_actions_keyboard(tracking_number))
+    await _edit(
+        query, messages.parcel_detail_card(parcel), parcel_actions_keyboard(tracking_number)
+    )
 
 
 async def _handle_parcel(
