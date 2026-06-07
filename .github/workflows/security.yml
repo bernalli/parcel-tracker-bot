@@ -36,13 +36,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install bandit[toml] bandit-sarif-formatter
-      - run: bandit -r src -ll -f sarif -o bandit.sarif
-        continue-on-error: true
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: bandit.sarif
+      - run: pip install bandit[toml]
+      # Code-scanning SARIF upload requires GitHub Advanced Security (unavailable
+      # on private repos) — run bandit as a plain blocking gate instead.
+      - run: bandit -r src -ll
 
   pip-audit:
     runs-on: ubuntu-latest
