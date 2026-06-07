@@ -100,12 +100,23 @@ def users_submenu() -> InlineKeyboardMarkup:
     )
 
 
+_PICKER_LABEL_MAX = 32
+
+
+def _picker_label(parcel: Parcel) -> str:
+    """Human label for picker buttons: name first, tracking code as fallback."""
+    label = parcel.name or parcel.tracking_number
+    if len(label) > _PICKER_LABEL_MAX:
+        return label[: _PICKER_LABEL_MAX - 1] + "…"
+    return label
+
+
 def parcel_picker_keyboard(parcels: list[Parcel], action: str) -> InlineKeyboardMarkup:
-    """Keyboard for picking a parcel by tracking_number, with given action prefix."""
+    """Keyboard for picking a parcel (label = name or code), with given action prefix."""
     rows = [
         [
             InlineKeyboardButton(
-                p.tracking_number, callback_data=f"parcel:{action}:{p.tracking_number}"
+                _picker_label(p), callback_data=f"parcel:{action}:{p.tracking_number}"
             )
         ]
         for p in parcels
@@ -115,13 +126,25 @@ def parcel_picker_keyboard(parcels: list[Parcel], action: str) -> InlineKeyboard
     )
 
 
+def name_prompt_keyboard(tracking_number: str, *, include_undo: bool = False) -> InlineKeyboardMarkup:
+    """Skip (+ optional Undo) shown under the post-add 'name this parcel' prompt."""
+    row = [
+        InlineKeyboardButton(_("⏭ Skip"), callback_data=f"parcel:skipname:{tracking_number}")
+    ]
+    if include_undo:
+        row.append(
+            InlineKeyboardButton(_("↩️ Undo"), callback_data=f"confirm:undo:{tracking_number}")
+        )
+    return InlineKeyboardMarkup([row])
+
+
 def parcel_actions_keyboard(tracking_number: str) -> InlineKeyboardMarkup:
     """Keyboard with actions for a single parcel."""
     tn = tracking_number
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton(_("🔄 Refresh"), callback_data=f"parcel:refresh:{tn}"),
+                InlineKeyboardButton(_("🔄 Update now"), callback_data=f"parcel:refresh:{tn}"),
                 InlineKeyboardButton(_("📋 Events"), callback_data=f"parcel:events:{tn}"),
             ],
             [
