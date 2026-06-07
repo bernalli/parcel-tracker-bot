@@ -126,11 +126,11 @@ def parcel_picker_keyboard(parcels: list[Parcel], action: str) -> InlineKeyboard
     )
 
 
-def name_prompt_keyboard(tracking_number: str, *, include_undo: bool = False) -> InlineKeyboardMarkup:
+def name_prompt_keyboard(
+    tracking_number: str, *, include_undo: bool = False
+) -> InlineKeyboardMarkup:
     """Skip (+ optional Undo) shown under the post-add 'name this parcel' prompt."""
-    row = [
-        InlineKeyboardButton(_("⏭ Skip"), callback_data=f"parcel:skipname:{tracking_number}")
-    ]
+    row = [InlineKeyboardButton(_("⏭ Skip"), callback_data=f"parcel:skipname:{tracking_number}")]
     if include_undo:
         row.append(
             InlineKeyboardButton(_("↩️ Undo"), callback_data=f"confirm:undo:{tracking_number}")
