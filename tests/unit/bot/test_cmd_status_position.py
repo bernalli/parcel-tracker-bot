@@ -48,8 +48,8 @@ async def test_status_replies_with_card_and_actions_keyboard() -> None:
     await parcel_commands.cmd_status(update, context)  # type: ignore[arg-type]
     text = reply.await_args.args[0]
     assert "📦 <b>iPhone</b>" in text
-    assert "🚚" in text                      # status emoji, non enum raw
-    assert "InTransit" not in text           # mai il valore enum grezzo
+    assert "🚚" in text  # status emoji, non enum raw
+    assert "InTransit" not in text  # mai il valore enum grezzo
     markup = reply.await_args.kwargs["reply_markup"]
     flat = [b.callback_data for row in markup.inline_keyboard for b in row]
     assert "parcel:refresh:TN1" in flat
