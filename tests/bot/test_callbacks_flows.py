@@ -89,10 +89,8 @@ async def test_parcel_map_renders_for_selected(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_parcel_open_shows_detail_card_for_owned_parcel() -> None:
     """Happy path: owned parcel -> detail card with <code>TN…</code> is shown."""
-    from unittest.mock import AsyncMock as AM
-
-    repo = AM()
-    repo.get_for_user = AM(
+    repo = AsyncMock()
+    repo.get_for_user = AsyncMock(
         return_value=Parcel(tracking_number="TN123", user_id=10, name="My Parcel")
     )
     q = _query("parcel:open:TN123")
@@ -108,10 +106,8 @@ async def test_parcel_open_shows_detail_card_for_owned_parcel() -> None:
 @pytest.mark.asyncio
 async def test_parcel_open_not_found_shows_not_found_message() -> None:
     """If the parcel is not owned by the user, show not-found (no detail leaked)."""
-    from unittest.mock import AsyncMock as AM
-
-    repo = AM()
-    repo.get_for_user = AM(return_value=None)  # not owned / not existing
+    repo = AsyncMock()
+    repo.get_for_user = AsyncMock(return_value=None)  # not owned / not existing
     q = _query("parcel:open:TN_OTHER")
     update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
@@ -119,18 +115,16 @@ async def test_parcel_open_not_found_shows_not_found_message() -> None:
     repo.get_for_user.assert_awaited_once_with("TN_OTHER", user_id=10)
     q.edit_message_text.assert_awaited()
     text_sent = q.edit_message_text.await_args.args[0]
-    # not-found message, not the detail card
-    assert "<code>TN123</code>" not in text_sent
-    assert "TN_OTHER" in text_sent or "not found" in text_sent.lower() or "non" in text_sent.lower()
+    # not-found message, not the detail card (same discriminating form as the IDOR test)
+    assert "not found" in text_sent.lower()
+    assert "Status:" not in text_sent  # detail card always has this; not_found never does
 
 
 @pytest.mark.asyncio
 async def test_parcel_open_idor_different_user_not_served() -> None:
     """IDOR: user 99 must not see a parcel owned by user 10 via open action."""
-    from unittest.mock import AsyncMock as AM
-
-    repo = AM()
-    repo.get_for_user = AM(return_value=None)  # repo enforces ownership, returns None for user 99
+    repo = AsyncMock()
+    repo.get_for_user = AsyncMock(return_value=None)  # ownership enforced: None for user 99
     q = _query("parcel:open:TN_USER10")
     update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=99))
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
