@@ -271,7 +271,7 @@ async def test_parcel_refresh_invokes_check_parcel_now_with_tn() -> None:
     context = _make_context(parcel_repo=repo)
 
     with patch.object(
-        callbacks, "check_parcel_now", new=AsyncMock(return_value="updated")
+        callbacks, "check_parcel_now", new=AsyncMock(return_value="updated"), create=True
     ) as mock_chk:
         await handle_callback(update, context)
 

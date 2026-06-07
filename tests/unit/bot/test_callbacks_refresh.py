@@ -34,7 +34,9 @@ async def test_refresh_fetches_live_and_edits_card() -> None:
     repo.get_for_user.return_value = _parcel()
     update = _cb_update("parcel:refresh:TN1")
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
-    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="updated")) as chk:
+    # create=True: check_parcel_now is resolved via globals() inside _refresh_parcel
+    # (lazy import to break the circular dependency), so it's not a top-level attribute.
+    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="updated"), create=True) as chk:
         await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
     chk.assert_awaited_once_with(context.bot_data, user_id=10, tracking_number="TN1")
     # _edit passes the text as first positional arg of edit_message_text
@@ -48,7 +50,7 @@ async def test_refresh_quarantined_prefixes_notice() -> None:
     repo.get_for_user.return_value = _parcel()
     update = _cb_update("parcel:refresh:TN1")
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
-    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="quarantined")):
+    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="quarantined"), create=True):
         await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
     text = update.callback_query.edit_message_text.await_args.args[0]
     assert "⏳" in text  # avviso quarantena
@@ -63,7 +65,7 @@ async def test_refresh_in_flight_guard_skips_second_tap() -> None:
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
     callbacks._REFRESH_IN_FLIGHT.add("TN1")
     try:
-        with patch.object(callbacks, "check_parcel_now", new=AsyncMock()) as chk:
+        with patch.object(callbacks, "check_parcel_now", new=AsyncMock(), create=True) as chk:
             await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
         chk.assert_not_awaited()
     finally:
@@ -76,7 +78,7 @@ async def test_refresh_foreign_parcel_not_found() -> None:
     repo.get_for_user.return_value = None
     update = _cb_update("parcel:refresh:TN1")
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
-    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value=None)):
+    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value=None), create=True):
         await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
     text = update.callback_query.edit_message_text.await_args.args[0]
     assert "not found" in text.lower() or "❌" in text
