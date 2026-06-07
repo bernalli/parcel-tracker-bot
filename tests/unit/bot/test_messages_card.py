@@ -53,7 +53,7 @@ def test_card_location_event_and_check_time() -> None:
 def test_card_escapes_html_in_name_and_event() -> None:
     p = _parcel(name="<b>evil</b>", last_event="a <script> tag")
     card = messages.parcel_detail_card(p)
-    assert "<b>evil</b>" not in card          # il nome è escapato
+    assert "<b>evil</b>" not in card  # il nome è escapato
     assert "&lt;b&gt;evil&lt;/b&gt;" in card
     assert "&lt;script&gt;" in card
 
