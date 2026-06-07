@@ -49,3 +49,32 @@ _STATUS_MSGID: dict[ShipmentStatus, str] = {
 def status_label(status: ShipmentStatus) -> str:
     """Human, translatable label for a status (falls back to the enum value)."""
     return _(_STATUS_MSGID.get(status, status.value))
+
+
+_STATUS_EMOJI: dict[ShipmentStatus, str] = {
+    ShipmentStatus.NOT_FOUND: "❓",
+    ShipmentStatus.INFO_RECEIVED: "ℹ️",
+    ShipmentStatus.PICKUP: "📦",
+    ShipmentStatus.IN_TRANSIT: "🚚",
+    ShipmentStatus.OUT_FOR_DELIVERY: "🚛",
+    ShipmentStatus.CUSTOMS: "🛃",
+    ShipmentStatus.DELIVERED: "✅",
+    ShipmentStatus.UNDELIVERED: "❌",
+    ShipmentStatus.EXCEPTION: "⚠️",
+    ShipmentStatus.RETURNED: "↩️",
+    ShipmentStatus.EXPIRED: "⏰",
+    ShipmentStatus.ALERT: "🚨",
+}
+
+
+def status_emoji(status: ShipmentStatus) -> str:
+    """Emoji for a status; defensive 📦 fallback for unknown values."""
+    return _STATUS_EMOJI.get(status, "📦")
+
+
+def fmt_check_time(dt: datetime | None) -> str:
+    """Format a last-check datetime as 'dd/mm/YYYY HH:MM' in local time ('' when None)."""
+    if dt is None:
+        return ""
+    local = dt.astimezone() if dt.tzinfo is not None else dt
+    return local.strftime("%d/%m/%Y %H:%M")

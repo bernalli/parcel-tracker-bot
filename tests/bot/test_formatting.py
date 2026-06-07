@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from parcel_tracker.bot import formatting
+from parcel_tracker.bot.formatting import fmt_check_time, status_emoji
 from parcel_tracker.db.models import ShipmentStatus
 
 
@@ -35,3 +38,25 @@ def test_status_label_known_status() -> None:
     assert formatting.status_label(ShipmentStatus.IN_TRANSIT) == "In transit"
     assert formatting.status_label(ShipmentStatus.OUT_FOR_DELIVERY) == "Out for delivery"
     assert formatting.status_label(ShipmentStatus.DELIVERED) == "Delivered"
+
+
+def test_status_emoji_known_status() -> None:
+    assert status_emoji(ShipmentStatus.IN_TRANSIT) == "🚚"
+    assert status_emoji(ShipmentStatus.DELIVERED) == "✅"
+
+
+def test_status_emoji_fallback_parcel() -> None:
+    assert status_emoji(ShipmentStatus.NOT_FOUND) == "❓"
+    # qualunque status sconosciuto degrada a 📦 (guard difensivo)
+    assert status_emoji(None) == "📦"  # type: ignore[arg-type]
+
+
+def test_fmt_check_time_none_is_empty() -> None:
+    assert fmt_check_time(None) == ""
+
+
+def test_fmt_check_time_formats_dd_mm_yyyy_hhmm() -> None:
+    dt = datetime(2026, 6, 7, 10, 40, tzinfo=UTC)
+    out = fmt_check_time(dt)
+    assert "/2026" in out
+    assert ":" in out  # ha anche l'orario
