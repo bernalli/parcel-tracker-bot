@@ -342,12 +342,19 @@ async def _handle_parcel(
         from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
 
         query = update.callback_query
-        if query is not None:
-            await _edit(
-                query,
-                messages.parcel_detail_title(tracking_number),
-                parcel_actions_keyboard(tracking_number),
-            )
+        user = update.effective_user
+        if query is None or user is None:
+            return
+        repo = context.bot_data["parcel_repo"]
+        parcel = await repo.get_for_user(tracking_number, user_id=user.id)
+        if parcel is None:
+            await _edit(query, messages.parcel_not_found(tracking_number), _back_only_keyboard())
+            return
+        await _edit(
+            query,
+            messages.parcel_detail_card(parcel),
+            parcel_actions_keyboard(tracking_number),
+        )
         return
     handler = _get_parcel_handler(action)
     if handler is None:
