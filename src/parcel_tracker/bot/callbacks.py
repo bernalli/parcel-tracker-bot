@@ -55,7 +55,6 @@ from parcel_tracker.bot.parcel_commands import (
     cmd_list,  # noqa: F401  (lazy lookup target)
     cmd_remove,  # noqa: F401  (lazy lookup target)
 )
-from parcel_tracker.core.scheduler import check_parcel_now  # noqa: F401  (lazy lookup target)
 from parcel_tracker.i18n import _
 
 if TYPE_CHECKING:
@@ -312,6 +311,11 @@ async def _refresh_parcel(
     update: Update, context: ContextTypes.DEFAULT_TYPE, tracking_number: str
 ) -> None:
     """Live single-parcel check (rate-limit + quarantine aware), then re-render the card."""
+    # Lazy import to avoid circular dependency (scheduler → notifier → bot → callbacks).
+    # check_parcel_now is also looked up via globals() so tests can monkeypatch it.
+    from parcel_tracker.core import scheduler as _sched  # noqa: PLC0415
+
+    _check_parcel_now = globals().get("check_parcel_now", _sched.check_parcel_now)
     from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
 
     query = update.callback_query
@@ -323,7 +327,7 @@ async def _refresh_parcel(
     _REFRESH_IN_FLIGHT.add(tracking_number)
     try:
         await _edit(query, messages.refresh_in_progress(), None)
-        outcome = await check_parcel_now(
+        outcome = await _check_parcel_now(
             context.bot_data, user_id=user.id, tracking_number=tracking_number
         )
     finally:
