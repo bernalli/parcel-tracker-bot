@@ -10,6 +10,7 @@ Covers:
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -327,3 +328,58 @@ def test_main_menu_with_is_admin_false_hides_admin_row() -> None:
     flat = [btn for row in keyboard.inline_keyboard for btn in row]
     callback_datas = [b.callback_data for b in flat]
     assert "nav:admin" not in callback_datas
+
+
+# ---------------------------------------------------------------------------
+# parcel:skipname + confirm:undo pending cleanup
+# ---------------------------------------------------------------------------
+
+
+def _cb_update(data: str, user_id: int = 10) -> SimpleNamespace:
+    query = SimpleNamespace(
+        data=data,
+        answer=AsyncMock(),
+        edit_message_text=AsyncMock(),
+        from_user=SimpleNamespace(id=user_id),
+    )
+    return SimpleNamespace(
+        callback_query=query,
+        effective_user=SimpleNamespace(id=user_id),
+    )
+
+
+@pytest.mark.asyncio
+async def test_skipname_clears_matching_pending() -> None:
+    update = _cb_update("parcel:skipname:TN1")
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": AsyncMock()},
+        user_data={"pending": {"action": "name", "tn": "TN1"}},
+    )
+    await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
+    assert "pending" not in context.user_data
+    update.callback_query.edit_message_text.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_skipname_keeps_unrelated_pending() -> None:
+    update = _cb_update("parcel:skipname:TN1")
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": AsyncMock()},
+        user_data={"pending": {"action": "name", "tn": "OTHER"}},
+    )
+    await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
+    assert context.user_data["pending"] == {"action": "name", "tn": "OTHER"}
+
+
+@pytest.mark.asyncio
+async def test_undo_clears_matching_name_pending() -> None:
+    repo = AsyncMock()
+    repo.get_for_user.return_value = object()
+    update = _cb_update("confirm:undo:TN1")
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": repo},
+        user_data={"pending": {"action": "name", "tn": "TN1"}},
+    )
+    await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
+    repo.deactivate.assert_awaited_once_with("TN1")
+    assert "pending" not in context.user_data
