@@ -97,8 +97,7 @@ class TelegramNotifier:
     ) -> None:
         from parcel_tracker.bot.keyboards import delivery_confirm_keyboard  # noqa: PLC0415
 
-        title = parcel_name or tracking_number
-        text = messages.delivery_confirm_prompt(title, tracking_number)
+        text = messages.delivery_confirm_prompt(parcel_name, tracking_number)
         if location:
             text += f"\n📍 {messages.esc(location)}"
         try:
@@ -157,6 +156,9 @@ class TelegramNotifier:
                 if ev.location:
                     row += f" ({messages.esc(ev.location)})"
                 lines.append(row)
+        if not parcel_name:
+            lines.append("")
+            lines.append(f"<i>{messages.name_hint()}</i>")
         text = "\n".join(lines)
         if map_png is not None:
             await self._send_photo_instrumented(
