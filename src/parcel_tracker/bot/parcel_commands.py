@@ -225,33 +225,32 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
 
 
-async def _consume_pending_user_action(
-    action: str,
+async def _consume_pending_name(
+    pending: dict[str, str],
     text: str,
     reply_to: Message,
     context: ContextTypes.DEFAULT_TYPE,
     user_id: int,
 ) -> bool:
-    """Handle adduser/revoke pending actions. Returns True when consumed."""
-    user_repo = context.bot_data["user_repo"]
-    try:
-        target = int(text.strip())
-    except ValueError:
-        usage = messages.adduser_usage() if action == "adduser" else messages.removeuser_usage()
-        await reply_to.reply_text(usage, parse_mode="HTML")
-        return True
-    if action == "adduser":
-        added = await user_repo.add_user(user_id=target, added_by=user_id)
-        await reply_to.reply_text(
-            messages.user_added(target) if added else messages.user_duplicate(target),
-            parse_mode="HTML",
-        )
-    else:  # revoke
-        removed = await user_repo.remove_user(target)
-        await reply_to.reply_text(
-            messages.user_removed(target) if removed else messages.user_not_present(target),
-            parse_mode="HTML",
-        )
+    """Handle 'name' pending action. Returns False if text looks like a tracking number."""
+    candidate = text.split()[0]
+    detector = context.bot_data.get("detector")
+    specific_match = detector is not None and any(
+        t.priority > 1 for t in detector.detect(candidate)
+    )
+    if specific_match or _looks_like_tracking(candidate):
+        # È un altro tracking number: scarda il pending (già poppato) e lascia
+        # che handle_message lo tratti come un nuovo auto-add.
+        return False
+    repo = context.bot_data["parcel_repo"]
+    name = text.strip()[:_NAME_MAX_LEN]
+    ok = await repo.rename(pending["tn"], user_id=user_id, name=name)
+    msg = (
+        messages.parcel_renamed(pending["tn"], name)
+        if ok
+        else messages.parcel_not_found(pending["tn"])
+    )
+    await reply_to.reply_text(msg, parse_mode="HTML")
     return True
 
 
@@ -268,26 +267,9 @@ async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     action = pending.get("action")
     if context.user_data is not None:
         context.user_data.pop("pending", None)  # consume once
-    repo = context.bot_data["parcel_repo"]
     if action == "name":
-        candidate = text.split()[0]
-        detector = context.bot_data.get("detector")
-        specific_match = detector is not None and any(
-            t.priority > 1 for t in detector.detect(candidate)
-        )
-        if specific_match or _looks_like_tracking(candidate):
-            # È un altro tracking number: scarta il pending (già poppato) e lascia
-            # che handle_message lo tratti come un nuovo auto-add.
-            return False
-        name = text.strip()[:_NAME_MAX_LEN]
-        ok = await repo.rename(pending["tn"], user_id=user.id, name=name)
-        msg = (
-            messages.parcel_renamed(pending["tn"], name)
-            if ok
-            else messages.parcel_not_found(pending["tn"])
-        )
-        await reply_to.reply_text(msg, parse_mode="HTML")
-        return True
+        return await _consume_pending_name(pending, text, reply_to, context, user.id)
+    repo = context.bot_data["parcel_repo"]
     if action == "rename":
         ok = await repo.rename(pending["tn"], user_id=user.id, name=text)
         msg = (
@@ -297,8 +279,32 @@ async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         )
         await reply_to.reply_text(msg, parse_mode="HTML")
         return True
-    if action in ("adduser", "revoke"):
-        return await _consume_pending_user_action(action, text, reply_to, context, user.id)
+    if action == "adduser":
+        user_repo = context.bot_data["user_repo"]
+        try:
+            target = int(text.strip())
+        except ValueError:
+            await reply_to.reply_text(messages.adduser_usage(), parse_mode="HTML")
+            return True
+        added = await user_repo.add_user(user_id=target, added_by=user.id)
+        await reply_to.reply_text(
+            messages.user_added(target) if added else messages.user_duplicate(target),
+            parse_mode="HTML",
+        )
+        return True
+    if action == "revoke":
+        user_repo = context.bot_data["user_repo"]
+        try:
+            target = int(text.strip())
+        except ValueError:
+            await reply_to.reply_text(messages.removeuser_usage(), parse_mode="HTML")
+            return True
+        removed = await user_repo.remove_user(target)
+        await reply_to.reply_text(
+            messages.user_removed(target) if removed else messages.user_not_present(target),
+            parse_mode="HTML",
+        )
+        return True
     return True
 
 
