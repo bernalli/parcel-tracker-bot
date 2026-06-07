@@ -36,7 +36,12 @@ async def test_refresh_fetches_live_and_edits_card() -> None:
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
     # create=True: check_parcel_now is resolved via globals() inside _refresh_parcel
     # (lazy import to break the circular dependency), so it's not a top-level attribute.
-    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="updated"), create=True) as chk:
+    with patch.object(
+        callbacks,
+        "check_parcel_now",
+        new=AsyncMock(return_value="updated"),
+        create=True,
+    ) as chk:
         await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
     chk.assert_awaited_once_with(context.bot_data, user_id=10, tracking_number="TN1")
     # _edit passes the text as first positional arg of edit_message_text
@@ -50,7 +55,12 @@ async def test_refresh_quarantined_prefixes_notice() -> None:
     repo.get_for_user.return_value = _parcel()
     update = _cb_update("parcel:refresh:TN1")
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
-    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="quarantined"), create=True):
+    with patch.object(
+        callbacks,
+        "check_parcel_now",
+        new=AsyncMock(return_value="quarantined"),
+        create=True,
+    ):
         await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
     text = update.callback_query.edit_message_text.await_args.args[0]
     assert "⏳" in text  # avviso quarantena
