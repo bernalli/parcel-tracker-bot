@@ -81,7 +81,7 @@ def no_events(tracking_number: str) -> str:
 
 
 def add_usage() -> str:
-    return _("Usage: <code>/add CODE [name] [carrier]</code>")
+    return _("Usage: <code>/add CODE [name]</code>")
 
 
 def remove_usage() -> str:
@@ -197,13 +197,11 @@ def menu_section_admin() -> str:
 def prompt_add() -> str:
     return _(
         "➕ <b>Add a parcel</b>\n\n"
-        "Send a message in this format:\n"
-        "<code>/add CODE [name] [carrier]</code>\n\n"
-        "Examples:\n"
-        "• <code>/add 1Z999AA10123456784</code>\n"
-        "• <code>/add 1Z999AA10123456784 my package</code>\n"
-        "• <code>/add 1Z999AA10123456784 my package ups</code>\n\n"
-        "Carrier auto-detection works for most codes; specify it only if you want to override."
+        "Just paste the tracking number here — I'll detect the carrier automatically.\n\n"
+        "You can also use:\n"
+        "<code>/add CODE [name]</code>\n"
+        "Example: <code>/add 1Z999AA10123456784 new phone</code>\n\n"
+        "Right after adding, I'll ask you for a name so the parcel is easy to recognise."
     )
 
 
