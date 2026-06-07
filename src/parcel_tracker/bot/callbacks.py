@@ -325,17 +325,29 @@ def _get_parcel_handler(action: str):  # type: ignore[no-untyped-def]
     return getattr(sys.modules[__name__], attr, None)
 
 
-async def _handle_parcel(  # noqa: C901
+def _clear_name_pending_if_matching(
+    context: ContextTypes.DEFAULT_TYPE, tracking_number: str
+) -> None:
+    """Remove a pending ``name`` prompt from user_data if it matches *tracking_number*.
+
+    Called from both the ``skipname`` and ``undo`` branches so the condition
+    lives in exactly one place.
+    """
+    if context.user_data is None:
+        return
+    pend = context.user_data.get("pending")
+    if pend and pend.get("action") == "name" and pend.get("tn") == tracking_number:
+        context.user_data.pop("pending", None)
+
+
+async def _handle_parcel(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     action: str,
     tracking_number: str,
 ) -> None:
     if action == "skipname":
-        if context.user_data is not None:
-            pend = context.user_data.get("pending")
-            if pend and pend.get("action") == "name" and pend.get("tn") == tracking_number:
-                context.user_data.pop("pending", None)
+        _clear_name_pending_if_matching(context, tracking_number)
         query = update.callback_query
         if query is not None:
             await _edit(query, messages.parcel_added_auto(tracking_number), None)
@@ -452,10 +464,7 @@ async def _dispatch_confirm(
         await repo.reactivate(tracking_number)
         await _edit(query, messages.delivery_kept_tracking(tracking_number), None)
     elif action == "undo":
-        if context.user_data is not None:
-            pend = context.user_data.get("pending")
-            if pend and pend.get("action") == "name" and pend.get("tn") == tracking_number:
-                context.user_data.pop("pending", None)
+        _clear_name_pending_if_matching(context, tracking_number)
         await repo.deactivate(tracking_number)
         await _edit(query, messages.parcel_undone(tracking_number), None)
 
