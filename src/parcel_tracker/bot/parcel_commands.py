@@ -26,8 +26,11 @@ def _looks_like_tracking(candidate: str) -> bool:
     return sum(c.isdigit() for c in up) >= 3
 
 
+_NAME_MAX_LEN = 64
+
+
 async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Add a new parcel for the user. Args: tracking_number [name] [carrier]."""
+    """Add a new parcel for the user. Args: tracking_number [name…] (multi-word name)."""
     user = update.effective_user
     if user is None or update.message is None:
         return
@@ -36,15 +39,13 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
-    name = args[1] if len(args) >= 2 else None
-    carrier = args[2] if len(args) >= 3 else None
+    name = " ".join(args[1:]).strip()[:_NAME_MAX_LEN] or None
 
     repo = context.bot_data["parcel_repo"]
     parcel = Parcel(
         tracking_number=tracking_number,
         user_id=user.id,
         name=name,
-        carrier_code=carrier,
     )
     created = await repo.create(parcel)
     if created is None:
@@ -52,9 +53,18 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             messages.parcel_duplicate(tracking_number), parse_mode="HTML"
         )
         return
-    await update.message.reply_text(
-        messages.parcel_added(name or tracking_number), parse_mode="HTML"
-    )
+    if name is None:
+        from parcel_tracker.bot.keyboards import name_prompt_keyboard  # noqa: PLC0415
+
+        if context.user_data is not None:
+            context.user_data["pending"] = {"action": "name", "tn": tracking_number}
+        await update.message.reply_text(
+            messages.parcel_added(tracking_number) + "\n\n" + messages.ask_parcel_name(),
+            parse_mode="HTML",
+            reply_markup=name_prompt_keyboard(tracking_number),
+        )
+        return
+    await update.message.reply_text(messages.parcel_added(name), parse_mode="HTML")
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
