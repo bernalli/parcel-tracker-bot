@@ -203,3 +203,22 @@ async def test_history_shows_name_first_with_code_aside() -> None:
     await parcel_commands.cmd_history(update, context)  # type: ignore[arg-type]
     text = reply.await_args.args[0]
     assert "✅ <b>scarpe</b> — <code>TN1</code>" in text
+
+
+@pytest.mark.asyncio
+async def test_events_formats_timestamps() -> None:
+    repo = AsyncMock()
+    repo.get_for_user.return_value = Parcel(tracking_number="TN1", user_id=10)
+    repo.get_history.return_value = [
+        TrackingEvent(time="2026-06-06T22:41:00+02:00", description="Arrived")
+    ]
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        effective_message=SimpleNamespace(reply_text=reply),
+    )
+    context = SimpleNamespace(args=["TN1"], bot_data={"parcel_repo": repo})
+    await parcel_commands.cmd_events(update, context)  # type: ignore[arg-type]
+    text = reply.await_args.args[0]
+    assert "06/06/2026 22:41" in text
+    assert "2026-06-06T22:41" not in text
