@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from parcel_tracker.bot import parcel_commands
 from parcel_tracker.bot.parcel_commands import (
     cmd_add,
     cmd_events,
@@ -164,3 +166,40 @@ async def test_handle_message_echoes_hint() -> None:
     await handle_message(update, context)
     text = update.message.reply_text.call_args.args[0]
     assert "/add ABC123" in text
+
+
+@pytest.mark.asyncio
+async def test_list_shows_name_first_with_code_aside() -> None:
+    repo = AsyncMock()
+    repo.list_active_for_user.return_value = [
+        Parcel(tracking_number="TN1", user_id=10, name="iPhone 15"),
+        Parcel(tracking_number="TN2", user_id=10),
+    ]
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        effective_message=SimpleNamespace(reply_text=reply),
+    )
+    context = SimpleNamespace(args=[], bot_data={"parcel_repo": repo})
+    await parcel_commands.cmd_list(update, context)  # type: ignore[arg-type]
+    text = reply.await_args.args[0]
+    line_named, line_unnamed = text.splitlines()
+    assert line_named == "• <b>iPhone 15</b> — <code>TN1</code>"
+    assert line_unnamed == "• <code>TN2</code>"
+
+
+@pytest.mark.asyncio
+async def test_history_shows_name_first_with_code_aside() -> None:
+    repo = AsyncMock()
+    repo.list_archived_for_user.return_value = [
+        Parcel(tracking_number="TN1", user_id=10, name="scarpe"),
+    ]
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        effective_message=SimpleNamespace(reply_text=reply),
+    )
+    context = SimpleNamespace(args=[], bot_data={"parcel_repo": repo})
+    await parcel_commands.cmd_history(update, context)  # type: ignore[arg-type]
+    text = reply.await_args.args[0]
+    assert "✅ <b>scarpe</b> — <code>TN1</code>" in text
