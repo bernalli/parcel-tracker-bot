@@ -23,7 +23,9 @@ def _cb_update(data: str, user_id: int = 10) -> SimpleNamespace:
 
 
 def _parcel() -> Parcel:
-    return Parcel(tracking_number="TN1", user_id=10, name="iPhone", status=ShipmentStatus.IN_TRANSIT)
+    return Parcel(
+        tracking_number="TN1", user_id=10, name="iPhone", status=ShipmentStatus.IN_TRANSIT
+    )
 
 
 @pytest.mark.asyncio
@@ -49,8 +51,8 @@ async def test_refresh_quarantined_prefixes_notice() -> None:
     with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="quarantined")):
         await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
     text = update.callback_query.edit_message_text.await_args.args[0]
-    assert "⏳" in text          # avviso quarantena
-    assert "iPhone" in text      # card dal DB comunque mostrata
+    assert "⏳" in text  # avviso quarantena
+    assert "iPhone" in text  # card dal DB comunque mostrata
 
 
 @pytest.mark.asyncio
