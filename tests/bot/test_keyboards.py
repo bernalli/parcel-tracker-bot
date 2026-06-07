@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from parcel_tracker.bot import keyboards
+from parcel_tracker.bot.keyboards import name_prompt_keyboard, parcel_picker_keyboard
 from parcel_tracker.db.models import Parcel
 
 
@@ -48,3 +49,42 @@ def test_admin_submenu_complete() -> None:
 def test_settings_submenu_has_whoami() -> None:
     cb = _all_callbacks(keyboards.settings_submenu())
     assert "action:whoami" in cb
+
+
+def test_picker_label_uses_name_when_present() -> None:
+    p = Parcel(tracking_number="1Z999AA10123456784", user_id=1, name="iPhone 15")
+    kb = parcel_picker_keyboard([p], "open")
+    btn = kb.inline_keyboard[0][0]
+    assert btn.text == "iPhone 15"
+    assert btn.callback_data == "parcel:open:1Z999AA10123456784"
+
+
+def test_picker_label_falls_back_to_tracking_number() -> None:
+    p = Parcel(tracking_number="1Z999AA10123456784", user_id=1)
+    kb = parcel_picker_keyboard([p], "map")
+    assert kb.inline_keyboard[0][0].text == "1Z999AA10123456784"
+
+
+def test_picker_label_truncated_to_32_chars() -> None:
+    long_name = "Scarpe da corsa ultra ammortizzate blu fluo taglia 44"
+    p = Parcel(tracking_number="TN12345678", user_id=1, name=long_name)
+    kb = parcel_picker_keyboard([p], "open")
+    label = kb.inline_keyboard[0][0].text
+    assert len(label) <= 32
+    assert label.endswith("…")
+
+
+def test_name_prompt_keyboard_skip_only() -> None:
+    kb = name_prompt_keyboard("TN12345678")
+    row = kb.inline_keyboard[0]
+    assert len(row) == 1
+    assert row[0].callback_data == "parcel:skipname:TN12345678"
+
+
+def test_name_prompt_keyboard_with_undo() -> None:
+    kb = name_prompt_keyboard("TN12345678", include_undo=True)
+    row = kb.inline_keyboard[0]
+    assert [b.callback_data for b in row] == [
+        "parcel:skipname:TN12345678",
+        "confirm:undo:TN12345678",
+    ]

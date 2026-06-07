@@ -115,10 +115,6 @@ msgstr "🗑 Revoca utente"
 msgid "(no parcels)"
 msgstr "(nessun pacco)"
 
-#: src/parcel_tracker/bot/keyboards.py:124
-msgid "🔄 Refresh"
-msgstr "🔄 Aggiorna"
-
 #: src/parcel_tracker/bot/keyboards.py:125
 msgid "📋 Events"
 msgstr "📋 Eventi"
@@ -224,8 +220,8 @@ msgid "No events for <code>{tracking_number}</code>."
 msgstr "Nessun evento per <code>{tracking_number}</code>."
 
 #: src/parcel_tracker/bot/messages.py:80
-msgid "Usage: <code>/add CODE [name] [carrier]</code>"
-msgstr "Uso: <code>/add CODICE [nome] [corriere]</code>"
+msgid "Usage: <code>/add CODE [name]</code>"
+msgstr "Uso: <code>/add CODICE [nome]</code>"
 
 #: src/parcel_tracker/bot/messages.py:84
 msgid "Usage: <code>/remove CODE</code>"
@@ -347,29 +343,23 @@ msgstr "👮 <b>Admin</b>"
 msgid ""
 "➕ <b>Add a parcel</b>\n"
 "\n"
-"Send a message in this format:\n"
-"<code>/add CODE [name] [carrier]</code>\n"
+"Just paste the tracking number here — I'll detect the carrier automatically.\n"
 "\n"
-"Examples:\n"
-"• <code>/add 1Z999AA10123456784</code>\n"
-"• <code>/add 1Z999AA10123456784 my package</code>\n"
-"• <code>/add 1Z999AA10123456784 my package ups</code>\n"
+"You can also use:\n"
+"<code>/add CODE [name]</code>\n"
+"Example: <code>/add 1Z999AA10123456784 new phone</code>\n"
 "\n"
-"Carrier auto-detection works for most codes; specify it only if you want "
-"to override."
+"Right after adding, I'll ask you for a name so the parcel is easy to recognise."
 msgstr ""
 "➕ <b>Aggiungi un pacco</b>\n"
 "\n"
-"Invia un messaggio in questo formato:\n"
-"<code>/add CODICE [nome] [corriere]</code>\n"
+"Incolla qui il numero di tracking — rilevo io il corriere in automatico.\n"
 "\n"
-"Esempi:\n"
-"• <code>/add 1Z999AA10123456784</code>\n"
-"• <code>/add 1Z999AA10123456784 mio pacco</code>\n"
-"• <code>/add 1Z999AA10123456784 mio pacco ups</code>\n"
+"Puoi anche usare:\n"
+"<code>/add CODICE [nome]</code>\n"
+"Esempio: <code>/add 1Z999AA10123456784 telefono nuovo</code>\n"
 "\n"
-"Il riconoscimento automatico del corriere funziona per la maggior parte "
-"dei codici; specificalo solo se vuoi forzare un corriere diverso."
+"Subito dopo l'aggiunta ti chiederò un nome, così il pacco è facile da riconoscere."
 
 #: src/parcel_tracker/bot/messages.py:208
 msgid ""
@@ -517,11 +507,6 @@ msgstr "✅ Aggiunto <code>{tracking_number}</code>, ora lo traccio."
 msgid "🗺 Choose a parcel to see its route map:"
 msgstr "🗺 Scegli un pacco per vedere la mappa del percorso:"
 
-#: src/parcel_tracker/bot/messages.py:340
-#, python-brace-format
-msgid "📦 <code>{tn}</code> — choose an action:"
-msgstr "📦 <code>{tn}</code> — scegli un'azione:"
-
 #: src/parcel_tracker/bot/messages.py:344
 #, python-brace-format
 msgid "✏️ Send the new name for <code>{tn}</code>:"
@@ -580,3 +565,40 @@ msgstr "🗑 Manda l'ID utente numerico da revocare:"
 #, python-brace-format
 msgid "⚠️ User <code>{user_id}</code> is not in the authorised list."
 msgstr "⚠️ L'utente <code>{user_id}</code> non è nella lista autorizzati."
+
+msgid "📛 What name do you want to give this parcel? Send it now (e.g. «iPhone 15»)."
+msgstr "📛 Che nome vuoi dare a questo pacco? Scrivilo ora (es. «iPhone 15»)."
+
+msgid "⏭ Skip"
+msgstr "⏭ Salta"
+
+msgid "🔄 Checking with the carrier…"
+msgstr "🔄 Controllo dal corriere in corso…"
+
+msgid "⏳ Tracker temporarily unavailable (quarantined). Showing last known data."
+msgstr "⏳ Tracker temporaneamente non disponibile (quarantena). Mostro gli ultimi dati noti."
+
+msgid "⚠️ Couldn't reach the carrier. Showing last known data."
+msgstr "⚠️ Corriere non raggiungibile. Mostro gli ultimi dati noti."
+
+msgid "Status"
+msgstr "Stato"
+
+msgid "Last check"
+msgstr "Ultimo controllo"
+
+msgid "✏️ Tip: give this parcel a name from the menu (Rename)."
+msgstr "✏️ Suggerimento: dai un nome a questo pacco dal menu (Rinomina)."
+
+#, python-brace-format
+msgid ""
+"✅ <code>{tracking_number}</code>\n"
+"\n"
+"This parcel looks <b>delivered</b>. Did you receive it?"
+msgstr ""
+"✅ <code>{tracking_number}</code>\n"
+"\n"
+"Questo pacco risulta <b>consegnato</b>. L'hai ricevuto?"
+
+msgid "🔄 Update now"
+msgstr "🔄 Aggiorna ora"

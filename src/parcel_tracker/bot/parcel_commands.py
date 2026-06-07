@@ -10,7 +10,7 @@ from parcel_tracker.bot import messages
 from parcel_tracker.db.models import Parcel
 
 if TYPE_CHECKING:
-    from telegram import Update
+    from telegram import Message, Update
     from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
@@ -26,8 +26,21 @@ def _looks_like_tracking(candidate: str) -> bool:
     return sum(c.isdigit() for c in up) >= 3
 
 
+_NAME_MAX_LEN = 64
+
+
+def _parcel_line(parcel: Parcel) -> str:
+    """One-line label: bold name with code aside, or just the code when unnamed."""
+    if parcel.name:
+        return (
+            f"<b>{messages.esc(parcel.name)}</b> — "
+            f"<code>{messages.esc(parcel.tracking_number)}</code>"
+        )
+    return f"<code>{messages.esc(parcel.tracking_number)}</code>"
+
+
 async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Add a new parcel for the user. Args: tracking_number [name] [carrier]."""
+    """Add a new parcel for the user. Args: tracking_number [name…] (multi-word name)."""
     user = update.effective_user
     if user is None or update.message is None:
         return
@@ -36,15 +49,13 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
-    name = args[1] if len(args) >= 2 else None
-    carrier = args[2] if len(args) >= 3 else None
+    name = " ".join(args[1:]).strip()[:_NAME_MAX_LEN] or None
 
     repo = context.bot_data["parcel_repo"]
     parcel = Parcel(
         tracking_number=tracking_number,
         user_id=user.id,
         name=name,
-        carrier_code=carrier,
     )
     created = await repo.create(parcel)
     if created is None:
@@ -52,9 +63,18 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             messages.parcel_duplicate(tracking_number), parse_mode="HTML"
         )
         return
-    await update.message.reply_text(
-        messages.parcel_added(name or tracking_number), parse_mode="HTML"
-    )
+    if name is None:
+        from parcel_tracker.bot.keyboards import name_prompt_keyboard  # noqa: PLC0415
+
+        if context.user_data is not None:
+            context.user_data["pending"] = {"action": "name", "tn": tracking_number}
+        await update.message.reply_text(
+            messages.parcel_added(tracking_number) + "\n\n" + messages.ask_parcel_name(),
+            parse_mode="HTML",
+            reply_markup=name_prompt_keyboard(tracking_number),
+        )
+        return
+    await update.message.reply_text(messages.parcel_added(name), parse_mode="HTML")
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -68,10 +88,7 @@ async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not parcels:
         await reply_to.reply_text(messages.no_parcels_active(), parse_mode="HTML")
         return
-    text = "\n".join(
-        f"• <code>{messages.esc(p.tracking_number)}</code> {messages.esc(p.name or '')}".rstrip()
-        for p in parcels
-    )
+    text = "\n".join(f"• {_parcel_line(p)}" for p in parcels)
     await reply_to.reply_text(text, parse_mode="HTML")
 
 
@@ -91,18 +108,13 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if parcel is None:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
-    lines = [
-        f"<b>{messages.esc(parcel.name or parcel.tracking_number)}</b>",
-        f"<code>{messages.esc(parcel.tracking_number)}</code>",
-        f"Status: <i>{parcel.status.value}</i>",
-        f"{messages.carrier_label()}: {messages.esc(parcel.carrier_name or parcel.carrier_code or '?')}",
-    ]
-    if parcel.last_location:
-        lines.append(f"📍 {messages.esc(parcel.last_location)}")
-    if parcel.last_event:
-        lines.append(f"🛈 {messages.esc(parcel.last_event)}")
-    text = "\n".join(lines)
-    await reply_to.reply_text(text, parse_mode="HTML")
+    from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
+
+    await reply_to.reply_text(
+        messages.parcel_detail_card(parcel),
+        parse_mode="HTML",
+        reply_markup=parcel_actions_keyboard(parcel.tracking_number),
+    )
 
 
 async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -125,9 +137,12 @@ async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not events:
         await reply_to.reply_text(messages.no_events(tracking_number), parse_mode="HTML")
         return
+    from parcel_tracker.bot.formatting import fmt_event_time  # noqa: PLC0415
+
     lines = [messages.events_for(tracking_number)]
     for ev in events:
-        line = f"• <i>{messages.esc(ev.time)}</i> — {messages.esc(ev.description)}"
+        when = fmt_event_time(ev.time)
+        line = f"• <i>{messages.esc(when)}</i> — {messages.esc(ev.description)}"
         if ev.location:
             line += f" ({messages.esc(ev.location)})"
         lines.append(line)
@@ -209,10 +224,37 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     lines = [messages.history_header()]
     for p in parcels:
-        lines.append(
-            f"✅ <code>{messages.esc(p.tracking_number)}</code> {messages.esc(p.name or '')}".rstrip()
-        )
+        lines.append(f"✅ {_parcel_line(p)}")
     await reply_to.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+async def _consume_pending_name(
+    pending: dict[str, str],
+    text: str,
+    reply_to: Message,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+) -> bool:
+    """Handle 'name' pending action. Returns False if text looks like a tracking number."""
+    candidate = text.split()[0]
+    detector = context.bot_data.get("detector")
+    specific_match = detector is not None and any(
+        t.priority > 1 for t in detector.detect(candidate)
+    )
+    if specific_match or _looks_like_tracking(candidate):
+        # È un altro tracking number: scarda il pending (già poppato) e lascia
+        # che handle_message lo tratti come un nuovo auto-add.
+        return False
+    repo = context.bot_data["parcel_repo"]
+    name = text.strip()[:_NAME_MAX_LEN]
+    ok = await repo.rename(pending["tn"], user_id=user_id, name=name)
+    msg = (
+        messages.parcel_renamed(pending["tn"], name)
+        if ok
+        else messages.parcel_not_found(pending["tn"])
+    )
+    await reply_to.reply_text(msg, parse_mode="HTML")
+    return True
 
 
 async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
@@ -228,6 +270,8 @@ async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     action = pending.get("action")
     if context.user_data is not None:
         context.user_data.pop("pending", None)  # consume once
+    if action == "name":
+        return await _consume_pending_name(pending, text, reply_to, context, user.id)
     repo = context.bot_data["parcel_repo"]
     if action == "rename":
         ok = await repo.rename(pending["tn"], user_id=user.id, name=text)
@@ -288,6 +332,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(messages.to_add_use(candidate), parse_mode="HTML")
         return
 
+    name = name[:_NAME_MAX_LEN] if name else None
     tn = candidate.upper()
     repo = context.bot_data["parcel_repo"]
     created = await repo.create(
@@ -296,8 +341,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if created is None:
         await update.message.reply_text(messages.parcel_duplicate(tn), parse_mode="HTML")
         return
-    from parcel_tracker.bot.keyboards import undo_keyboard  # noqa: PLC0415
+    from parcel_tracker.bot.keyboards import name_prompt_keyboard, undo_keyboard  # noqa: PLC0415
 
+    if name is None:
+        if context.user_data is not None:
+            context.user_data["pending"] = {"action": "name", "tn": tn}
+        await update.message.reply_text(
+            messages.parcel_added_auto(tn) + "\n\n" + messages.ask_parcel_name(),
+            parse_mode="HTML",
+            reply_markup=name_prompt_keyboard(tn, include_undo=True),
+        )
+        return
     await update.message.reply_text(
         messages.parcel_added_auto(tn), parse_mode="HTML", reply_markup=undo_keyboard(tn)
     )

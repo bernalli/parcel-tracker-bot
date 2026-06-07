@@ -34,22 +34,6 @@ def _updates_label() -> str:
     return _("Updates:")
 
 
-_STATUS_EMOJI: dict[ShipmentStatus, str] = {
-    ShipmentStatus.NOT_FOUND: "❓",
-    ShipmentStatus.INFO_RECEIVED: "ℹ️",
-    ShipmentStatus.PICKUP: "📦",
-    ShipmentStatus.IN_TRANSIT: "🚚",
-    ShipmentStatus.OUT_FOR_DELIVERY: "🚛",
-    ShipmentStatus.CUSTOMS: "🛃",
-    ShipmentStatus.DELIVERED: "✅",
-    ShipmentStatus.UNDELIVERED: "❌",
-    ShipmentStatus.EXCEPTION: "⚠️",
-    ShipmentStatus.RETURNED: "↩️",
-    ShipmentStatus.EXPIRED: "⏰",
-    ShipmentStatus.ALERT: "🚨",
-}
-
-
 class TelegramNotifier:
     def __init__(self, *, bot: _BotLike) -> None:
         self._bot = bot
@@ -65,9 +49,13 @@ class TelegramNotifier:
         new_status: ShipmentStatus,
         last_event: TrackingEvent | None,
     ) -> None:
-        from parcel_tracker.bot.formatting import fmt_event_time, status_label  # noqa: PLC0415
+        from parcel_tracker.bot.formatting import (  # noqa: PLC0415
+            fmt_event_time,
+            status_emoji,
+            status_label,
+        )
 
-        emoji = _STATUS_EMOJI.get(new_status, "📦")
+        emoji = status_emoji(new_status)
         if parcel_name:
             header = messages.esc(parcel_name)
         elif carrier_name:
@@ -109,8 +97,7 @@ class TelegramNotifier:
     ) -> None:
         from parcel_tracker.bot.keyboards import delivery_confirm_keyboard  # noqa: PLC0415
 
-        title = parcel_name or tracking_number
-        text = messages.delivery_confirm_prompt(title, tracking_number)
+        text = messages.delivery_confirm_prompt(parcel_name, tracking_number)
         if location:
             text += f"\n📍 {messages.esc(location)}"
         try:
@@ -140,9 +127,13 @@ class TelegramNotifier:
         location: str | None,
         map_png: bytes | None = None,
     ) -> None:
-        from parcel_tracker.bot.formatting import fmt_event_time, status_label  # noqa: PLC0415
+        from parcel_tracker.bot.formatting import (  # noqa: PLC0415
+            fmt_event_time,
+            status_emoji,
+            status_label,
+        )
 
-        emoji = _STATUS_EMOJI.get(new_status, "📦")
+        emoji = status_emoji(new_status)
         if parcel_name:
             header = messages.esc(parcel_name)
         elif carrier_name:
@@ -165,6 +156,9 @@ class TelegramNotifier:
                 if ev.location:
                     row += f" ({messages.esc(ev.location)})"
                 lines.append(row)
+        if not parcel_name:
+            lines.append("")
+            lines.append(f"<i>{messages.name_hint()}</i>")
         text = "\n".join(lines)
         if map_png is not None:
             await self._send_photo_instrumented(
