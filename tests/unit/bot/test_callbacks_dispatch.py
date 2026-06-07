@@ -256,15 +256,26 @@ async def test_prompt_rename_falls_back_to_main_menu() -> None:
 
 
 @pytest.mark.asyncio
-async def test_parcel_refresh_invokes_cmd_status_with_tn_arg() -> None:
-    update = _make_update("parcel:refresh:1Z999AA10123456784")
-    context = _make_context()
+async def test_parcel_refresh_invokes_check_parcel_now_with_tn() -> None:
+    from parcel_tracker.db.models import Parcel, ShipmentStatus
 
-    with patch.object(callbacks, "cmd_status", new=AsyncMock()) as mock_status:
+    repo = AsyncMock()
+    repo.get_for_user = AsyncMock(
+        return_value=Parcel(
+            tracking_number="1Z999AA10123456784",
+            user_id=42,
+            status=ShipmentStatus.IN_TRANSIT,
+        )
+    )
+    update = _make_update("parcel:refresh:1Z999AA10123456784")
+    context = _make_context(parcel_repo=repo)
+
+    with patch.object(callbacks, "check_parcel_now", new=AsyncMock(return_value="updated")) as mock_chk:
         await handle_callback(update, context)
 
-    mock_status.assert_awaited_once_with(update, context)
-    assert context.args == ["1Z999AA10123456784"]
+    mock_chk.assert_awaited_once_with(
+        context.bot_data, user_id=42, tracking_number="1Z999AA10123456784"
+    )
 
 
 @pytest.mark.asyncio
