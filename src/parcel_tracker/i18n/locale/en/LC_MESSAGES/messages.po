@@ -114,10 +114,6 @@ msgstr "🧹 Clean"
 msgid "(no parcels)"
 msgstr "(no parcels)"
 
-#: src/parcel_tracker/bot/keyboards.py:119
-msgid "🔄 Refresh"
-msgstr "🔄 Refresh"
-
 #: src/parcel_tracker/bot/keyboards.py:136
 msgid "✅ Yes, received"
 msgstr "✅ Yes, received"
@@ -207,8 +203,8 @@ msgid "No events for <code>{tracking_number}</code>."
 msgstr "No events for <code>{tracking_number}</code>."
 
 #: src/parcel_tracker/bot/messages.py:80
-msgid "Usage: <code>/add CODE [name] [carrier]</code>"
-msgstr "Usage: <code>/add CODE [name] [carrier]</code>"
+msgid "Usage: <code>/add CODE [name]</code>"
+msgstr "Usage: <code>/add CODE [name]</code>"
 
 #: src/parcel_tracker/bot/messages.py:84
 msgid "Usage: <code>/remove CODE</code>"
@@ -325,27 +321,23 @@ msgstr "👮 <b>Admin</b>"
 msgid ""
 "➕ <b>Add a parcel</b>\n"
 "\n"
-"Send a message in this format:\n"
-"<code>/add CODE [name] [carrier]</code>\n"
+"Just paste the tracking number here — I'll detect the carrier automatically.\n"
 "\n"
-"Examples:\n"
-"• <code>/add 1Z999AA10123456784</code>\n"
-"• <code>/add 1Z999AA10123456784 my package</code>\n"
-"• <code>/add 1Z999AA10123456784 my package ups</code>\n"
+"You can also use:\n"
+"<code>/add CODE [name]</code>\n"
+"Example: <code>/add 1Z999AA10123456784 new phone</code>\n"
 "\n"
-"Carrier auto-detection works for most codes; specify it only if you want to override."
+"Right after adding, I'll ask you for a name so the parcel is easy to recognise."
 msgstr ""
 "➕ <b>Add a parcel</b>\n"
 "\n"
-"Send a message in this format:\n"
-"<code>/add CODE [name] [carrier]</code>\n"
+"Just paste the tracking number here — I'll detect the carrier automatically.\n"
 "\n"
-"Examples:\n"
-"• <code>/add 1Z999AA10123456784</code>\n"
-"• <code>/add 1Z999AA10123456784 my package</code>\n"
-"• <code>/add 1Z999AA10123456784 my package ups</code>\n"
+"You can also use:\n"
+"<code>/add CODE [name]</code>\n"
+"Example: <code>/add 1Z999AA10123456784 new phone</code>\n"
 "\n"
-"Carrier auto-detection works for most codes; specify it only if you want to override."
+"Right after adding, I'll ask you for a name so the parcel is easy to recognise."
 
 #: src/parcel_tracker/bot/messages.py:204
 msgid ""
@@ -469,6 +461,43 @@ msgstr "↩️ Removed <code>{tracking_number}</code>."
 #, python-brace-format
 msgid "✅ Added <code>{tracking_number}</code> and tracking it now."
 msgstr "✅ Added <code>{tracking_number}</code> and tracking it now."
+
+msgid "📛 What name do you want to give this parcel? Send it now (e.g. «iPhone 15»)."
+msgstr "📛 What name do you want to give this parcel? Send it now (e.g. «iPhone 15»)."
+
+msgid "⏭ Skip"
+msgstr "⏭ Skip"
+
+msgid "🔄 Checking with the carrier…"
+msgstr "🔄 Checking with the carrier…"
+
+msgid "⏳ Tracker temporarily unavailable (quarantined). Showing last known data."
+msgstr "⏳ Tracker temporarily unavailable (quarantined). Showing last known data."
+
+msgid "⚠️ Couldn't reach the carrier. Showing last known data."
+msgstr "⚠️ Couldn't reach the carrier. Showing last known data."
+
+msgid "Status"
+msgstr "Status"
+
+msgid "Last check"
+msgstr "Last check"
+
+msgid "✏️ Tip: give this parcel a name from the menu (Rename)."
+msgstr "✏️ Tip: give this parcel a name from the menu (Rename)."
+
+#, python-brace-format
+msgid ""
+"✅ <code>{tracking_number}</code>\n"
+"\n"
+"This parcel looks <b>delivered</b>. Did you receive it?"
+msgstr ""
+"✅ <code>{tracking_number}</code>\n"
+"\n"
+"This parcel looks <b>delivered</b>. Did you receive it?"
+
+msgid "🔄 Update now"
+msgstr "🔄 Update now"
 
 #~ msgid "📦 My parcels"
 #~ msgstr "📦 My parcels"
