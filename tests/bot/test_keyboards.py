@@ -34,6 +34,16 @@ def test_picker_lists_parcels_with_action_prefix() -> None:
     assert "parcel:map:A" in cb and "parcel:map:B" in cb
 
 
+def test_picker_appends_extra_rows() -> None:
+    from telegram import InlineKeyboardButton
+
+    parcels = [Parcel(tracking_number="A", user_id=1)]
+    extra = [[InlineKeyboardButton("🔄", callback_data="action:checkall")]]
+    cb = _all_callbacks(keyboards.parcel_picker_keyboard(parcels, "open", extra_rows=extra))
+    assert "parcel:open:A" in cb  # parcel buttons preserved
+    assert "action:checkall" in cb  # extra footer row appended
+
+
 def test_admin_submenu_complete() -> None:
     cb = _all_callbacks(keyboards.admin_submenu())
     for action in (
