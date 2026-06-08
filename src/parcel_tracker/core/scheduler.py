@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from parcel_tracker.core.detector import CourierDetector
+from parcel_tracker.core.event_status import status_from_text
 from parcel_tracker.core.health import HealthManager
 from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.status_intervals import is_due
@@ -195,6 +196,36 @@ async def _persist_result(
     return new_events
 
 
+async def _reconcile_status_and_carrier(
+    parcel_repo: ParcelRepository,
+    parcel: Parcel,
+    result: TrackingResult,
+) -> None:
+    """Bring a successful result in line with the API-backed trackers.
+
+    Scraper plugins (BRT/GLS Italy/SDA) return ``found=True`` with events but
+    leave ``status`` at the NOT_FOUND default and never write the carrier back to
+    the parcel row. This recovers a status from the latest event (mutating
+    ``result`` so the caller's status-change detection sees it) and persists a
+    carrier identified during the fetch, which ``create()`` would otherwise be
+    the only writer of.
+    """
+    if result.status is ShipmentStatus.NOT_FOUND and result.last_event:
+        derived = status_from_text(result.last_event)
+        if derived is not None:
+            result.status = derived
+
+    if (result.carrier_code or result.carrier_name) and (
+        result.carrier_code != parcel.carrier_code
+        or result.carrier_name != parcel.carrier_name
+    ):
+        await parcel_repo.update_carrier(
+            parcel.tracking_number,
+            result.carrier_code or parcel.carrier_code,
+            result.carrier_name or parcel.carrier_name,
+        )
+
+
 async def _handle_delivered_transition(
     *,
     parcel: Parcel,
@@ -369,6 +400,8 @@ async def _check_one(  # noqa: PLR0913, C901
 
     if final_result is None:
         return "failed" if attempted else "quarantined"
+
+    await _reconcile_status_and_carrier(parcel_repo, parcel, final_result)
 
     new_events = await _persist_result(parcel_repo, parcel.tracking_number, final_result)
 

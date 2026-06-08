@@ -54,6 +54,7 @@ def _make_context(
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
     parcel_repo.update_latest = AsyncMock()
+    parcel_repo.update_carrier = AsyncMock()
     parcel_repo.set_delivered = AsyncMock()
 
     user_repo = MagicMock()
