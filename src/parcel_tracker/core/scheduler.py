@@ -60,6 +60,25 @@ def _chunked(seq: list[tuple[int, Parcel]], size: int) -> list[list[tuple[int, P
     return [seq[i : i + size] for i in range(0, len(seq), size)]
 
 
+def _log_batch_errors(batch: list[tuple[int, Parcel]], results: list[Any]) -> None:
+    """Surface exceptions returned by ``asyncio.gather(return_exceptions=True)``.
+
+    Without this a per-parcel failure (including a notification that passed the
+    gate but failed to send) is silently discarded — no log, no retry — so the
+    user just never hears about an update. Log, don't raise: one bad parcel must
+    not abort the rest of the batch.
+    """
+    for (uid, parcel), res in zip(batch, results, strict=False):
+        if isinstance(res, Exception):
+            logger.warning(
+                "parcel check task failed (user=%s, tracking=%s): %s",
+                uid,
+                parcel.tracking_number,
+                res,
+                exc_info=res,
+            )
+
+
 async def check_user_now(bot_data: dict[str, Any], *, user_id: int) -> int:
     """On-demand: check ALL active parcels for a user immediately (ignores is_due).
     Returns the number of parcels checked. Reuses _check_one."""
@@ -69,7 +88,7 @@ async def check_user_now(bot_data: dict[str, Any], *, user_id: int) -> int:
         return 0
     batch_size = int(getattr(bot_data["config"], "batch_size", 10))
     for batch in _chunked([(user_id, p) for p in parcels], batch_size):
-        await asyncio.gather(
+        results = await asyncio.gather(
             *[
                 _check_one(
                     parcel=p,
@@ -88,6 +107,7 @@ async def check_user_now(bot_data: dict[str, Any], *, user_id: int) -> int:
             ],
             return_exceptions=True,
         )
+        _log_batch_errors(batch, results)
     return len(parcels)
 
 
@@ -153,7 +173,7 @@ async def _check_updates_impl(context: _JobContext) -> None:
 
     batch_size = int(getattr(config, "batch_size", 10))
     for batch in _chunked(all_due, batch_size):
-        await asyncio.gather(
+        results = await asyncio.gather(
             *[
                 _check_one(
                     parcel=p,
@@ -172,6 +192,7 @@ async def _check_updates_impl(context: _JobContext) -> None:
             ],
             return_exceptions=True,
         )
+        _log_batch_errors(batch, results)
 
 
 async def _persist_result(
@@ -210,14 +231,22 @@ async def _reconcile_status_and_carrier(
     carrier identified during the fetch, which ``create()`` would otherwise be
     the only writer of.
     """
-    if result.status is ShipmentStatus.NOT_FOUND and result.last_event:
-        derived = status_from_text(result.last_event)
-        if derived is not None:
-            result.status = derived
+    if result.status is ShipmentStatus.NOT_FOUND:
+        if result.last_event:
+            derived = status_from_text(result.last_event)
+            if derived is not None:
+                result.status = derived
+        elif result.events:
+            # Events present but no denormalised ``last_event``: ordering is
+            # tracker-specific so we can't safely pick the newest, but a result
+            # carrying movement events is never "unknown" — it is at least in
+            # transit. Lifting NOT_FOUND here stops the ``is_status_enabled``
+            # gate (which hard-suppresses the internal NOT_FOUND state) from
+            # silently swallowing genuine intermediate updates.
+            result.status = ShipmentStatus.IN_TRANSIT
 
     if (result.carrier_code or result.carrier_name) and (
-        result.carrier_code != parcel.carrier_code
-        or result.carrier_name != parcel.carrier_name
+        result.carrier_code != parcel.carrier_code or result.carrier_name != parcel.carrier_name
     ):
         await parcel_repo.update_carrier(
             parcel.tracking_number,
