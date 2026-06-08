@@ -8,23 +8,18 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from parcel_tracker.db.models import ShipmentStatus
+from parcel_tracker.notifier.preferences import is_default_on
 
 logger = logging.getLogger(__name__)
 
 
 _NOTIFIABLE_STATUS = [s for s in ShipmentStatus if s is not ShipmentStatus.NOT_FOUND]
-_DEFAULT_ON_VALUES = {
-    ShipmentStatus.DELIVERED.value,
-    ShipmentStatus.EXCEPTION.value,
-    ShipmentStatus.OUT_FOR_DELIVERY.value,
-    ShipmentStatus.RETURNED.value,
-}
 
 
 def _resolve_enabled(prefs: dict[str, bool], status: ShipmentStatus) -> bool:
     if status.value in prefs:
         return prefs[status.value]
-    return status.value in _DEFAULT_ON_VALUES
+    return is_default_on(status.value)
 
 
 def _build_keyboard(prefs: dict[str, bool]) -> InlineKeyboardMarkup:
@@ -119,7 +114,7 @@ async def on_notify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     current = await repo.get_pref(user_id, status_value)
     if current is None:
-        current = status_value in _DEFAULT_ON_VALUES
+        current = is_default_on(status_value)
     new_value = not current
     await repo.set_pref(user_id=user_id, status_value=status_value, enabled=new_value)
 

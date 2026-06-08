@@ -8,20 +8,23 @@ from datetime import UTC, datetime, timedelta
 from parcel_tracker.db.models import ShipmentStatus
 from parcel_tracker.db.notification_repository import NotificationRepository
 
+# Every status is notified by default EXCEPT the internal NOT_FOUND "unknown"
+# state. Defined by construction (not a hand-listed set) so a newly added
+# ShipmentStatus member can never be silently default-OFF: the old enumerated set
+# omitted EXPIRED, which 17track really emits, and those updates were dropped at
+# the is_status_enabled gate even when carrying new events.
 _DEFAULT_ON: frozenset[str] = frozenset(
-    {
-        ShipmentStatus.INFO_RECEIVED.value,
-        ShipmentStatus.PICKUP.value,
-        ShipmentStatus.IN_TRANSIT.value,
-        ShipmentStatus.CUSTOMS.value,
-        ShipmentStatus.OUT_FOR_DELIVERY.value,
-        ShipmentStatus.DELIVERED.value,
-        ShipmentStatus.UNDELIVERED.value,
-        ShipmentStatus.EXCEPTION.value,
-        ShipmentStatus.RETURNED.value,
-        ShipmentStatus.ALERT.value,
-    }
+    s.value for s in ShipmentStatus if s is not ShipmentStatus.NOT_FOUND
 )
+
+
+def is_default_on(status_value: str) -> bool:
+    """Whether a status is notified by default, absent an explicit user pref.
+
+    Single source of truth shared by the scheduler gate and the ``/notify`` UI so
+    the menu can never show a status as "off" while the scheduler treats it as on.
+    """
+    return status_value in _DEFAULT_ON
 
 
 @dataclass(frozen=True, slots=True)
