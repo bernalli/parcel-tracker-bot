@@ -234,6 +234,26 @@ class ParcelRepository:
             )
             await conn.commit()
 
+    async def update_carrier(
+        self,
+        tracking_number: str,
+        carrier_code: str | None,
+        carrier_name: str | None,
+    ) -> None:
+        """Persist the carrier identity learned during a fetch.
+
+        Carrier is set at creation only; trackers re-identify it on every fetch,
+        so this keeps the parcel row in sync (and replaces the "?" placeholder
+        shown for parcels added before detection or served by a scraper plugin).
+        """
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET carrier_code = ?, carrier_name = ?, "
+                "updated_at = CURRENT_TIMESTAMP WHERE tracking_number = ?",
+                (carrier_code, carrier_name, tracking_number),
+            )
+            await conn.commit()
+
     async def set_delivered(self, tracking_number: str, when: datetime) -> None:
         """Mark a parcel Delivered and stamp delivered_at (kept active until confirmed)."""
         async with get_connection(self._db_path) as conn:
