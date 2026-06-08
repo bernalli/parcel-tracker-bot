@@ -105,6 +105,7 @@ async def _show_picker(
     action: str,
     *,
     title: str,
+    extra_rows: list[list[InlineKeyboardButton]] | None = None,
 ) -> None:
     from parcel_tracker.bot.keyboards import parcel_picker_keyboard  # noqa: PLC0415
 
@@ -114,11 +115,19 @@ async def _show_picker(
         return
     repo = context.bot_data["parcel_repo"]
     parcels = await repo.list_active_for_user(user_id=user.id)
-    await _edit(query, title, parcel_picker_keyboard(parcels, action))
+    await _edit(query, title, parcel_picker_keyboard(parcels, action, extra_rows=extra_rows))
 
 
 async def _nav_parcels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await _show_picker(update, context, "open", title=messages.menu_section_parcels())
+    # My-parcels view: the clickable parcel picker plus a force-scan-all action
+    # (the scheduler also runs every 30 min; this lets the user trigger it now).
+    footer = [
+        [InlineKeyboardButton(_("🔄 Refresh all"), callback_data="action:checkall")],
+        [InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:main")],
+    ]
+    await _show_picker(
+        update, context, "open", title=messages.menu_section_parcels(), extra_rows=footer
+    )
 
 
 async def _nav_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

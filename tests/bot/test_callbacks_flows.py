@@ -34,6 +34,23 @@ async def test_nav_parcels_lists_parcels_as_picker(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_nav_parcels_includes_refresh_all_button() -> None:
+    repo = AsyncMock()
+    repo.list_active_for_user.return_value = [Parcel(tracking_number="A", user_id=10)]
+    q = _query("nav:parcels")
+    update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
+    context = SimpleNamespace(
+        bot_data={"parcel_repo": repo, "config": SimpleNamespace(admin_user_ids=frozenset())},
+        user_data={},
+    )
+    await callbacks.handle_callback(update, context)
+    markup = q.edit_message_text.call_args.kwargs["reply_markup"]
+    cbs = [b.callback_data for row in markup.inline_keyboard for b in row]
+    assert "action:checkall" in cbs  # force-scan-all button is reachable from My parcels
+    assert "parcel:open:A" in cbs  # parcel picker still present
+
+
+@pytest.mark.asyncio
 async def test_parcel_rename_sets_pending_and_prompts() -> None:
     q = _query("parcel:rename:A")
     update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))

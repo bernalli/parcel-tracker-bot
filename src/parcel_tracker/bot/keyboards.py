@@ -111,8 +111,17 @@ def _picker_label(parcel: Parcel) -> str:
     return label
 
 
-def parcel_picker_keyboard(parcels: list[Parcel], action: str) -> InlineKeyboardMarkup:
-    """Keyboard for picking a parcel (label = name or code), with given action prefix."""
+def parcel_picker_keyboard(
+    parcels: list[Parcel],
+    action: str,
+    *,
+    extra_rows: list[list[InlineKeyboardButton]] | None = None,
+) -> InlineKeyboardMarkup:
+    """Keyboard for picking a parcel (label = name or code), with given action prefix.
+
+    ``extra_rows`` are appended as footer rows below the parcel list (e.g. a
+    'Refresh all' action and a back row on the My-parcels view).
+    """
     rows = [
         [
             InlineKeyboardButton(
@@ -121,9 +130,11 @@ def parcel_picker_keyboard(parcels: list[Parcel], action: str) -> InlineKeyboard
         ]
         for p in parcels
     ]
-    return InlineKeyboardMarkup(
-        rows or [[InlineKeyboardButton(_("(no parcels)"), callback_data="nav:main")]]
-    )
+    if not rows:
+        rows = [[InlineKeyboardButton(_("(no parcels)"), callback_data="nav:main")]]
+    if extra_rows:
+        rows.extend(extra_rows)
+    return InlineKeyboardMarkup(rows)
 
 
 def name_prompt_keyboard(
