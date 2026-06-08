@@ -25,26 +25,49 @@ _STATUS_KEYWORDS: tuple[tuple[ShipmentStatus, tuple[str, ...]], ...] = (
     ),
     (
         ShipmentStatus.RETURNED,
-        ("returned", "return to sender", "reso al mittente", "in restituzione",
-         "ritorno al mittente"),
+        (
+            "returned",
+            "return to sender",
+            "reso al mittente",
+            "in restituzione",
+            "ritorno al mittente",
+        ),
     ),
     (
         ShipmentStatus.UNDELIVERED,
-        ("undelivered", "delivery failed", "failed delivery", "mancata consegna",
-         "consegna non riuscita", "tentativo di consegna"),
+        (
+            "undelivered",
+            "delivery failed",
+            "failed delivery",
+            "mancata consegna",
+            "consegna non riuscita",
+            "tentativo di consegna",
+        ),
     ),
     (ShipmentStatus.EXCEPTION, ("exception", "anomalia", "giacenza", "fermo deposito")),
     (ShipmentStatus.ALERT, ("alert", "allerta")),
     (ShipmentStatus.CUSTOMS, ("customs", "dogana", "sdoganamento")),
     (
         ShipmentStatus.PICKUP,
-        ("picked up", "pickup", "collected", "presa in carico", "preso in carico",
-         "ritirato", "ritiro"),
+        (
+            "picked up",
+            "pickup",
+            "collected",
+            "presa in carico",
+            "preso in carico",
+            "ritirato",
+            "ritiro",
+        ),
     ),
     (
         ShipmentStatus.INFO_RECEIVED,
-        ("info received", "shipment information", "spedizione creata",
-         "etichetta creata", "registrata"),
+        (
+            "info received",
+            "shipment information",
+            "spedizione creata",
+            "etichetta creata",
+            "registrata",
+        ),
     ),
 )
 
