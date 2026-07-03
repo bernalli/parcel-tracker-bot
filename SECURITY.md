@@ -13,7 +13,7 @@ This creates a private space where the maintainer and you can collaborate on the
 
 ### Alternative — direct email
 
-Use the private [GitHub Security Advisory](https://github.com/bernalli/parcel-tracker-bot/security/advisories/new) instead of email.
+Report privately via the GitHub Security Advisory link above — please do not use email.
 
 Please include:
 - A description of the issue and the affected component
