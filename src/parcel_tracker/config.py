@@ -60,8 +60,11 @@ class Config:
     admin_user_ids: frozenset[int] = field(default_factory=frozenset)
 
     maps_enabled: bool = True
-    osm_tile_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-    map_user_agent: str = "parcel-tracker-bot/0.2 (+self-hosted; OSM tiles)"
+    # CARTO voyager @2x: English-first labels, retina tiles. Any XYZ server can
+    # be set via OSM_TILE_URL (set MAP_TILE_SIZE=256 for standard-DPI servers).
+    osm_tile_url: str = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
+    map_tile_size: int = 512
+    map_user_agent: str = "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
 
     @classmethod
     def from_env(cls, *, load_dotenv_file: bool = True) -> Config:  # noqa: C901
@@ -144,10 +147,12 @@ class Config:
             admin_user_ids=admin_ids,
             maps_enabled=_bool_env("MAPS_ENABLED", True),
             osm_tile_url=os.getenv(
-                "OSM_TILE_URL", "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                "OSM_TILE_URL",
+                "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
             ),
+            map_tile_size=_int_env("MAP_TILE_SIZE", 512),
             map_user_agent=os.getenv(
-                "MAP_USER_AGENT", "parcel-tracker-bot/0.2 (+self-hosted; OSM tiles)"
+                "MAP_USER_AGENT", "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
             ),
         )
 

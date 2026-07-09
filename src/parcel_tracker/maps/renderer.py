@@ -1,4 +1,4 @@
-"""Render a static map PNG with a transport-mode marker. OSM tiles, no account."""
+"""Render a static map PNG with a transport-mode marker. Public XYZ tiles, no account."""
 
 from __future__ import annotations
 
@@ -11,7 +11,11 @@ from PIL import Image
 from staticmap import IconMarker, Line, StaticMap
 
 _MARKERS_DIR = Path(__file__).parent / "data" / "markers"
-_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+# CARTO voyager: English-first labels and @2x retina tiles (crisp text at any
+# canvas size). OSM's default style labels places in the local script/language.
+# Requires attribution: (c) OpenStreetMap contributors (c) CARTO.
+_TILE_URL = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
+_TILE_SIZE = 512  # @2x tiles are 512px; must match the url_template variant
 _VALID_MODES = {"plane", "ship", "train", "truck", "parcel"}
 
 _EARTH_RADIUS_KM = 6371.0
@@ -94,12 +98,14 @@ class MapRenderer:
         height: int = 400,
         zoom: int = 6,
         tile_url: str = _TILE_URL,
+        tile_size: int = _TILE_SIZE,
     ) -> None:
         self._ua = user_agent
         self._w = width
         self._h = height
         self._zoom = zoom
         self._tile_url = tile_url
+        self._tile_size = tile_size
 
     def _marker_path(self, mode: str) -> str:
         chosen = mode if mode in _VALID_MODES else "parcel"
@@ -110,6 +116,7 @@ class MapRenderer:
             self._w * _SUPERSAMPLE,
             self._h * _SUPERSAMPLE,
             url_template=self._tile_url,
+            tile_size=self._tile_size,
             headers={"User-Agent": self._ua},
         )
 

@@ -129,7 +129,9 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         if dataset.exists():
             geocoder = Geocoder(dataset_path=dataset)
             map_renderer = MapRenderer(
-                user_agent=config.map_user_agent, tile_url=config.osm_tile_url
+                user_agent=config.map_user_agent,
+                tile_url=config.osm_tile_url,
+                tile_size=config.map_tile_size,
             )
         else:
             logger.warning("maps enabled but dataset %s missing; maps disabled", dataset)
