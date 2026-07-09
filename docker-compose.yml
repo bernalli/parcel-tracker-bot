@@ -6,7 +6,11 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      - ./data:/app/data
+      # Named volume: Docker seeds it with the image's /app/data ownership
+      # (botuser), so the non-root process can create the DB on first run.
+      # A ./data bind mount is created root-owned by the engine and breaks
+      # first startup.
+      - parcel-tracker-data:/app/data
       - ./plugins:/app/plugins:ro
     read_only: true
     tmpfs:
@@ -29,3 +33,6 @@ services:
       options:
         max-size: "10m"
         max-file: "5"
+
+volumes:
+  parcel-tracker-data:
