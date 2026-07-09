@@ -13,6 +13,12 @@ architecture so you can add national couriers without forking the project.
 > Built for power users who already run their own infrastructure and want a small, auditable
 > tracking bot — no cloud, no SaaS, no third-party data sharing.
 
+<p align="center">
+  <img src="docs/img/route-air.png" alt="Route map attached to a status notification, rendered by the bot from OSM tiles" width="820">
+  <br>
+  <em>Status notifications ship with a route map — rendered by the bot itself, no geocoding API, no keys.</em>
+</p>
+
 ## Features
 
 - **24 built-in couriers** — DHL, UPS, FedEx, USPS, Royal Mail, La Poste, Deutsche Post,
@@ -23,6 +29,9 @@ architecture so you can add national couriers without forking the project.
 - **Auto-detect carrier** — paste a tracking number and the bot resolves the carrier by regex priority.
 - **Tracker health & auto-quarantine** — broken couriers get sidelined automatically (3/6/12 fail → 1 h/6 h/24 h).
 - **Fine-grained notifications** — toggle per status (delivered, in transit, exception, …) per user.
+- **Self-hosted route maps** — notifications can attach a map of the parcel's journey, with the
+  transport icon (plane/ship/train/truck) inferred from the checkpoint. Offline GeoNames geocoder
+  + OpenStreetMap tiles: no geocoding API, no accounts.
 - **Observability** — Prometheus exporter on `:9090/metrics` + structured JSON logs (structlog).
 - **i18n** — English and Italian shipped, more via PR. Per-user language via `/lang`.
 - **Hardened container** — read-only rootfs, no-new-privileges, dropped capabilities, resource limits.
@@ -49,6 +58,20 @@ Talk to your bot on Telegram and send `/start`.
 | **Universal fallback** | 17track | Set `TRACK17_API_KEY` |
 
 See [docs/trackers.md](docs/trackers.md) for the full table with regex patterns and priorities.
+
+## Route maps
+
+Status updates can carry a rendered map: the checkpoint route as a polyline, with a transport
+icon inferred from the courier status (plane / ship / train / truck / parcel).
+
+| In transit (air) | Out for delivery |
+|---|---|
+| ![Intercontinental route map](docs/img/route-air.png) | ![Out-for-delivery map](docs/img/out-for-delivery.png) |
+
+Geocoding is **offline** — a bundled GeoNames `cities15000` index resolves both English and
+local city names ("Milan" and "Milano") with zero network calls — and tiles come straight from
+OpenStreetMap. No accounts, no API keys, no third-party geocoding service seeing your parcel
+data. Opt out with `MAPS_ENABLED=false`.
 
 ## Documentation
 
