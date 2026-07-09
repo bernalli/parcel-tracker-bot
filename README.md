@@ -31,7 +31,7 @@ architecture so you can add national couriers without forking the project.
 - **Fine-grained notifications** — toggle per status (delivered, in transit, exception, …) per user.
 - **Self-hosted route maps** — notifications can attach a map of the parcel's journey, with the
   transport icon (plane/ship/train/truck) inferred from the checkpoint. Offline GeoNames geocoder
-  + OpenStreetMap tiles: no geocoding API, no accounts.
+  + public map tiles: no geocoding API, no accounts.
 - **Observability** — Prometheus exporter on `:9090/metrics` + structured JSON logs (structlog).
 - **i18n** — English and Italian shipped, more via PR. Per-user language via `/lang`.
 - **Hardened container** — read-only rootfs, no-new-privileges, dropped capabilities, resource limits.
@@ -69,9 +69,12 @@ icon inferred from the courier status (plane / ship / train / truck / parcel).
 | ![Intercontinental route map](docs/img/route-air.png) | ![Out-for-delivery map](docs/img/out-for-delivery.png) |
 
 Geocoding is **offline** — a bundled GeoNames `cities15000` index resolves both English and
-local city names ("Milan" and "Milano") with zero network calls — and tiles come straight from
-OpenStreetMap. No accounts, no API keys, no third-party geocoding service seeing your parcel
+local city names ("Milan" and "Milano") with zero network calls. Tiles default to CARTO's
+voyager basemap (English labels, retina `@2x`); any XYZ server works via `OSM_TILE_URL` +
+`MAP_TILE_SIZE`. No accounts, no API keys, no third-party geocoding service seeing your parcel
 data. Opt out with `MAPS_ENABLED=false`.
+
+Map tiles © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, © [CARTO](https://carto.com/attributions).
 
 ## Documentation
 

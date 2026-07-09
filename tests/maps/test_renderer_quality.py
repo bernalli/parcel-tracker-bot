@@ -68,6 +68,17 @@ def test_render_route_marker_anchored_at_icon_center() -> None:
     assert icon_cls.call_args.args[2:] == expected
 
 
+def test_default_tiles_are_english_labelled_retina() -> None:
+    smap_cls, _, _, _ = _patched_renderer()
+    r = MapRenderer(user_agent="ua")
+    r.render_route([MILAN, SHENZHEN], mode="plane")
+    kwargs = smap_cls.call_args.kwargs
+    # CARTO voyager: English-first labels; @2x + tile_size 512 for crisp output
+    assert "cartocdn.com" in kwargs["url_template"]
+    assert "@2x" in kwargs["url_template"]
+    assert kwargs["tile_size"] == 512
+
+
 def test_render_supersamples_with_bumped_zoom() -> None:
     smap_cls, _, _, img = _patched_renderer()
     smap = smap_cls.return_value
