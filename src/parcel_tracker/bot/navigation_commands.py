@@ -83,9 +83,8 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     from parcel_tracker.maps.route import build_route_waypoints  # noqa: PLC0415
     from parcel_tracker.maps.transport import infer_transport_mode  # noqa: PLC0415
 
-    history = await repo.get_history(tracking_number, limit=50)
-    history_sorted = sorted(history, key=lambda e: e.time or "")
-    waypoints = build_route_waypoints(history_sorted, geocoder) if geocoder else []
+    history = await repo.get_history(tracking_number, limit=50, user_id=user.id)
+    waypoints = build_route_waypoints(history, geocoder) if geocoder else []
     if not waypoints:
         await reply_to.reply_text(messages.map_no_position(tracking_number), parse_mode="HTML")
         return

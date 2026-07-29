@@ -85,7 +85,11 @@ async def test_update_status(parcel_repo: ParcelRepository) -> None:
 
 
 @pytest.mark.asyncio
-async def test_add_event(parcel_repo: ParcelRepository) -> None:
+async def test_add_events_dedup_persists_then_skips_duplicates(
+    parcel_repo: ParcelRepository,
+) -> None:
+    """add_events_dedup replaced add_event: it persists unseen events and returns
+    only the newly-inserted ones, so a re-poll of the same history is a no-op."""
     await parcel_repo.create(Parcel(tracking_number="X", user_id=1))
 
     event = TrackingEvent(
@@ -94,11 +98,16 @@ async def test_add_event(parcel_repo: ParcelRepository) -> None:
         location="Milano",
         carrier="DHL",
     )
-    await parcel_repo.add_event("X", event)
+    inserted = await parcel_repo.add_events_dedup("X", [event], user_id=1)
+    assert [ev.description for ev in inserted] == ["In transit"]
 
     history = await parcel_repo.get_history("X")
     assert len(history) == 1
     assert history[0].description == "In transit"
+
+    # Same event again (carrier re-sends the whole history) must not duplicate.
+    assert await parcel_repo.add_events_dedup("X", [event], user_id=1) == []
+    assert len(await parcel_repo.get_history("X")) == 1
 
 
 @pytest.mark.asyncio

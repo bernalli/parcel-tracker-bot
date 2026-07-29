@@ -42,6 +42,8 @@ async def test_delivered_transition_sets_delivered_and_prompts() -> None:
     repo.set_last_check_at = AsyncMock()
     repo.update_status = AsyncMock()
     repo.add_events_dedup = AsyncMock(return_value=[])
+    repo.get_unnotified = AsyncMock(return_value=[])
+    repo.mark_notified = AsyncMock()
     repo.update_latest = AsyncMock()
     repo.set_delivered = AsyncMock()
     user_repo = MagicMock()

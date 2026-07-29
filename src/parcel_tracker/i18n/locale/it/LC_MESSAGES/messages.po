@@ -602,3 +602,24 @@ msgstr ""
 
 msgid "🔄 Update now"
 msgstr "🔄 Aggiorna ora"
+
+msgid "⚠️ Remove ALL your active parcels? This archives every tracked parcel."
+msgstr "⚠️ Rimuovere TUTTI i tuoi pacchi attivi? Verranno archiviati tutti i pacchi tracciati."
+
+msgid "⚠️ Yes, remove all"
+msgstr "⚠️ Sì, rimuovi tutti"
+
+msgid "⬅️ Cancel"
+msgstr "⬅️ Annulla"
+
+#, python-brace-format
+msgid "🗑 Removed {count} active parcel(s)."
+msgstr "🗑 Rimossi {count} pacchi attivi."
+
+#, python-brace-format
+msgid ""
+"⚠️ You already track the maximum of <b>{limit}</b> active parcels. Remove one "
+"(🗑 button or <code>/remove CODE</code>) before adding another."
+msgstr ""
+"⚠️ Stai già tracciando il massimo di <b>{limit}</b> pacchi attivi. Rimuovine "
+"uno (pulsante 🗑 o <code>/remove CODICE</code>) prima di aggiungerne un altro."

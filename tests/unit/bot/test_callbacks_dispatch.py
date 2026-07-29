@@ -162,27 +162,35 @@ async def test_action_users_for_non_admin_rejected() -> None:
 
 
 @pytest.mark.asyncio
-async def test_action_users_for_admin_invokes_cmd_users() -> None:
+async def test_action_users_for_admin_renders_the_allowlist() -> None:
+    """action:users renders the allow-list inline instead of delegating to cmd_users."""
+    user_repo = AsyncMock()
+    user_repo.get_allowed_user_ids.return_value = [111, 222]
     update = _make_update("action:users", user_id=1)
-    context = _make_context(admin_ids=frozenset({1}))
+    context = _make_context(admin_ids=frozenset({1}), user_repo=user_repo)
 
-    with patch.object(callbacks, "cmd_users", new=AsyncMock()) as mock_users:
-        await handle_callback(update, context)
+    await handle_callback(update, context)
 
-    mock_users.assert_awaited_once_with(update, context)
+    user_repo.get_allowed_user_ids.assert_awaited_once()
+    text = update.callback_query.edit_message_text.await_args.args[0]
+    assert "111" in text
+    assert "222" in text
 
 
 @pytest.mark.asyncio
-async def test_action_lang_clears_args_then_invokes_cmd_lang() -> None:
+async def test_action_lang_shows_the_language_picker() -> None:
+    """action:lang shows a button picker seeded with the user's stored language;
+    the actual switch happens on setlang:<locale>, not through cmd_lang."""
+    user_repo = AsyncMock()
+    user_repo.get_language.return_value = "it"
     update = _make_update("action:lang")
-    context = _make_context()
-    context.args = ["leftover"]  # Should be cleared before invocation
+    context = _make_context(user_repo=user_repo)
 
-    with patch.object(callbacks, "cmd_lang", new=AsyncMock()) as mock_lang:
-        await handle_callback(update, context)
+    await handle_callback(update, context)
 
-    mock_lang.assert_awaited_once_with(update, context)
-    assert context.args == []
+    user_repo.get_language.assert_awaited_once_with(42)
+    update.callback_query.edit_message_text.assert_awaited_once()
+    assert update.callback_query.edit_message_text.await_args.kwargs["reply_markup"] is not None
 
 
 # ---------------------------------------------------------------------------
@@ -394,5 +402,5 @@ async def test_undo_clears_matching_name_pending() -> None:
         user_data={"pending": {"action": "name", "tn": "TN1"}},
     )
     await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
-    repo.deactivate.assert_awaited_once_with("TN1")
+    repo.deactivate.assert_awaited_once_with("TN1", user_id=10)
     assert "pending" not in context.user_data

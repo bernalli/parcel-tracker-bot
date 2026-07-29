@@ -54,6 +54,13 @@ def parcel_duplicate(tracking_number: str) -> str:
     )
 
 
+def max_active_reached(limit: int) -> str:
+    return _(
+        "⚠️ You already track the maximum of <b>{limit}</b> active parcels. "
+        "Remove one (🗑 button or <code>/remove CODE</code>) before adding another."
+    ).format(limit=limit)
+
+
 def parcel_removed(tracking_number: str) -> str:
     return _("🗑 Parcel removed: <b>{tracking_number}</b>").format(tracking_number=tracking_number)
 
@@ -136,20 +143,16 @@ def clean_done() -> str:
     return _("🧹 Cleanup complete.")
 
 
-def cleanall_done() -> str:
-    return _("🧹 All parcels removed.")
+def cleanall_done(count: int) -> str:
+    return _("🗑 Removed {count} active parcel(s).").format(count=count)
+
+
+def cleanall_confirm_prompt() -> str:
+    return _("⚠️ Remove ALL your active parcels? This archives every tracked parcel.")
 
 
 def stats_header() -> str:
     return _("<b>📊 Statistics</b>")
-
-
-def map_placeholder() -> str:
-    return _("🗺 Parcel map (coming soon)")
-
-
-def map_usage() -> str:
-    return _("Usage: <code>/map CODE</code>")
 
 
 def map_no_position(tracking_number: str) -> str:

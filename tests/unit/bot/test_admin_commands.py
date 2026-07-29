@@ -75,10 +75,12 @@ async def test_cmd_clean_owner_runs() -> None:
 @pytest.mark.asyncio
 async def test_cmd_cleanall_owner_runs() -> None:
     update = _make_update(user_id=1)
-    parcel_repo = MagicMock(archive_delivered_for_user=AsyncMock(return_value=0))
+    # /cleanall now deactivates every parcel of the owner, it no longer archives
+    # only the delivered ones.
+    parcel_repo = MagicMock(deactivate_all_for_user=AsyncMock(return_value=3))
     context = _make_context(owner_id=1, parcel_repo=parcel_repo)
     await cmd_cleanall(update, context)
-    parcel_repo.archive_delivered_for_user.assert_awaited_once_with(user_id=1)
+    parcel_repo.deactivate_all_for_user.assert_awaited_once_with(user_id=1)
     text = update.message.reply_text.call_args.args[0]
     assert "removed" in text.lower()
 

@@ -33,20 +33,29 @@ _STATUS_KEYWORDS: tuple[tuple[ShipmentStatus, tuple[str, ...]], ...] = (
             "ritorno al mittente",
         ),
     ),
+    # CUSTOMS before UNDELIVERED: a customs hold may also mention a future
+    # "delivery attempt", which must not shadow the customs classification.
+    (ShipmentStatus.CUSTOMS, ("customs", "dogana", "sdoganamento")),
     (
         ShipmentStatus.UNDELIVERED,
         (
             "undelivered",
             "delivery failed",
             "failed delivery",
+            "delivery unsuccessful",
+            "unable to deliver",
+            "could not be delivered",
+            "delivery attempt",
+            "attempted delivery",
             "mancata consegna",
             "consegna non riuscita",
             "tentativo di consegna",
+            "tentata consegna",
+            "destinatario assente",
         ),
     ),
     (ShipmentStatus.EXCEPTION, ("exception", "anomalia", "giacenza", "fermo deposito")),
     (ShipmentStatus.ALERT, ("alert", "allerta")),
-    (ShipmentStatus.CUSTOMS, ("customs", "dogana", "sdoganamento")),
     (
         ShipmentStatus.PICKUP,
         (

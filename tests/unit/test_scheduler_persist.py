@@ -32,6 +32,10 @@ def _ctx(parcel: Parcel, result: TrackingResult) -> MagicMock:
     repo.set_last_check_at = AsyncMock()
     repo.update_status = AsyncMock()
     repo.add_events_dedup = AsyncMock(return_value=result.events)
+    repo.get_unnotified = AsyncMock(
+        return_value=[(i, ev) for i, ev in enumerate(result.events, start=1)]
+    )
+    repo.mark_notified = AsyncMock()
     repo.update_latest = AsyncMock()
     repo.update_carrier = AsyncMock()
     user_repo = MagicMock()
@@ -85,7 +89,7 @@ async def test_scheduler_persists_events_and_latest() -> None:
     await check_updates(ctx)
     ctx.bot_data["parcel_repo"].add_events_dedup.assert_awaited_once()
     ctx.bot_data["parcel_repo"].update_latest.assert_awaited_once_with(
-        "FAKE1", "Departed", "2026-06-04T10:00:00Z", "Milano, Italy"
+        "FAKE1", "Departed", "2026-06-04T10:00:00Z", "Milano, Italy", user_id=7
     )
 
 
@@ -108,8 +112,8 @@ async def test_scheduler_derives_status_when_tracker_omits_it() -> None:
     ctx = _ctx(parcel, result)
     await check_updates(ctx)
     repo = ctx.bot_data["parcel_repo"]
-    repo.update_status.assert_awaited_once_with("FAKE9", ShipmentStatus.IN_TRANSIT)
-    repo.update_carrier.assert_awaited_once_with("FAKE9", "brt", "BRT")
+    repo.update_status.assert_awaited_once_with("FAKE9", ShipmentStatus.IN_TRANSIT, user_id=7)
+    repo.update_carrier.assert_awaited_once_with("FAKE9", "brt", "BRT", user_id=7)
 
 
 @pytest.mark.asyncio

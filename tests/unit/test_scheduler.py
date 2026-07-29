@@ -52,6 +52,8 @@ def _make_context(
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
+    parcel_repo.get_unnotified = AsyncMock(return_value=[])
+    parcel_repo.mark_notified = AsyncMock()
     parcel_repo.update_latest = AsyncMock()
     parcel_repo.set_delivered = AsyncMock()
     parcel_repo.get_history = AsyncMock(return_value=[])
@@ -152,7 +154,7 @@ async def test_check_updates_checks_owner_parcels_when_allowlist_empty() -> None
 
     ctx.bot_data["parcel_repo"].list_active_for_user.assert_awaited_with(user_id=42)
     ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
-        "FAKE123", ShipmentStatus.DELIVERED
+        "FAKE123", ShipmentStatus.DELIVERED, user_id=42
     )
     # DELIVERED transition hands off to the delivery-confirmation flow.
     ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
@@ -185,7 +187,7 @@ async def test_check_updates_checks_env_allowed_user_parcels() -> None:
     await check_updates(ctx)
 
     ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
-        "FAKE123", ShipmentStatus.DELIVERED
+        "FAKE123", ShipmentStatus.DELIVERED, user_id=777
     )
     # DELIVERED transition hands off to the delivery-confirmation flow.
     ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
@@ -283,7 +285,7 @@ async def test_check_updates_status_changed_sends_notification() -> None:
     await check_updates(ctx)
 
     ctx.bot_data["parcel_repo"].update_status.assert_called_once_with(
-        "FAKE123", ShipmentStatus.OUT_FOR_DELIVERY
+        "FAKE123", ShipmentStatus.OUT_FOR_DELIVERY, user_id=42
     )
     ctx.bot_data["notifier"].send_events_update.assert_called_once()
     ctx.bot_data["notifier"].send_delivery_confirmation.assert_not_called()
@@ -407,6 +409,7 @@ async def test_check_updates_prefs_none_notifies_without_gating() -> None:
     ctx = _make_context(parcels=[parcel], tracker_result=result)
     # New events are present so a notification is warranted even without a status change.
     ctx.bot_data["parcel_repo"].add_events_dedup = AsyncMock(return_value=[ev])
+    ctx.bot_data["parcel_repo"].get_unnotified = AsyncMock(return_value=[(1, ev)])
     # Remove 'prefs' to exercise the get(...) → None path
     del ctx.bot_data["prefs"]
 
@@ -456,6 +459,8 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[ev])
+    parcel_repo.get_unnotified = AsyncMock(return_value=[(1, ev)])
+    parcel_repo.mark_notified = AsyncMock()
     parcel_repo.update_latest = AsyncMock()
     parcel_repo.get_history = AsyncMock(return_value=[])
 
@@ -531,6 +536,8 @@ async def test_check_updates_notifies_event_when_status_enabled() -> None:
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[ev])
+    parcel_repo.get_unnotified = AsyncMock(return_value=[(1, ev)])
+    parcel_repo.mark_notified = AsyncMock()
     parcel_repo.update_latest = AsyncMock()
     parcel_repo.get_history = AsyncMock(return_value=[])
 

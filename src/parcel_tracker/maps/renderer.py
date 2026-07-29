@@ -90,7 +90,7 @@ def _densify(
 class MapRenderer:
     """Builds a small PNG map centred on a coordinate with a mode icon."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 — all keyword-only render knobs with defaults
         self,
         *,
         user_agent: str,
@@ -99,6 +99,7 @@ class MapRenderer:
         zoom: int = 6,
         tile_url: str = _TILE_URL,
         tile_size: int = _TILE_SIZE,
+        tile_timeout: float | None = None,
     ) -> None:
         self._ua = user_agent
         self._w = width
@@ -106,6 +107,7 @@ class MapRenderer:
         self._zoom = zoom
         self._tile_url = tile_url
         self._tile_size = tile_size
+        self._tile_timeout = tile_timeout
 
     def _marker_path(self, mode: str) -> str:
         chosen = mode if mode in _VALID_MODES else "parcel"
@@ -118,6 +120,7 @@ class MapRenderer:
             url_template=self._tile_url,
             tile_size=self._tile_size,
             headers={"User-Agent": self._ua},
+            tile_request_timeout=self._tile_timeout,
         )
 
     def _finish(self, image: Image.Image) -> bytes:
@@ -148,9 +151,16 @@ class MapRenderer:
             raise ValueError("render_route requires at least one waypoint")
         smap = self._supersampled_map()
         lonlat = [(lng, lat) for (lat, lng) in _densify(waypoints)]
-        if len(lonlat) >= 2:  # noqa: PLR2004
+        multi = len(lonlat) >= 2  # noqa: PLR2004
+        if multi:
             smap.add_line(Line(lonlat, _HALO_COLOR, _HALO_WIDTH))
             smap.add_line(Line(lonlat, _LINE_COLOR, _LINE_WIDTH))
         self._add_mode_marker(smap, lonlat[-1], mode)
-        image = smap.render()  # auto-fit to markers/lines
+        # Auto-fit works off markers/lines; a single point would over-zoom to
+        # building level, so it is centred at the configured zoom instead.
+        image = (
+            smap.render()
+            if multi
+            else smap.render(zoom=min(self._zoom + 1, _MAX_TILE_ZOOM), center=lonlat[-1])
+        )
         return self._finish(image)

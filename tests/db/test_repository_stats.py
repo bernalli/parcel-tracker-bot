@@ -19,9 +19,12 @@ async def test_count_events_for_user(tmp_path: Path) -> None:
     await init_schema(db)
     repo = ParcelRepository(db)
     await repo.create(Parcel(tracking_number="TN1", user_id=10))
+    # user_id must be passed through: the count scopes on tracking_history.user_id,
+    # so events written without an owner belong to nobody.
     await repo.add_events_dedup(
         "TN1",
         [TrackingEvent(time="t1", description="a"), TrackingEvent(time="t2", description="b")],
+        user_id=10,
     )
     assert await repo.count_events_for_user(user_id=10) == 2
     assert await repo.count_events_for_user(user_id=999) == 0

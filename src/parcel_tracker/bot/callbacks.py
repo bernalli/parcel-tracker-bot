@@ -39,8 +39,8 @@ from parcel_tracker.bot.keyboards import (
     admin_submenu,
     main_menu,
     settings_submenu,
+    users_submenu,
 )
-from parcel_tracker.bot.lang_command import cmd_lang  # noqa: F401  (lazy lookup target)
 from parcel_tracker.bot.navigation_commands import (
     cmd_help,  # noqa: F401  (lazy lookup target)
     cmd_map,  # noqa: F401  (lazy lookup target)
@@ -122,6 +122,10 @@ async def _nav_parcels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     # My-parcels view: the clickable parcel picker plus a force-scan-all action
     # (the scheduler also runs every 30 min; this lets the user trigger it now).
     footer = [
+        [
+            InlineKeyboardButton(_("➕ Add parcel"), callback_data="prompt:add"),
+            InlineKeyboardButton(_("📦 History"), callback_data="action:history"),
+        ],
         [InlineKeyboardButton(_("🔄 Refresh all"), callback_data="action:checkall")],
         [InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:main")],
     ]
@@ -175,8 +179,19 @@ async def _nav_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def _action_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    context.args = []
-    await cmd_lang(update, context)
+    # Show a language picker (buttons), not a typed-command hint — button-first UX.
+    from parcel_tracker.bot.keyboards import language_picker  # noqa: PLC0415
+    from parcel_tracker.bot.lang_command import LOCALE_ROOT  # noqa: PLC0415
+    from parcel_tracker.i18n import available_locales  # noqa: PLC0415
+
+    query = update.callback_query
+    user = update.effective_user
+    if query is None or user is None:
+        return
+    user_repo = context.bot_data["user_repo"]
+    current = await user_repo.get_language(user.id)
+    locales = available_locales(LOCALE_ROOT)
+    await _edit(query, messages.lang_current(current, locales), language_picker(locales, current))
 
 
 async def _action_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -205,7 +220,17 @@ async def _admin_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> boo
 async def _action_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _admin_gate(update, context):
         return
-    await cmd_users(update, context)
+    query = update.callback_query
+    if query is None:
+        return
+    user_repo = context.bot_data["user_repo"]
+    user_ids = await user_repo.get_allowed_user_ids()
+    text = (
+        "\n".join(f"• <code>{uid}</code>" for uid in user_ids) if user_ids else messages.no_users()
+    )
+    # Render the list WITH the Authorise/Revoke keyboard so user management is
+    # reachable by buttons (it was dead code: no handler ever showed users_submenu).
+    await _edit(query, text, users_submenu())
 
 
 async def _action_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -227,6 +252,18 @@ async def _action_clean(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def _action_cleanall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # item 14: 'Remove all' is destructive — confirm before executing.
+    if not await _admin_gate(update, context):
+        return
+    from parcel_tracker.bot.keyboards import cleanall_confirm  # noqa: PLC0415
+
+    query = update.callback_query
+    if query is None:
+        return
+    await _edit(query, messages.cleanall_confirm_prompt(), cleanall_confirm())
+
+
+async def _action_cleanall_do(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _admin_gate(update, context):
         return
     await cmd_cleanall(update, context)
@@ -277,6 +314,7 @@ def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
         "delivered": "_action_delivered",
         "clean": "_action_clean",
         "cleanall": "_action_cleanall",
+        "cleanall_do": "_action_cleanall_do",
         "whoami": "_action_whoami",
         "adduser": "_action_adduser",
         "revoke": "_action_revoke",
@@ -512,17 +550,36 @@ async def _dispatch_confirm(
     if action == "yes":
         from datetime import UTC, datetime  # noqa: PLC0415
 
-        await repo.set_delivered(tracking_number, datetime.now(UTC))
-        await repo.deactivate(tracking_number)
+        await repo.set_delivered(tracking_number, datetime.now(UTC), user_id=user_id)
+        await repo.deactivate(tracking_number, user_id=user_id)
         await _edit(query, messages.delivered_archived(tracking_number), None)
     elif action == "no":
-        await repo.set_disputed(tracking_number, True)
-        await repo.reactivate(tracking_number)
+        await repo.set_disputed(tracking_number, True, user_id=user_id)
+        await repo.reactivate(tracking_number, user_id=user_id)
         await _edit(query, messages.delivery_kept_tracking(tracking_number), None)
     elif action == "undo":
         _clear_name_pending_if_matching(context, tracking_number)
-        await repo.deactivate(tracking_number)
+        await repo.deactivate(tracking_number, user_id=user_id)
         await _edit(query, messages.parcel_undone(tracking_number), None)
+
+
+async def _dispatch_setlang(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, parts: list[str]
+) -> None:
+    from parcel_tracker.bot.keyboards import language_picker  # noqa: PLC0415
+    from parcel_tracker.bot.lang_command import LOCALE_ROOT, set_user_language  # noqa: PLC0415
+    from parcel_tracker.i18n import available_locales  # noqa: PLC0415
+
+    locale = parts[1] if len(parts) >= 2 else ""  # noqa: PLR2004
+    query = update.callback_query
+    user = update.effective_user
+    if query is None or user is None:
+        return
+    locales = available_locales(LOCALE_ROOT)
+    if locale not in locales:
+        return
+    await set_user_language(context.bot_data["user_repo"], user.id, locale)
+    await _edit(query, messages.lang_changed(locale), language_picker(locales, locale))
 
 
 _PREFIX_DISPATCH = {
@@ -531,6 +588,7 @@ _PREFIX_DISPATCH = {
     "prompt": _dispatch_prompt,
     "parcel": _dispatch_parcel,
     "confirm": _dispatch_confirm,
+    "setlang": _dispatch_setlang,
 }
 
 

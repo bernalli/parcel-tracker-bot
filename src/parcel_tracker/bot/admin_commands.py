@@ -45,8 +45,8 @@ async def cmd_cleanall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await reply_to.reply_text(messages.owner_only(), parse_mode="HTML")
         return
     repo = context.bot_data["parcel_repo"]
-    await repo.archive_delivered_for_user(user_id=user.id)
-    await reply_to.reply_text(messages.cleanall_done(), parse_mode="HTML")
+    removed = await repo.deactivate_all_for_user(user_id=user.id)
+    await reply_to.reply_text(messages.cleanall_done(removed), parse_mode="HTML")
 
 
 async def cmd_delivered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

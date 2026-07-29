@@ -72,8 +72,9 @@ icon inferred from the courier status (plane / ship / train / truck / parcel).
 |---|---|
 | ![Intercontinental route map](docs/img/route-air.png) | ![Out-for-delivery map](docs/img/out-for-delivery.png) |
 
-Geocoding is **offline** — a bundled GeoNames `cities15000` index resolves both English and
-local city names ("Milan" and "Milano") with zero network calls. Tiles default to CARTO's
+Geocoding is **offline** — a bundled GeoNames `cities1000` index resolves both English and
+local city names ("Milan" and "Milano") with zero network calls, down to towns of a few
+thousand inhabitants. Tiles default to CARTO's
 voyager basemap (English labels, retina `@2x`); any XYZ server works via `OSM_TILE_URL` +
 `MAP_TILE_SIZE`. No accounts, no API keys, no third-party geocoding service seeing your parcel
 data. Opt out with `MAPS_ENABLED=false`.

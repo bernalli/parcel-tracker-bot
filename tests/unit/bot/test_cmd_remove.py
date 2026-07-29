@@ -21,4 +21,4 @@ async def test_cmd_remove_deactivates() -> None:
     context.args = ["TN1"]
     context.bot_data = {"parcel_repo": repo}
     await cmd_remove(update, context)
-    repo.deactivate.assert_awaited_once_with("TN1")
+    repo.deactivate.assert_awaited_once_with("TN1", user_id=7)

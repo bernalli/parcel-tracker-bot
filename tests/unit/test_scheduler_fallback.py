@@ -53,6 +53,8 @@ def _make_context(
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
+    parcel_repo.get_unnotified = AsyncMock(return_value=[])
+    parcel_repo.mark_notified = AsyncMock()
     parcel_repo.update_latest = AsyncMock()
     parcel_repo.update_carrier = AsyncMock()
     parcel_repo.set_delivered = AsyncMock()
@@ -149,7 +151,7 @@ async def test_fallback_when_primary_returns_not_found() -> None:
     primary.fetch.assert_awaited_once_with("FAKE123")
     secondary.fetch.assert_awaited_once_with("FAKE123")
     ctx.bot_data["parcel_repo"].update_status.assert_awaited_once_with(
-        "FAKE123", ShipmentStatus.DELIVERED
+        "FAKE123", ShipmentStatus.DELIVERED, user_id=42
     )
     ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
     ctx.bot_data["health"].record_failure.assert_awaited_once_with("primary_fail", "FAKE123")

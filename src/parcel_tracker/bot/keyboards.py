@@ -60,6 +60,21 @@ def settings_submenu() -> InlineKeyboardMarkup:
     )
 
 
+_LOCALE_LABELS = {"it": "🇮🇹 Italiano", "en": "🇬🇧 English"}
+
+
+def language_picker(locales: list[str], current: str | None = None) -> InlineKeyboardMarkup:
+    """Language chooser — one button per available locale (current marked)."""
+    rows: list[list[InlineKeyboardButton]] = []
+    for loc in locales:
+        label = _LOCALE_LABELS.get(loc, loc)
+        if loc == current:
+            label = f"✅ {label}"
+        rows.append([InlineKeyboardButton(label, callback_data=f"setlang:{loc}")])
+    rows.append([InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:settings")])
+    return InlineKeyboardMarkup(rows)
+
+
 def admin_submenu() -> InlineKeyboardMarkup:
     """Admin-only submenu — users, stats, cleanup."""
     return InlineKeyboardMarkup(
@@ -85,6 +100,16 @@ def cleanup_submenu() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(_("🧹 Clean delivered"), callback_data="action:clean")],
             [InlineKeyboardButton(_("⚠️ Remove all"), callback_data="action:cleanall")],
             [InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:admin")],
+        ]
+    )
+
+
+def cleanall_confirm() -> InlineKeyboardMarkup:
+    """Confirmation step for the destructive 'Remove all' action."""
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(_("⚠️ Yes, remove all"), callback_data="action:cleanall_do")],
+            [InlineKeyboardButton(_("⬅️ Cancel"), callback_data="nav:cleanup")],
         ]
     )
 
