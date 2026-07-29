@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/img/cover.png" alt="parcel-tracker-bot — self-hosted Telegram bot tracking parcels across 24+ couriers worldwide" width="100%">
+</p>
+
 # parcel-tracker-bot
 
 [![CI](https://github.com/bernalli/parcel-tracker-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/bernalli/parcel-tracker-bot/actions/workflows/ci.yml)
