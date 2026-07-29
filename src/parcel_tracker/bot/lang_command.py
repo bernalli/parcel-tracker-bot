@@ -18,6 +18,13 @@ from parcel_tracker.i18n import (
 LOCALE_ROOT = Path(__file__).resolve().parents[1] / "i18n" / "locale"
 
 
+async def set_user_language(user_repo: UserRepository, user_id: int, locale: str) -> None:
+    """Persist the user's locale and switch the active translator (shared by the
+    /lang command and the inline language picker)."""
+    await user_repo.set_language(user_id, locale)
+    set_default_translator(Translator(locale=locale, locale_dir=LOCALE_ROOT))
+
+
 async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reply_to = update.effective_message
     if reply_to is None or update.effective_user is None:
@@ -43,8 +50,7 @@ async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    await user_repo.set_language(user_id, requested)
-    set_default_translator(Translator(locale=requested, locale_dir=LOCALE_ROOT))
+    await set_user_language(user_repo, user_id, requested)
     await reply_to.reply_text(
         messages.lang_changed(requested),
         parse_mode="HTML",

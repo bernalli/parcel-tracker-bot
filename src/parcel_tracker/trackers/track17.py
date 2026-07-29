@@ -6,6 +6,7 @@ the registry will only fall back to it if no specific tracker matches.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any, ClassVar
@@ -25,6 +26,14 @@ def _fmt_location(address: dict[str, Any] | None) -> str | None:
     country = (address.get("country") or address.get("country_iso") or "").strip()
     parts = [p for p in (city, country) if p]
     return ", ".join(parts) or None
+
+
+def _event_location(evt: dict[str, Any]) -> str | None:
+    """Resolve an event's place: prefer the structured ``address`` object, fall back to
+    the freeform ``location`` string. 17track frequently leaves ``address`` all-null and
+    only fills ``location`` (observed live for UPS, e.g. 'VALMADRERA, IT') — without this
+    fallback those parcels lose their position entirely and never render a map."""
+    return _fmt_location(evt.get("address")) or (evt.get("location") or "").strip() or None
 
 
 _STATUS_MAP: dict[str, ShipmentStatus] = {
@@ -98,7 +107,24 @@ class Track17Tracker(AbstractTracker):
         response = await self._http_client.post(
             self.STATUS_URL, json=payload, headers=self._headers
         )
-        data: dict[str, Any] = response.json()
+        try:
+            data: dict[str, Any] = response.json()
+        except json.JSONDecodeError:
+            # Observed live: 17track occasionally answers with a non-JSON body
+            # (rate-limit / upstream hiccup). Keep the diagnostics the traceback
+            # would hide: HTTP status + body snippet.
+            logger.warning(
+                "track17 non-JSON response for %s (HTTP %s): %r",
+                tracking_id,
+                response.status_code,
+                response.text[:200],
+                extra={"tracker": self.name, "tracking_id": tracking_id},
+            )
+            return TrackingResult(
+                tracking_number=tracking_id,
+                found=False,
+                error=f"non-JSON response (HTTP {response.status_code})",
+            )
         accepted = data.get("data", {}).get("accepted", []) or []
         if not accepted:
             return TrackingResult(tracking_number=tracking_id, found=False)
@@ -117,23 +143,22 @@ class Track17Tracker(AbstractTracker):
                     TrackingEvent(
                         time=evt.get("time_iso", ""),
                         description=evt.get("description", ""),
-                        location=_fmt_location(evt.get("address")),
+                        location=_event_location(evt),
                         carrier=provider_name,
                     )
                 )
 
+        # Surface the delivering carrier (first provider) so the scheduler's
+        # reconcile can clear the "?" placeholder on the parcel row.
+        carrier_name = (providers[0].get("provider") or {}).get("name") if providers else None
+
         return TrackingResult(
             tracking_number=tracking_id,
             found=True,
+            carrier_name=carrier_name,
             status=_STATUS_MAP.get(latest.get("status", ""), ShipmentStatus.NOT_FOUND),
             last_event=latest_event.get("description"),
             last_event_time=latest_event.get("time_iso"),
-            last_location=_fmt_location(latest_event.get("address")),
+            last_location=_event_location(latest_event),
             events=events,
-            origin=(track_info.get("shipping_info", {}).get("shipper_address") or {}).get(
-                "country"
-            ),
-            destination=(track_info.get("shipping_info", {}).get("recipient_address") or {}).get(
-                "country"
-            ),
         )

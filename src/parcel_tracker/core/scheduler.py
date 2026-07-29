@@ -111,6 +111,43 @@ async def check_user_now(bot_data: dict[str, Any], *, user_id: int) -> int:
     return len(parcels)
 
 
+async def reconcile_delivered_backlog(bot_data: dict[str, Any]) -> int:
+    """One-shot startup pass: heal DELIVERED parcels that never went through the
+    delivery-confirmation lifecycle (``delivered_at IS NULL``) — stamp delivered_at
+    and send a single confirm/archive prompt so they don't linger active forever.
+
+    Returns the number of parcels reconciled. No-op (0) when bot_data lacks the
+    repo or notifier so the startup hook stays safe in minimal contexts.
+    """
+    parcel_repo: ParcelRepository | None = bot_data.get("parcel_repo")
+    notifier: TelegramNotifier | None = bot_data.get("notifier")
+    if parcel_repo is None or notifier is None:
+        return 0
+    now: Callable[[], datetime] = bot_data.get("now", _now_default)
+    parcels = await parcel_repo.list_active_delivered_unstamped()
+    healed = 0
+    for parcel in parcels:
+        try:
+            await notifier.send_delivery_confirmation(
+                chat_id=parcel.user_id,
+                tracking_number=parcel.tracking_number,
+                parcel_name=parcel.name,
+                location=parcel.last_location,
+            )
+        except Exception:  # noqa: BLE001 — one bad send must not abort the sweep
+            # Leave delivered_at unset so the next startup retries this parcel; a
+            # stamped-but-silent parcel would never surface the confirm prompt again.
+            logger.warning(
+                "startup delivered-backlog confirmation failed for %s (will retry next start)",
+                parcel.tracking_number,
+                exc_info=True,
+            )
+            continue
+        await parcel_repo.set_delivered(parcel.tracking_number, now(), user_id=parcel.user_id)
+        healed += 1
+    return healed
+
+
 async def check_updates(context: _JobContext) -> None:
     """Periodic job: instrumented entry point. Wraps body with scheduler tick histogram."""
     with SCHEDULER_TICK_DURATION_SECONDS.time():
@@ -162,6 +199,7 @@ async def _check_updates_impl(context: _JobContext) -> None:
                 now(),
                 delivery_disputed=parcel.delivery_disputed,
                 delivered_at=parcel.delivered_at,
+                interval_overrides=getattr(config, "status_interval_overrides", None),
             ):
                 all_due.append((user_id, parcel))
 
@@ -199,6 +237,8 @@ async def _persist_result(
     parcel_repo: ParcelRepository,
     tracking_number: str,
     result: TrackingResult,
+    *,
+    user_id: int,
 ) -> list[TrackingEvent]:
     """Persist new events (canonical store = tracking_history) and refresh the
     denormalised latest-event fields used by /status and notifications.
@@ -206,13 +246,14 @@ async def _persist_result(
     Returns the events that were genuinely new (dedup-filtered), so the caller
     can decide whether a notification is warranted.
     """
-    new_events = await parcel_repo.add_events_dedup(tracking_number, result.events)
+    new_events = await parcel_repo.add_events_dedup(tracking_number, result.events, user_id=user_id)
     if result.last_event is not None:
         await parcel_repo.update_latest(
             tracking_number,
             result.last_event,
             result.last_event_time,
             result.last_location,
+            user_id=user_id,
         )
     return new_events
 
@@ -252,6 +293,7 @@ async def _reconcile_status_and_carrier(
             parcel.tracking_number,
             result.carrier_code or parcel.carrier_code,
             result.carrier_name or parcel.carrier_name,
+            user_id=parcel.user_id,
         )
 
 
@@ -271,7 +313,7 @@ async def _handle_delivered_transition(
     user who muted "Delivered" updates can still confirm/archive and the parcel does not
     linger active forever.
     """
-    await parcel_repo.set_delivered(parcel.tracking_number, now())
+    await parcel_repo.set_delivered(parcel.tracking_number, now(), user_id=user_id)
     await notifier.send_delivery_confirmation(
         chat_id=user_id,
         tracking_number=parcel.tracking_number,
@@ -328,9 +370,10 @@ async def _notify(  # noqa: PLR0913
     enabled = prefs is None or await prefs.is_status_enabled(user_id, final_result.status)
     if not enabled:
         return
-    ordered = sorted(new_events, key=lambda e: e.time or "")
-    history = await parcel_repo.get_history(parcel.tracking_number, limit=50)
-    history = sorted(history, key=lambda e: e.time or "")
+    from parcel_tracker.maps.route import order_events  # noqa: PLC0415
+
+    ordered = order_events(new_events)
+    history = await parcel_repo.get_history(parcel.tracking_number, limit=50, user_id=user_id)
     map_png = await _maybe_render_map(
         geocoder=geocoder,
         map_renderer=map_renderer,
@@ -425,20 +468,29 @@ async def _check_one(  # noqa: PLR0913, C901
         final_result = result
         break
 
-    await parcel_repo.set_last_check_at(parcel.tracking_number, now())
+    await parcel_repo.set_last_check_at(parcel.tracking_number, now(), user_id=user_id)
 
     if final_result is None:
         return "failed" if attempted else "quarantined"
 
     await _reconcile_status_and_carrier(parcel_repo, parcel, final_result)
 
-    new_events = await _persist_result(parcel_repo, parcel.tracking_number, final_result)
+    await _persist_result(parcel_repo, parcel.tracking_number, final_result, user_id=user_id)
 
     status_changed = final_result.status != parcel.status
     if status_changed:
-        await parcel_repo.update_status(parcel.tracking_number, final_result.status)
+        await parcel_repo.update_status(
+            parcel.tracking_number, final_result.status, user_id=user_id
+        )
 
-    # Delivered transition: hand off to the confirmation flow (real impl added later).
+    # Drive notification off persisted-but-unnotified events (P1-d): events are
+    # committed before the send, so if _notify raises (Telegram timeout/429) they
+    # must stay notified=0 and be retried next cycle instead of being lost forever.
+    unnotified = await parcel_repo.get_unnotified(parcel.tracking_number, user_id=user_id)
+    unnotified_ids = [row_id for row_id, _ev in unnotified]
+
+    # Delivered transition: the confirmation prompt supersedes a per-event update,
+    # so consume the pending events (mark notified) without sending one.
     if status_changed and final_result.status is ShipmentStatus.DELIVERED:
         await _handle_delivered_transition(
             parcel=parcel,
@@ -448,13 +500,28 @@ async def _check_one(  # noqa: PLR0913, C901
             location=final_result.last_location,
             now=now,
         )
+        await parcel_repo.mark_notified(unnotified_ids)
         return "delivered"
 
-    # Notify on new events OR a coarse status change (no time cooldown — event
-    # dedup already prevents duplicate notifications for the same events).
-    if not (new_events or status_changed):
+    # Re-prompt: a parcel already Delivered that gets genuinely new events re-sends
+    # the confirm/archive prompt (a lifecycle action, like the first transition) so
+    # one the user never confirmed doesn't linger silently. The notified-flag dedup
+    # is the per-parcel cooldown — idle polls (no new events) never re-prompt.
+    if final_result.status is ShipmentStatus.DELIVERED and unnotified_ids:
+        await notifier.send_delivery_confirmation(
+            chat_id=user_id,
+            tracking_number=parcel.tracking_number,
+            parcel_name=parcel.name,
+            location=final_result.last_location,
+        )
+        await parcel_repo.mark_notified(unnotified_ids)
+        return "delivered"
+
+    if not (unnotified or status_changed):
         return "no_change"
     if notify_events:
+        # Marked only after _notify returns cleanly (sent, or suppressed by prefs);
+        # a raised exception skips the mark so the event is retried next cycle.
         await _notify(
             parcel=parcel,
             user_id=user_id,
@@ -463,10 +530,11 @@ async def _check_one(  # noqa: PLR0913, C901
             prefs=prefs,
             final_result=final_result,
             status_changed=status_changed,
-            new_events=new_events,
+            new_events=[ev for _id, ev in unnotified],
             geocoder=geocoder,
             map_renderer=map_renderer,
         )
+    await parcel_repo.mark_notified(unnotified_ids)
     return "updated"
 
 

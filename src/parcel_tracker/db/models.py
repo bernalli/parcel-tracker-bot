@@ -61,8 +61,6 @@ class Parcel:
     transport_mode: str | None = None
     delivery_disputed: bool = False
     events: list[TrackingEvent] = field(default_factory=list)
-    origin: str | None = None
-    destination: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     delivered_at: datetime | None = None

@@ -12,7 +12,7 @@ SCHEMA_STATEMENTS: list[str] = [
     """
     CREATE TABLE IF NOT EXISTS parcels (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tracking_number TEXT UNIQUE NOT NULL,
+        tracking_number TEXT NOT NULL,
         name TEXT,
         carrier_code TEXT,
         carrier_name TEXT,
@@ -20,27 +20,27 @@ SCHEMA_STATEMENTS: list[str] = [
         status TEXT DEFAULT 'NotFound',
         last_event TEXT,
         last_event_time TEXT,
-        events_json TEXT,
-        origin TEXT,
-        destination TEXT,
         user_id INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         delivered_at TIMESTAMP,
         is_active INTEGER DEFAULT 1,
-        last_check_at TIMESTAMP
+        last_check_at TIMESTAMP,
+        UNIQUE (user_id, tracking_number)
     )
     """,
     """
     CREATE TABLE IF NOT EXISTS tracking_history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tracking_number TEXT NOT NULL,
+        user_id INTEGER,
         event_time TEXT,
         event_description TEXT,
         location TEXT,
         carrier TEXT,
+        notified INTEGER NOT NULL DEFAULT 0,
         recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (tracking_number) REFERENCES parcels(tracking_number)
+        FOREIGN KEY (user_id, tracking_number) REFERENCES parcels(user_id, tracking_number)
     )
     """,
     """
@@ -100,6 +100,8 @@ async def init_schema(db_path: str) -> None:
         await _add_parcels_last_check_at(conn)
         await _add_allowed_users_language(conn)
         await _add_parcels_v2_columns(conn)
+        await _add_tracking_history_notified(conn)
+        await _migrate_to_per_user_uniqueness(conn)
         await conn.commit()
 
 
@@ -144,10 +146,121 @@ async def _add_parcels_last_check_at(conn: aiosqlite.Connection) -> None:
         await conn.execute("ALTER TABLE parcels ADD COLUMN last_check_at TIMESTAMP")
 
 
+async def _add_tracking_history_notified(conn: aiosqlite.Connection) -> None:
+    """Idempotent ALTER: add tracking_history.notified for the lost-notification retry.
+
+    New DBs already have the column (DEFAULT 0) from CREATE TABLE. On a legacy DB the
+    column is absent; existing rows are marked notified=1 so the first post-upgrade
+    cycle does not re-notify the entire backlog. New events are inserted with the
+    DEFAULT 0 and flipped to 1 only after a successful (or preference-suppressed) send.
+    """
+    cursor = await conn.execute("PRAGMA table_info(tracking_history)")
+    columns = {row[1] for row in await cursor.fetchall()}
+    if "notified" not in columns:
+        await conn.execute(
+            "ALTER TABLE tracking_history ADD COLUMN notified INTEGER NOT NULL DEFAULT 0"
+        )
+        await conn.execute("UPDATE tracking_history SET notified = 1")
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_history_notified "
+        "ON tracking_history(tracking_number, notified)"
+    )
+
+
+async def _migrate_to_per_user_uniqueness(conn: aiosqlite.Connection) -> None:
+    """P1-e: per-user parcel uniqueness + user-scoped tracking history.
+
+    Idempotent, gated on ``tracking_history.user_id`` (absent == a pre-P1-e legacy DB;
+    present == fresh DB built from the new DDL, or already migrated). Adds and backfills
+    ``tracking_history.user_id`` from the (still globally-unique) parcel owner, then
+    recreates ``parcels`` with ``UNIQUE(user_id, tracking_number)`` — dropping the dead
+    ``events_json``/``origin``/``destination`` columns in the same rebuild.
+    """
+    cursor = await conn.execute("PRAGMA table_info(tracking_history)")
+    already_migrated = "user_id" in {row[1] for row in await cursor.fetchall()}
+
+    if not already_migrated:
+        await _legacy_recreate_for_per_user(conn)
+
+    # Always (fresh + legacy): the user-scoped history index. Created here, after the
+    # legacy path has added user_id, because it cannot exist before that column does.
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_history_user_tracking "
+        "ON tracking_history(user_id, tracking_number)"
+    )
+
+
+async def _legacy_recreate_for_per_user(conn: aiosqlite.Connection) -> None:
+    """Legacy upgrade: add+backfill tracking_history.user_id and recreate parcels."""
+    # Backfill while tracking_number is still globally unique (one owner per code).
+    await conn.execute("ALTER TABLE tracking_history ADD COLUMN user_id INTEGER")
+    await conn.execute(
+        "UPDATE tracking_history SET user_id = ("
+        "  SELECT p.user_id FROM parcels p "
+        "  WHERE p.tracking_number = tracking_history.tracking_number"
+        ")"
+    )
+
+    # Recreate parcels with the composite uniqueness (SQLite cannot ALTER a constraint).
+    await conn.execute(
+        """
+        CREATE TABLE parcels_p1e (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tracking_number TEXT NOT NULL,
+            name TEXT,
+            carrier_code TEXT,
+            carrier_name TEXT,
+            all_carriers TEXT,
+            status TEXT DEFAULT 'NotFound',
+            last_event TEXT,
+            last_event_time TEXT,
+            last_location TEXT,
+            transport_mode TEXT,
+            delivery_disputed INTEGER DEFAULT 0,
+            user_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            delivered_at TIMESTAMP,
+            is_active INTEGER DEFAULT 1,
+            last_check_at TIMESTAMP,
+            UNIQUE (user_id, tracking_number)
+        )
+        """
+    )
+    await conn.execute(
+        """
+        INSERT INTO parcels_p1e (
+            id, tracking_number, name, carrier_code, carrier_name, all_carriers, status,
+            last_event, last_event_time, last_location, transport_mode, delivery_disputed,
+            user_id, created_at, updated_at, delivered_at, is_active, last_check_at
+        )
+        SELECT
+            id, tracking_number, name, carrier_code, carrier_name, all_carriers, status,
+            last_event, last_event_time, last_location, transport_mode, delivery_disputed,
+            user_id, created_at, updated_at, delivered_at, is_active, last_check_at
+        FROM parcels
+        """
+    )
+    await conn.execute("DROP TABLE parcels")
+    await conn.execute("ALTER TABLE parcels_p1e RENAME TO parcels")
+    # The parcels recreate dropped its index; restore it (the history index is created
+    # unconditionally by the caller for both fresh and legacy paths).
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_parcels_active ON parcels(is_active, user_id)"
+    )
+
+
+# Wait this long for a held write lock before raising SQLITE_BUSY. aiosqlite's
+# default connect timeout already yields ~5s; set it explicitly so the guarantee
+# does not silently depend on a library default.
+_BUSY_TIMEOUT_MS = 5000
+
+
 @asynccontextmanager
 async def get_connection(db_path: str) -> AsyncIterator[aiosqlite.Connection]:
     """Yield an aiosqlite connection with row_factory set to aiosqlite.Row."""
     async with aiosqlite.connect(db_path) as conn:
         conn.row_factory = aiosqlite.Row
         await conn.execute("PRAGMA journal_mode=WAL")
+        await conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS}")
         yield conn

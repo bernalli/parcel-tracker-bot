@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,18 @@ def _register_notify_handlers(application: Application[Any, Any, Any, Any, Any, 
 LOCALE_ROOT = Path(__file__).parent / "i18n" / "locale"
 
 
+def _resolve_plugin_dir(config: Config) -> Path:
+    """Resolve the plugin overlay directory.
+
+    Prefers the explicit ``$PARCEL_TRACKER_PLUGIN_DIR`` (per docs/plugins.md) and
+    falls back to the path derived from the database location for backward compat.
+    """
+    env_dir = os.getenv("PARCEL_TRACKER_PLUGIN_DIR", "").strip()
+    if env_dir:
+        return Path(env_dir)
+    return Path(config.database_path).parent.parent / "plugins"
+
+
 async def build_bot_data(config: Config) -> dict[str, Any]:
     """Assemble all bot dependencies into a dict suitable for application.bot_data.
 
@@ -104,7 +117,7 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
 
     registry = TrackerRegistry()
     register_builtins(registry, config)
-    plugins_dir = Path(config.database_path).parent.parent / "plugins"
+    plugins_dir = _resolve_plugin_dir(config)
     if plugins_dir.exists():
         registry.load_from_directory(plugins_dir)
     detector = CourierDetector(registry)
@@ -125,13 +138,14 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         from parcel_tracker.maps.geocoder import Geocoder  # noqa: PLC0415
         from parcel_tracker.maps.renderer import MapRenderer  # noqa: PLC0415
 
-        dataset = Path(__file__).parent / "maps" / "data" / "cities15000.tsv"
+        dataset = Path(__file__).parent / "maps" / "data" / "cities1000.tsv"
         if dataset.exists():
             geocoder = Geocoder(dataset_path=dataset)
             map_renderer = MapRenderer(
                 user_agent=config.map_user_agent,
                 tile_url=config.osm_tile_url,
                 tile_size=config.map_tile_size,
+                tile_timeout=config.request_timeout,
             )
         else:
             logger.warning("maps enabled but dataset %s missing; maps disabled", dataset)
@@ -173,6 +187,19 @@ COMMANDS_ADMIN_EXTRA_IT: list[tuple[str, str]] = []
 
 def _to_bot_commands(pairs: list[tuple[str, str]]) -> list[BotCommand]:
     return [BotCommand(cmd, desc) for cmd, desc in pairs]
+
+
+async def _heal_delivered_backlog(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Startup one-shot: stamp delivered_at + send a confirm prompt for DELIVERED
+    parcels that predate the delivery-confirmation lifecycle. Never crashes boot."""
+    from parcel_tracker.core.scheduler import reconcile_delivered_backlog  # noqa: PLC0415
+
+    try:
+        healed = await reconcile_delivered_backlog(application.bot_data)
+        if healed:
+            logger.info("startup: reconciled %d delivered parcel(s) missing delivered_at", healed)
+    except Exception:  # noqa: BLE001 — never let startup reconciliation crash boot
+        logger.warning("startup delivered-backlog reconciliation failed", exc_info=True)
 
 
 async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
@@ -226,6 +253,9 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
                 logger.warning(
                     "delete_my_commands(chat=%s, lc=%s) failed", chat_id, lc, exc_info=True
                 )
+
+    # One-shot: heal DELIVERED parcels that predate the delivery-confirmation lifecycle.
+    await _heal_delivered_backlog(application)
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:

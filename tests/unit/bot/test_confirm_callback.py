@@ -30,7 +30,7 @@ async def test_confirm_yes_archives() -> None:
     context = MagicMock()
     context.bot_data = {"parcel_repo": repo, "config": MagicMock(admin_user_ids=frozenset())}
     await handle_callback(update, context)
-    repo.deactivate.assert_awaited_once_with("TN1")
+    repo.deactivate.assert_awaited_once_with("TN1", user_id=7)
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,7 @@ async def test_confirm_no_keeps_tracking() -> None:
     context = MagicMock()
     context.bot_data = {"parcel_repo": repo, "config": MagicMock(admin_user_ids=frozenset())}
     await handle_callback(update, context)
-    repo.set_disputed.assert_awaited_once_with("TN1", True)
+    repo.set_disputed.assert_awaited_once_with("TN1", True, user_id=7)
 
 
 @pytest.mark.asyncio
@@ -57,4 +57,4 @@ async def test_confirm_undo_removes() -> None:
     context = MagicMock()
     context.bot_data = {"parcel_repo": repo, "config": MagicMock(admin_user_ids=frozenset())}
     await handle_callback(update, context)
-    repo.deactivate.assert_awaited_once_with("TN1")
+    repo.deactivate.assert_awaited_once_with("TN1", user_id=7)

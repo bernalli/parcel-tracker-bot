@@ -39,6 +39,23 @@ def _parcel_line(parcel: Parcel) -> str:
     return f"<code>{messages.esc(parcel.tracking_number)}</code>"
 
 
+async def _active_limit_reached(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> int | None:
+    """Return the configured active-shipment cap when the user is at/over it, else None.
+
+    No-op (None) when no config is present in bot_data, so the cap is enforced live
+    (main.py always sets config) without coupling every command test to a Config stub.
+    """
+    config = context.bot_data.get("config")
+    if config is None:
+        return None
+    limit = int(getattr(config, "max_active_shipments", 0) or 0)
+    if limit <= 0:
+        return None
+    repo = context.bot_data["parcel_repo"]
+    count = await repo.count_active_for_user(user_id=user_id)
+    return limit if count >= limit else None
+
+
 async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Add a new parcel for the user. Args: tracking_number [name…] (multi-word name)."""
     user = update.effective_user
@@ -48,8 +65,13 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not args:
         await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
         return
-    tracking_number = args[0].strip()
+    tracking_number = args[0].strip().upper()
     name = " ".join(args[1:]).strip()[:_NAME_MAX_LEN] or None
+
+    limit = await _active_limit_reached(context, user.id)
+    if limit is not None:
+        await update.message.reply_text(messages.max_active_reached(limit), parse_mode="HTML")
+        return
 
     repo = context.bot_data["parcel_repo"]
     parcel = Parcel(
@@ -133,7 +155,7 @@ async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if parcel is None:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
-    events = await repo.get_history(tracking_number, limit=20)
+    events = await repo.get_history(tracking_number, limit=20, user_id=user.id)
     if not events:
         await reply_to.reply_text(messages.no_events(tracking_number), parse_mode="HTML")
         return
@@ -165,7 +187,7 @@ async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if parcel is None:
         await reply_to.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
-    await repo.deactivate(tracking_number)
+    await repo.deactivate(tracking_number, user_id=user.id)
     await reply_to.reply_text(messages.parcel_removed(tracking_number), parse_mode="HTML")
 
 
@@ -330,6 +352,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if not (specific_match or _looks_like_tracking(candidate)):
         await update.message.reply_text(messages.to_add_use(candidate), parse_mode="HTML")
+        return
+
+    limit = await _active_limit_reached(context, update.effective_user.id)
+    if limit is not None:
+        await update.message.reply_text(messages.max_active_reached(limit), parse_mode="HTML")
         return
 
     name = name[:_NAME_MAX_LEN] if name else None

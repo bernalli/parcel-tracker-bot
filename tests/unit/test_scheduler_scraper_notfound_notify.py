@@ -46,6 +46,10 @@ def _ctx(parcel: Parcel, result: TrackingResult, new_events: list[TrackingEvent]
     repo.update_status = AsyncMock()
     repo.update_carrier = AsyncMock()
     repo.add_events_dedup = AsyncMock(return_value=new_events)
+    repo.get_unnotified = AsyncMock(
+        return_value=[(i, ev) for i, ev in enumerate(new_events, start=1)]
+    )
+    repo.mark_notified = AsyncMock()
     repo.update_latest = AsyncMock()
     repo.set_delivered = AsyncMock()
     repo.get_history = AsyncMock(return_value=[])

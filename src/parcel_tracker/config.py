@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
+from parcel_tracker.db.models import ShipmentStatus
+
 
 class ConfigError(ValueError):
     """Raised when required configuration is missing or invalid."""
@@ -21,10 +23,9 @@ class Config:
     # Optional / with defaults
     allowed_user_ids: list[int] = field(default_factory=list)
     check_interval_minutes: int = 30
-    urgent_check_interval_minutes: int = 10
-    max_consecutive_errors: int = 10
-    auto_archive_hours: int = 48
     max_active_shipments: int = 20
+    # Per-status polling interval overrides (minutes) from STATUS_INTERVAL_<STATUS>.
+    status_interval_overrides: dict[ShipmentStatus, int] = field(default_factory=dict)
 
     database_path: str = "/app/data/bot.db"
 
@@ -35,8 +36,6 @@ class Config:
     default_language: str = "en"
 
     request_timeout: int = 30
-    request_delay_min: int = 3
-    request_delay_max: int = 8
 
     quarantine_3fail_hours: int = 1
     quarantine_6fail_hours: int = 6
@@ -116,18 +115,14 @@ class Config:
             owner_id=owner_id,
             allowed_user_ids=allowed,
             check_interval_minutes=_int_env("CHECK_INTERVAL_MINUTES", 30),
-            urgent_check_interval_minutes=_int_env("URGENT_CHECK_INTERVAL_MINUTES", 10),
-            max_consecutive_errors=_int_env("MAX_CONSECUTIVE_ERRORS", 10),
-            auto_archive_hours=_int_env("AUTO_ARCHIVE_HOURS", 48),
             max_active_shipments=_int_env("MAX_ACTIVE_SHIPMENTS", 20),
+            status_interval_overrides=_status_interval_overrides_env(),
             database_path=os.getenv("DATABASE_PATH", "/app/data/bot.db"),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
             log_format=os.getenv("LOG_FORMAT", "json").lower(),
             log_full_tracking_id=_bool_env("LOG_FULL_TRACKING_ID", False),
             default_language=os.getenv("DEFAULT_LANGUAGE", "en"),
             request_timeout=_int_env("REQUEST_TIMEOUT", 30),
-            request_delay_min=_int_env("REQUEST_DELAY_MIN", 3),
-            request_delay_max=_int_env("REQUEST_DELAY_MAX", 8),
             quarantine_3fail_hours=_int_env("QUARANTINE_3FAIL_HOURS", 1),
             quarantine_6fail_hours=_int_env("QUARANTINE_6FAIL_HOURS", 6),
             quarantine_12fail_hours=_int_env("QUARANTINE_12FAIL_HOURS", 24),
@@ -181,6 +176,32 @@ def _bool_env(key: str, default: bool) -> bool:
 def _optional_env(key: str) -> str | None:
     raw = os.getenv(key, "").strip()
     return raw or None
+
+
+def _status_interval_overrides_env() -> dict[ShipmentStatus, int]:
+    """Parse STATUS_INTERVAL_<STATUS>=<minutes> env vars (e.g. STATUS_INTERVAL_IN_TRANSIT=10).
+
+    Status name matches a ShipmentStatus member (NOT_FOUND, IN_TRANSIT, …); 0 = stop polling.
+    """
+    prefix = "STATUS_INTERVAL_"
+    by_name = {member.name: member for member in ShipmentStatus}
+    overrides: dict[ShipmentStatus, int] = {}
+    for key, val in os.environ.items():
+        if not key.startswith(prefix):
+            continue
+        name = key[len(prefix) :].strip().upper()
+        status = by_name.get(name)
+        if status is None:
+            raise ConfigError(
+                f"Invalid env var {key!r}: {name!r} is not a shipment status "
+                f"(expected one of {', '.join(sorted(by_name))})"
+            )
+        raw = val.strip()
+        try:
+            overrides[status] = int(raw)
+        except ValueError as exc:
+            raise ConfigError(f"{key} must be an integer, got: {raw!r}") from exc
+    return overrides
 
 
 def _rate_limit_overrides_env() -> dict[str, int]:

@@ -20,14 +20,20 @@ class TrackingResult:
     carrier_code: str | None = None
     carrier_name: str | None = None
     all_carriers: list[str] = field(default_factory=list)
-    origin: str | None = None
-    destination: str | None = None
     last_event: str | None = None
     last_event_time: str | None = None
     last_location: str | None = None
     events: list[TrackingEvent] = field(default_factory=list)
     error: str | None = None
     carrier_handoff: bool = False
+
+
+def last_location_from(events: list[TrackingEvent]) -> str | None:
+    """First non-empty event location in list order (events are newest-first)."""
+    for ev in events:
+        if ev.location:
+            return ev.location
+    return None
 
 
 class AbstractTracker(ABC):

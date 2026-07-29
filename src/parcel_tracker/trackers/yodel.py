@@ -9,7 +9,7 @@ from typing import ClassVar
 from bs4 import BeautifulSoup
 
 from parcel_tracker.core.http_client import HttpClient
-from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult
+from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult, last_location_from
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
 
 logger = logging.getLogger(__name__)
@@ -131,6 +131,7 @@ class YodelTracker(AbstractTracker):
             carrier_code="yodel",
             status=status,
             last_event=events[0].description,
+            last_location=last_location_from(events),
             last_event_time=events[0].time,
             events=events,
         )
@@ -153,4 +154,4 @@ class YodelTracker(AbstractTracker):
             for keyword in _STATUS_KEYWORDS[status]:
                 if keyword in text:
                     return status
-        return ShipmentStatus.IN_TRANSIT
+        return ShipmentStatus.NOT_FOUND

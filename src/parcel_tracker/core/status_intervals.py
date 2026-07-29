@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 
 from parcel_tracker.db.models import ShipmentStatus
@@ -26,8 +27,17 @@ DISPUTED_INTERVAL_MIN: int = 30
 DISPUTED_MAX_AGE_HOURS: int = 72
 
 
-def get_interval_minutes(status: ShipmentStatus) -> int:
-    """Return the polling interval (minutes) for a given status. 0 = stop polling."""
+def get_interval_minutes(
+    status: ShipmentStatus,
+    overrides: Mapping[ShipmentStatus, int] | None = None,
+) -> int:
+    """Return the polling interval (minutes) for a status. 0 = stop polling.
+
+    A per-status ``overrides`` map (from ``STATUS_INTERVAL_*`` config) takes
+    precedence over the hardcoded defaults.
+    """
+    if overrides is not None and status in overrides:
+        return overrides[status]
     return DEFAULT_INTERVALS_MIN[status]
 
 
@@ -38,6 +48,7 @@ def is_due(
     *,
     delivery_disputed: bool = False,
     delivered_at: datetime | None = None,
+    interval_overrides: Mapping[ShipmentStatus, int] | None = None,
 ) -> bool:
     """True if a parcel needs re-check given status, last check time, and dispute flag.
 
@@ -52,7 +63,7 @@ def is_due(
             return False
         interval = DISPUTED_INTERVAL_MIN
     else:
-        interval = get_interval_minutes(status)
+        interval = get_interval_minutes(status, interval_overrides)
     if interval == 0:
         return False
     if last_check_at is None:
