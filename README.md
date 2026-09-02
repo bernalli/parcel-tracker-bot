@@ -103,4 +103,4 @@ for the disclosure procedure.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Copyright © 2026 bernalli and contributors.
+MIT — see [LICENSE](LICENSE). Copyright © 2026 Samuele Martinalli and contributors.
