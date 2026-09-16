@@ -1,0 +1,128 @@
+name: tree-scan
+
+# Required repository SECRETS (Settings -> Secrets and variables -> Actions
+# -> Secrets): LEAK_WORD_TERMS, LEAK_PHRASE_TERMS, LEAK_NAME_TERMS,
+# LEAK_PII_TERMS, LEAK_PATH_TERMS. These five ARE the secret (hostnames,
+# personal paths, handles, forbidden directory/file names) and this workflow
+# never writes them to a tracked file. On a pull request from a FORK, GitHub
+# never exposes them to this job at all (see "WHY THIS USES `pull_request`"
+# below) — LEAK_CONTENT_STAGES makes that explicit rather than leaving
+# tree-scan.sh to discover five empty strings on its own.
+#
+# Optional repository/org VARIABLE (Settings -> Secrets and variables ->
+# Actions -> Variables, NOT Secrets: it is not sensitive on its own):
+# LEAK_EXCLUDE_PATHS — extended regex over tracked paths, excluded from the
+# four content stages only (never from the PATH stage). Empty/unset = no
+# exclusion. See tree-scan.sh header for why this exists (vendored
+# dependency trees).
+#
+# Companion CI check to any local pre-push guard that only scans lines
+# ADDED by new commits, and only runs on the machine where it's installed.
+# This workflow scans the WHOLE TRACKED TREE of the commit being pushed or
+# proposed, from GitHub's side, so the guarantee holds regardless of which
+# machine pushed — or whether a push happened at all (a PR from a fork
+# never touches the machine with such a hook installed).
+#
+# --- WHY THIS USES `pull_request`, NOT `pull_request_target` -------------
+# An earlier revision of this workflow used `pull_request_target` so that a
+# PR from an unknown fork would still get the five secrets — reasoning that
+# a fork PR is precisely the case this check exists to cover: nothing from
+# a non-owner account should merge without a check like this having run.
+# That reasoning is wrong for THIS check, specifically because of what it
+# does with the secrets once it has them: it greps candidate content and
+# prints "path:line" for every stage that matches. A PR author fully
+# controls the checked-out content, so they can add one candidate string
+# per push and read the public Actions log to learn whether THAT stage
+# fired — i.e. whether the candidate is a member of one of the five secret
+# lists. That turns the check into a membership oracle over the very thing
+# it exists to protect: with `pull_request_target` handing the lists to
+# arbitrary fork content, an attacker does not need to read the lists
+# directly, only to binary-search them one push at a time. No amount of
+# "never execute PR code" defense (which the earlier revision had,
+# correctly, for the code-execution risk) closes an oracle built out of the
+# check's own true/false output — that risk is orthogonal to code execution
+# and `pull_request_target` does not mitigate it.
+#
+# `pull_request` (without `_target`) closes it by removing the oracle's
+# input instead of trying to sanitize its output: GitHub does not expose
+# `secrets.*` to a job triggered by a pull_request from a fork at all — a
+# platform guarantee, not something this workflow enforces itself. The
+# five `LEAK_*_TERMS` env vars below simply resolve to empty strings on
+# that path. `LEAK_CONTENT_STAGES` tells tree-scan.sh so explicitly (see
+# its own header) rather than letting it infer "no secrets" from "five
+# empty strings", which would be indistinguishable from a real
+# misconfiguration on a same-repo push or PR.
+#
+# The cost, and it is a real one: on a PR from a fork, NONE of the six
+# stages run — not even the path-name stage, since LEAK_PATH_TERMS is a
+# secret too, and an empty pattern there would be a silent
+# false-positive-on-everything rather than a safe no-op. The job's log says
+# so in plain words. Coverage is not lost, only delayed: the merge commit
+# that lands the PR's diff on `main` is itself a `push`, which DOES carry
+# the secrets (same-repo pushes and same-repo PRs always do — only a fork
+# PR's job is restricted), so every stage runs there with the full diff in
+# place. A leak introduced solely by a fork PR is caught at merge time
+# rather than at review time — later than ideal, but never silently
+# unmeasured on the ref that actually matters, and never used as a channel
+# to learn anything about the five lists themselves.
+#
+# On a same-repo `push` or `pull_request`, none of the above is in play:
+# whoever can open that PR or push that commit already has write access to
+# this repo, so a single ordinary checkout of the commit under review is
+# enough, and it gets the secrets and runs all stages, same as before.
+
+"on":
+  push:
+  pull_request:
+
+jobs:
+  tree-scan:
+    runs-on: ubuntu-latest
+    # Il costo dei pattern e' per byte scansionato, e l'albero da
+    # scansionare arriva dalla PR: senza questo tetto il job eredita il
+    # default di 360 minuti e una singola PR puo' occupare un runner per ore.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the commit under review
+        # Pinnata al commit, non al tag: su push e su PR dallo stesso repo
+        # questo job riceve i cinque secret (mai su una PR da fork, vedi il
+        # commento in testa al file). Il tag e' mobile, il commit no.
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          # No `ref:` override: for `pull_request` this checks out the PR
+          # merge commit, which IS `github.sha` for that event — the exact
+          # commit tree-scan.sh is invoked against below.
+
+      - name: Run tree-scan.sh against the commit under review
+        env:
+          # The five term lists ARE the secret (hostnames, personal paths,
+          # handles, forbidden directory/file names) and never appear in
+          # this repo's tracked files — see tree-scan.sh header. Configure
+          # them as repository secrets: Settings -> Secrets and variables
+          # -> Actions -> Secrets. On a pull_request from a FORK these
+          # resolve to empty strings: GitHub never exposes `secrets.*` to
+          # that job at all (platform behavior, not something set here).
+          LEAK_WORD_TERMS: ${{ secrets.LEAK_WORD_TERMS }}
+          LEAK_PHRASE_TERMS: ${{ secrets.LEAK_PHRASE_TERMS }}
+          LEAK_NAME_TERMS: ${{ secrets.LEAK_NAME_TERMS }}
+          LEAK_PII_TERMS: ${{ secrets.LEAK_PII_TERMS }}
+          LEAK_PATH_TERMS: ${{ secrets.LEAK_PATH_TERMS }}
+          # Publishable path-exclusion regex, NOT a secret — a GitHub
+          # *variable*, not a secret. `vars.*` resolves to an empty string
+          # (never an error) when the variable does not exist, which is
+          # exactly tree-scan.sh's "no exclusion" default.
+          LEAK_EXCLUDE_PATHS: ${{ vars.LEAK_EXCLUDE_PATHS }}
+          # Explicit, not inferred from "the secrets happen to be empty": a
+          # pull_request from a FORK is the only case that resolves to
+          # "skip". Same-repo pushes and same-repo PRs always resolve to
+          # "all" — they already have the secrets, and a genuinely missing
+          # secret there must still fail closed (exit 3 inside
+          # tree-scan.sh), never be silently read as "this must be a fork,
+          # skip every stage".
+          LEAK_CONTENT_STAGES: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'skip' || 'all' }}
+        run: |
+          bash .github/scripts/tree-scan.sh "${{ github.sha }}"
