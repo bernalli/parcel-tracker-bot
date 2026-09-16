@@ -71,7 +71,8 @@
 #   3 — precondition absent: LEAK_CONTENT_STAGES itself unrecognized; in
 #       "all" mode, a required secret env var is empty/unset; the ref has
 #       no commits; the tree has zero tracked files; the four content
-#       stages would run over zero files; or an internal git-grep call
+#       stages would run over zero files; LEAK_EXCLUDE_PATHS is not a valid
+#       extended regex (plain grep rc > 1); or an internal git-grep call
 #       could not be measured (exit code neither 0 nor 1). Never 0, never 1.
 #
 # Pattern MATCHING happens only through grep -E (via `git grep -E`), never
