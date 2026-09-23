@@ -15,7 +15,7 @@ def test_detects_dhl_pattern() -> None:
     assert t.detect("JD014600003725123456") is True  # DHL eCom format
     assert t.detect("1234567890") is True  # 10-digit format
     assert t.detect("XYZ") is False
-    # Plan 3 / Task 30: TBA-prefix is reserved for Amazon Logistics, must not match DHL.
+    # TBA-prefix is reserved for Amazon Logistics, must not match DHL.
     assert t.detect("TBA1234567890") is False
 
 

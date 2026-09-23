@@ -54,13 +54,13 @@ Given a tracking ID, it iterates registered trackers ordered by `priority` desc 
 the first regex hit. Ties broken by registration order. Used by `/add` so the user does not
 need to specify a carrier.
 
-### `HealthManager` (Plan 1, F1.5)
+### `HealthManager`
 
 Tracks per-tracker success/failure ratios, records consecutive failures, and quarantines a
 tracker for `1h / 6h / 24h` after `3 / 6 / 12` consecutive failures. Decorated calls auto-skip
 quarantined trackers.
 
-### `Scheduler` (Plan 2, F2)
+### `Scheduler`
 
 Runs every `STATUS_INTERVAL_*` minutes (per shipment status) in a single periodic Telegram job.
 Each tick:
@@ -71,13 +71,13 @@ Each tick:
 5. Persists new events, updates statuses, sends Telegram notifications gated by user prefs +
    cooldown.
 
-### `Notifier` + `NotificationPreferences` (Plan 2, F4)
+### `Notifier` + `NotificationPreferences`
 
 Per-user, per-status preferences with a default-on set: `delivered`, `exception`,
 `out_for_delivery`, `returned`. Cooldown of `NOTIFY_COOLDOWN_MINUTES` (default 60) per
 `(parcel, event_type)` to avoid spam.
 
-### `Observability` (Plan 2, F1)
+### `Observability`
 
 - `structlog` configured at startup; output is JSON in production, console in dev (`LOG_FORMAT`).
 - `prometheus-client` exposes 8 metrics on `:9090/metrics` (`METRICS_BIND_HOST`,

@@ -18,7 +18,7 @@ def test_detects_gls_europe_pattern() -> None:
     # Positive samples — GLS numeric formats
     assert t.detect("12345678901") is True  # 11-digit GLS
     assert t.detect("123456789012") is True  # 12-digit GLS
-    assert t.detect("1234567890123") is True  # 13-digit GLS (Plan 3 / Task 30)
+    assert t.detect("1234567890123") is True  # 13-digit GLS
     assert t.detect("12345678901234") is True  # 14-digit GLS international
     # URL patterns
     assert t.detect("https://gls-group.eu/EU/en/parcel-tracking?match=12345678901") is True
