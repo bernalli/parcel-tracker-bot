@@ -122,7 +122,7 @@ async def _add_allowed_users_language(conn: aiosqlite.Connection) -> None:
     """Idempotent ALTER: add allowed_users.language if missing.
 
     For new DBs the column is already in CREATE TABLE; this is the upgrade path
-    for DBs created before Task 20.
+    for existing DBs missing the column.
     """
     cursor = await conn.execute("PRAGMA table_info(allowed_users)")
     rows = await cursor.fetchall()
@@ -137,7 +137,7 @@ async def _add_parcels_last_check_at(conn: aiosqlite.Connection) -> None:
     """Idempotent ALTER: add parcels.last_check_at if missing.
 
     For new DBs the column is already in CREATE TABLE; this is the upgrade path
-    for DBs created before Plan 2.
+    for existing DBs missing the column.
     """
     cursor = await conn.execute("PRAGMA table_info(parcels)")
     rows = await cursor.fetchall()

@@ -16,14 +16,14 @@ def test_detects_aramex_pattern() -> None:
     """Aramex detect: 11-digit numeric IDs (canonical AWB) and aramex.com/track URL.
 
     Note: 10/12-digit forms were dropped to avoid priority collisions with
-    DHL Express (10-digit) and FedEx/GLS (12-digit). See Plan 3, Task 30.
+    DHL Express (10-digit) and FedEx/GLS (12-digit).
     """
     t = AramexTracker()
     # Positive sample: 11-digit canonical AWB
     assert t.detect("12345678901") is True
     # URL pattern
     assert t.detect("https://www.aramex.com/track/results?ShipmentNumber=1234567890") is True
-    # Negative samples (Plan 3 / Task 30 disambiguation)
+    # Negative samples for carrier disambiguation
     assert t.detect("1234567890") is False  # 10-digit → DHL Express owns this
     assert t.detect("123456789012") is False  # 12-digit → FedEx owns this
     assert t.detect("INVALID") is False

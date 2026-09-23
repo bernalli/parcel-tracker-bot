@@ -460,7 +460,7 @@ grep -nE "$PII_ALLOW" "${pii_raw}.content" 2>/dev/null | cut -d: -f1 | sort -un 
 # increment together forever after) — so NR==FNR is true for every single
 # line of file2, and the whole file is swallowed into the exclusion branch,
 # not just its first line. Measured twice while building this script: the
-# TDD bench went green with zero findings on content that plainly matched,
+# test bench went green with zero findings on content that plainly matched,
 # and a real baseline scan reported a clean tree while genuine
 # gettext-boilerplate matches were silently swallowed.
 # "0" is never a valid FNR (awk line numbers start at 1), so appending it
