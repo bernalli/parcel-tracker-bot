@@ -31,8 +31,7 @@ class HttpClient:
     - Configurable timeout
     - Default headers for common scrape scenarios
 
-    Used by tracker plugins. Tenacity-based retry/backoff is to be added
-    via the retry_policy module.
+    Used by tracker plugins.
     """
 
     def __init__(

@@ -1,4 +1,4 @@
-"""Integration smoke: build_bot_data assembles its dependencies."""
+"""Integration smoke: build_bot_data assembles the scheduler dependencies."""
 
 from __future__ import annotations
 

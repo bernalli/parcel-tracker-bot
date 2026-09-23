@@ -23,7 +23,7 @@ def test_detects_aramex_pattern() -> None:
     assert t.detect("12345678901") is True
     # URL pattern
     assert t.detect("https://www.aramex.com/track/results?ShipmentNumber=1234567890") is True
-    # Negative samples (disambiguation)
+    # Negative samples for carrier disambiguation
     assert t.detect("1234567890") is False  # 10-digit → DHL Express owns this
     assert t.detect("123456789012") is False  # 12-digit → FedEx owns this
     assert t.detect("INVALID") is False

@@ -161,7 +161,7 @@ async def _check_updates_impl(context: _JobContext) -> None:
       - parcel_repo, user_repo, registry, detector, health, notifier (existing)
       - config: provides batch_size
       - rate_limiter: RateLimiter instance
-      - prefs: NotificationPreferences instance for gating, OR None if not wired
+      - prefs: NotificationPreferences instance for gating, or None
           (when None, gating is bypassed and notifications go through always)
       - now (test-only optional): zero-arg callable returning current datetime
     """

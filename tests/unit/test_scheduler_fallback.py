@@ -1,4 +1,4 @@
-"""Tests for scheduler fallback iter behavior.
+"""Tests for scheduler fallback iteration behavior.
 
 When matches[0] fails (raises or returns found=False) or is quarantined,
 scheduler MUST try matches[1], matches[2], ... until one succeeds or list
