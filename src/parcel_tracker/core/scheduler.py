@@ -159,9 +159,9 @@ async def _check_updates_impl(context: _JobContext) -> None:
 
     bot_data keys consumed:
       - parcel_repo, user_repo, registry, detector, health, notifier (existing)
-      - config (Phase 2): provides batch_size
-      - rate_limiter (Phase 2): RateLimiter instance
-      - prefs (Phase 2): NotificationPreferences instance for gating, OR None pre-item 19
+      - config: provides batch_size
+      - rate_limiter: RateLimiter instance
+      - prefs: NotificationPreferences instance for gating, or None
           (when None, gating is bypassed and notifications go through always)
       - now (test-only optional): zero-arg callable returning current datetime
     """
@@ -411,7 +411,7 @@ async def _check_one(  # noqa: PLR0913, C901
 ) -> str:
     """Check a single parcel: iterate matches in priority order until one succeeds.
 
-    Phase 3 fallback semantics: when matches[0] fails (raises or returns
+    Fallback semantics: when matches[0] fails (raises or returns
     found=False) or is quarantined, try matches[1], matches[2], ... until one
     returns found=True. Each tracker still records its own success/failure
     against its quarantine ladder; rate limit is acquired per tracker per call.

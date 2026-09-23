@@ -1,7 +1,7 @@
 """Integration test: 24 sample tracking IDs route to the expected primary tracker.
 
 This test exercises the full registry stack (built-in registration + detector
-priority sort) to ensure the Phase 3 priority ladder is internally consistent.
+priority sort) to ensure the tracker priority ladder is internally consistent.
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ def test_detection_routes_to_expected_tracker(
 def test_all_24_new_trackers_registered(
     _registry_and_detector: tuple[TrackerRegistry, CourierDetector],
 ) -> None:
-    """Ensure register_builtins added all 24 Phase 3 trackers."""
+    """Ensure register_builtins added all 24 built-in trackers."""
     registry, _detector = _registry_and_detector
     expected = {
         "ups",

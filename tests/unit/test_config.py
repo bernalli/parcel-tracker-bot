@@ -86,7 +86,7 @@ def test_quarantine_thresholds_parsed(monkeypatch: pytest.MonkeyPatch, env_clean
 def test_config_loads_observability_defaults(
     monkeypatch: pytest.MonkeyPatch, env_clean: None
 ) -> None:
-    """Phase 2 defaults: log_format=json, metrics_enabled=true, bind_host=0.0.0.0."""
+    """Defaults: log_format=json, metrics_enabled=true, bind_host=0.0.0.0."""
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "fake")
     monkeypatch.setenv("OWNER_ID", "1")
 

@@ -149,9 +149,9 @@ standardisation pass on the bot menu.
 First public release candidate. Full feature set:
 
 - 24 built-in couriers (19 Tier S + 5 Tier D) + 17track universal fallback
-- Tracker health & auto-quarantine (Phase 1 / F1.5)
-- Fine-grained notification preferences with cooldown (Phase 2 / F4)
-- Prometheus metrics + structlog JSON logging (Phase 2 / F1)
+- Tracker health & auto-quarantine
+- Fine-grained notification preferences with cooldown
+- Prometheus metrics + structlog JSON logging
 - i18n (English + Italian, per-user via `/lang`)
 - Hardened container (read-only fs, no-new-privileges, dropped caps, resource limits)
 - GitHub Actions CI (matrix py3.11/3.12, ruff, mypy strict, pytest 75 % coverage gate)

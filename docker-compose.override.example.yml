@@ -7,4 +7,4 @@ services:
       # Plugin overlay locale rw (per sviluppo plugin italiani)
       - ./plugins:/app/plugins:rw
     # ports:
-    #   - "9090:9090"  # Phase 2: Prometheus metrics endpoint
+    #   - "9090:9090"  # Prometheus metrics endpoint
