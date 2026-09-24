@@ -57,8 +57,8 @@ their detection patterns, and their tier classification.
 
 ## Italian carriers (overlay only, not in repo)
 
-The following Italian carriers are NOT shipped with the repo. They live in
-`plugins/it/` as a local-overlay (gitignored) on the deploy host (production):
+The following Italian carriers are NOT shipped with the repo. Add them yourself as a
+local overlay (gitignored) in `plugins/it/`:
 
 - BRT (Bartolini)
 - GLS Italy

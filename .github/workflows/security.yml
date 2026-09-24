@@ -51,7 +51,7 @@ jobs:
           cache: pip
       - run: pip install -e .
       # --exclude-editable: keep the project itself out of the freeze — pip-audit
-      # would try to git-clone it anonymously, which fails on a private repo.
+      # would try to git-clone it anonymously, which can fail depending on repo access.
       - run: pip freeze --exclude-editable > requirements.txt
       - uses: pypa/gh-action-pip-audit@v1.1.0
         with:

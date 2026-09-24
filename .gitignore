@@ -12,7 +12,7 @@ data/
 !src/parcel_tracker/maps/data/
 !src/parcel_tracker/maps/data/**
 
-# Plugins overlay (private italian plugins live here on production, never committed)
+# Plugins overlay (local plugin drop-in directory, never committed)
 plugins/*
 !plugins/README.md
 
