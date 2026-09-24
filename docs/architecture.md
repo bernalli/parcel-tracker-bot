@@ -115,9 +115,9 @@ Tables: `users`, `parcels`, `tracking_events`, `tracker_health`,
 - **Built-in**: every `*.py` under `src/parcel_tracker/trackers/` whose top-level class
   inherits `AbstractTracker` is registered at import time.
 - **Drop-in**: every `*.py` under `plugins/` (or `$PARCEL_TRACKER_PLUGIN_DIR`) is imported
-  at startup. Subdirectories are walked. The production deploy uses `plugins/it/` for the four
-  Italian couriers (BRT, GLS Italy, SDA, Poste Italiane) which are not part of the public
-  repo.
+  at startup. Subdirectories are walked. Put your own plugins in `plugins/<country>/`
+  (for example `plugins/it/` for Italian couriers such as BRT, GLS Italy, SDA, Poste
+  Italiane); they are not shipped with the public repo.
 
 ## What is intentionally *not* here
 

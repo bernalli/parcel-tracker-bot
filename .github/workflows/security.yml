@@ -37,8 +37,8 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install bandit[toml]
-      # Code-scanning SARIF upload requires GitHub Advanced Security (unavailable
-      # on private repos) — run bandit as a plain blocking gate instead.
+      # bandit runs as a plain blocking gate: findings fail the job directly,
+      # with no SARIF upload to code scanning.
       - run: bandit -r src -ll
 
   pip-audit:
@@ -51,7 +51,7 @@ jobs:
           cache: pip
       - run: pip install -e .
       # --exclude-editable: keep the project itself out of the freeze — pip-audit
-      # would try to git-clone it anonymously, which fails on a private repo.
+      # would try to git-clone it anonymously, which can fail depending on repo access.
       - run: pip freeze --exclude-editable > requirements.txt
       - uses: pypa/gh-action-pip-audit@v1.1.0
         with:

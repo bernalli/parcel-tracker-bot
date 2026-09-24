@@ -8,9 +8,8 @@
 # commit instead, so the guarantee holds regardless of which machine or
 # host pushed, and regardless of when a line was first added.
 #
-# The five term lists are themselves the secret (hostnames, personal paths,
-# handles, forbidden directory/file names): they NEVER appear in this file.
-# They arrive as environment variables (repository secrets): LEAK_WORD_TERMS,
+# The five term lists are themselves the secret: they NEVER appear in this
+# file. They arrive as environment variables (repository secrets): LEAK_WORD_TERMS,
 # LEAK_PHRASE_TERMS, LEAK_NAME_TERMS, LEAK_PII_TERMS, LEAK_PATH_TERMS. The
 # two allowlists below (ATTRIBUTION_PATHS, PII_ALLOW) are publishable —
 # generic patterns, no secret content — and stay hardcoded in this file.
@@ -24,8 +23,7 @@
 # Stages:
 #   PATH   — tracked paths matching LEAK_PATH_TERMS: the path itself is the
 #            finding (directories/files that must not exist in a public
-#            repo at all — internal tooling directories, internal
-#            roadmap/journal files, and the like). Files hit by PATH are
+#            repo at all). Files hit by PATH are
 #            excluded from the four content stages below, so a hit is
 #            reported once, under PATH. LEAK_PATH_TERMS is secret exactly
 #            like the other four: it names specific internal paths, not a
@@ -76,23 +74,22 @@
 #       could not be measured (exit code neither 0 nor 1). Never 0, never 1.
 #
 # Pattern MATCHING happens only through grep -E (via `git grep -E`), never
-# through awk's regex engine: awk here (mawk, in this environment) does NOT
-# implement \b as a GNU-grep word boundary — measured: `printf
+# through awk's regex engine: some awk implementations (mawk among them) do
+# NOT implement \b as a GNU-grep word boundary — measured with mawk: `printf
 # 'foo@example.com\n' | awk '/\bexample\b/'` does not match what `grep -E`
 # matches on the same input, and a PII term anchored on \b depends on that
 # exact semantic. awk/tr are used only for NUL-delimited field splitting of
 # `git grep -z` records and for exact-string set lookups (never a `~`/regex
 # test). No `git grep -z` output is ever passed through bash command
 # substitution ($(...)): bash silently drops embedded NUL bytes there
-# ("ignored null byte in input", measured on this machine) and reassembles
+# ("ignored null byte in input") and reassembles
 # path/line/content into one corrupted field. NUL bytes are converted to
 # TAB inside an unbroken pipe (git grep | tr), and only the TAB-safe result
 # ever touches a bash variable.
 #
-# PERFORMANCE / large-blob exclusion: measured on real repositories, the
-# unrestricted PII_TERMS pattern against a handful of vendored/generated
-# blobs (a multi-MB geodata TSV in one repo, several 50-120KB-single-line
-# deployment-artifact JSON files in another) did not finish in 60s — not a
+# PERFORMANCE / large-blob exclusion: against a handful of vendored/generated
+# blobs (a large single-file dataset, or several sizeable single-line JSON
+# files) the unrestricted PII_TERMS pattern did not finish in 60s — not a
 # bug in this script, the regex engine's automaton grows with each
 # bounded-repetition alternative in a term list this size, and that cost is
 # paid per byte scanned. Files above LEAK_SCAN_CI_MAX_BYTES (default 51200
@@ -122,14 +119,12 @@
 # libraries under a lib/ tree triggering PII findings on upstream
 # maintainer contact addresses that are not the repo owner's content at all.
 #
-# KNOWN GAP, accepted, not fixed here: this script does not replicate a
-# stage some local pre-push guards have for tooling references inside
-# PUBLIC .gitignore files (e.g. an internal tool's directory committed as
-# an ignore entry rather than as a tracked path). A local guard that has
-# that stage still catches it on any machine where it is installed; this CI
-# check does not. If a .gitignore ever needs that coverage from the CI side
-# too, it is a separate stage to add later, not something the stages below
-# happen to catch as a side effect.
+# KNOWN GAP, accepted, not fixed here: this script does not scan for
+# tooling references inside PUBLIC .gitignore files (e.g. a directory
+# name committed as an ignore entry rather than as a tracked path). If
+# .gitignore entries ever need that coverage, it is a separate stage to
+# add later, not something the stages below happen to catch as a side
+# effect.
 #
 # KNOWN GAP #2, deliberate: `git grep -I` skips any blob git considers binary
 # (a NUL byte in the first 8000), so a term inside a PDF, an image, or a
@@ -459,10 +454,9 @@ grep -nE "$PII_ALLOW" "${pii_raw}.content" 2>/dev/null | cut -d: -f1 | sort -un 
 # entire second file too (both start at 1 on file2's first line and
 # increment together forever after) — so NR==FNR is true for every single
 # line of file2, and the whole file is swallowed into the exclusion branch,
-# not just its first line. Measured twice while building this script: the
-# test bench went green with zero findings on content that plainly matched,
-# and a real baseline scan reported a clean tree while genuine
-# gettext-boilerplate matches were silently swallowed.
+# not just its first line. Left unhandled, this reports zero findings on
+# content that plainly matches PII_TERMS, hiding genuine hits behind an
+# allowlist file that happens to be empty.
 # "0" is never a valid FNR (awk line numbers start at 1), so appending it
 # guarantees file1 is never empty without ever excluding a real record.
 printf '0\n' >> "${pii_raw}.allow_lines"
