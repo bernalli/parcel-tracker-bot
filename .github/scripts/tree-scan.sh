@@ -74,8 +74,8 @@
 #       could not be measured (exit code neither 0 nor 1). Never 0, never 1.
 #
 # Pattern MATCHING happens only through grep -E (via `git grep -E`), never
-# through awk's regex engine: awk here (mawk, the default on Debian/Ubuntu
-# runners) does NOT implement \b as a GNU-grep word boundary — measured: `printf
+# through awk's regex engine: some awk implementations (mawk among them) do
+# NOT implement \b as a GNU-grep word boundary — measured with mawk: `printf
 # 'foo@example.com\n' | awk '/\bexample\b/'` does not match what `grep -E`
 # matches on the same input, and a PII term anchored on \b depends on that
 # exact semantic. awk/tr are used only for NUL-delimited field splitting of
@@ -454,10 +454,9 @@ grep -nE "$PII_ALLOW" "${pii_raw}.content" 2>/dev/null | cut -d: -f1 | sort -un 
 # entire second file too (both start at 1 on file2's first line and
 # increment together forever after) — so NR==FNR is true for every single
 # line of file2, and the whole file is swallowed into the exclusion branch,
-# not just its first line. This bug reproduces reliably: the test bench
-# goes green with zero findings on content that plainly matches, and a
-# baseline scan over real content reports a clean tree while genuine
-# gettext-boilerplate matches are silently swallowed.
+# not just its first line. Left unhandled, this reports zero findings on
+# content that plainly matches PII_TERMS, hiding genuine hits behind an
+# allowlist file that happens to be empty.
 # "0" is never a valid FNR (awk line numbers start at 1), so appending it
 # guarantees file1 is never empty without ever excluding a real record.
 printf '0\n' >> "${pii_raw}.allow_lines"
