@@ -483,7 +483,7 @@ async def _check_one(  # noqa: PLR0913, C901
             parcel.tracking_number, final_result.status, user_id=user_id
         )
 
-    # Drive notification off persisted-but-unnotified events (P1-d): events are
+    # Drive notification off persisted-but-unnotified events: events are
     # committed before the send, so if _notify raises (Telegram timeout/429) they
     # must stay notified=0 and be retried next cycle instead of being lost forever.
     unnotified = await parcel_repo.get_unnotified(parcel.tracking_number, user_id=user_id)
