@@ -172,7 +172,7 @@ async def _check_updates_impl(context: _JobContext) -> None:
     notifier: TelegramNotifier = context.bot_data["notifier"]
     config = context.bot_data["config"]
     rate_limiter: RateLimiter = context.bot_data["rate_limiter"]
-    prefs = context.bot_data.get("prefs")  # None until NotificationPreferences is wired
+    prefs = context.bot_data.get("prefs")  # None until NotificationPreferences is wired in
     geocoder = context.bot_data.get("geocoder")
     map_renderer = context.bot_data.get("map_renderer")
     now: Callable[[], datetime] = context.bot_data.get("now", _now_default)
@@ -483,7 +483,7 @@ async def _check_one(  # noqa: PLR0913, C901
             parcel.tracking_number, final_result.status, user_id=user_id
         )
 
-    # Drive notification off persisted-but-unnotified events (P1-d): events are
+    # Drive notification off persisted-but-unnotified events: events are
     # committed before the send, so if _notify raises (Telegram timeout/429) they
     # must stay notified=0 and be retried next cycle instead of being lost forever.
     unnotified = await parcel_repo.get_unnotified(parcel.tracking_number, user_id=user_id)

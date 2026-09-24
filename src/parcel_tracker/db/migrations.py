@@ -168,10 +168,11 @@ async def _add_tracking_history_notified(conn: aiosqlite.Connection) -> None:
 
 
 async def _migrate_to_per_user_uniqueness(conn: aiosqlite.Connection) -> None:
-    """P1-e: per-user parcel uniqueness + user-scoped tracking history.
+    """Migrate to per-user parcel uniqueness + user-scoped tracking history.
 
-    Idempotent, gated on ``tracking_history.user_id`` (absent == a pre-P1-e legacy DB;
-    present == fresh DB built from the new DDL, or already migrated). Adds and backfills
+    Idempotent, gated on ``tracking_history.user_id`` (absent == a legacy DB from
+    before this migration; present == fresh DB built from the new DDL, or already
+    migrated). Adds and backfills
     ``tracking_history.user_id`` from the (still globally-unique) parcel owner, then
     recreates ``parcels`` with ``UNIQUE(user_id, tracking_number)`` — dropping the dead
     ``events_json``/``origin``/``destination`` columns in the same rebuild.

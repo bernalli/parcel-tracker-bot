@@ -97,9 +97,9 @@ async def test_pending_name_tracking_like_falls_through_to_autoadd() -> None:
         user_data={"pending": {"action": "name", "tn": "TN1"}},
     )
     await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
-    repo.rename.assert_not_awaited()  # NON consumato come nome
-    repo.create.assert_awaited()  # trattato come nuovo pacco
-    # il nuovo auto-add (senza nome) ha rimpiazzato il pending col proprio
+    repo.rename.assert_not_awaited()  # NOT consumed as a name
+    repo.create.assert_awaited()  # treated as a new parcel
+    # the new auto-add (nameless) replaced the pending action with its own
     assert context.user_data["pending"] == {"action": "name", "tn": "RR123456785IT"}
 
 

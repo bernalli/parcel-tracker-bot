@@ -78,17 +78,17 @@ name: tree-scan
 jobs:
   tree-scan:
     runs-on: ubuntu-24.04
-    # Il costo dei pattern e' per byte scansionato, e l'albero da
-    # scansionare arriva dalla PR: senza questo tetto il job eredita il
-    # default di 360 minuti e una singola PR puo' occupare un runner per ore.
+    # The cost of the patterns is per byte scanned, and the tree to scan
+    # comes from the PR: without this cap the job inherits the 360-minute
+    # default and a single PR could occupy a runner for hours.
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - name: Checkout the commit under review
-        # Pinnata al commit, non al tag: su push e su PR dallo stesso repo
-        # questo job riceve i cinque secret (mai su una PR da fork, vedi il
-        # commento in testa al file). Il tag e' mobile, il commit no.
+        # Pinned to the commit, not the tag: on push and on same-repo PR
+        # this job receives the five secrets (never on a fork PR, see the
+        # comment at the top of the file). The tag is mutable, the commit is not.
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 1

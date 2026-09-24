@@ -370,7 +370,7 @@ async def _refresh_parcel(
     if query is None or user is None:
         return
     if tracking_number in _REFRESH_IN_FLIGHT:
-        return  # il messaggio mostra già "checking…"
+        return  # the message already shows "checking…"
     _REFRESH_IN_FLIGHT.add(tracking_number)
     try:
         await _edit(query, messages.refresh_in_progress(), None)

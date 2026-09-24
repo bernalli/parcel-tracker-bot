@@ -95,8 +95,10 @@ async def test_check_parcel_now_updates_without_notifying() -> None:
     bd["parcel_repo"].get_for_user.return_value = _parcel()
     outcome = await scheduler.check_parcel_now(bd, user_id=10, tracking_number="TN1")
     assert outcome == "updated"  # status changed
-    bd["parcel_repo"].update_status.assert_awaited()  # persistito
-    bd["notifier"].send_events_update.assert_not_awaited()  # MAI notifiche da refresh manuale
+    bd["parcel_repo"].update_status.assert_awaited()  # persisted
+    bd[
+        "notifier"
+    ].send_events_update.assert_not_awaited()  # NEVER notifications from a manual refresh
 
 
 @pytest.mark.asyncio
@@ -107,4 +109,4 @@ async def test_check_parcel_now_delivered_still_sends_confirmation() -> None:
     bd["parcel_repo"].get_for_user.return_value = _parcel()
     outcome = await scheduler.check_parcel_now(bd, user_id=10, tracking_number="TN1")
     assert outcome == "delivered"
-    bd["notifier"].send_delivery_confirmation.assert_awaited()  # lifecycle, mai perso
+    bd["notifier"].send_delivery_confirmation.assert_awaited()  # lifecycle, never lost

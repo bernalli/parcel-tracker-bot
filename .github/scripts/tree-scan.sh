@@ -60,9 +60,9 @@
 # always exit 3, never silently treated as either.
 #
 # Exit codes:
-#   0 — clean for whatever was measured. In "all" mode: "MISURATI: N file
-#       tracciati, M sottoposti ai 4 stadi di contenuto" with M > 0. In
-#       "skip" mode: "MISURATI: N file tracciati, 0 sottoposti agli stadi"
+#   0 — clean for whatever was measured. In "all" mode: "MEASURED: N tracked
+#       files, M subjected to the 4 content stages" with M > 0. In
+#       "skip" mode: "MEASURED: N tracked files, 0 subjected to the stages"
 #       — nothing ran at all, and the "0" is what tells the two apart; see
 #       the LEAK_CONTENT_STAGES paragraph above for why that is the only
 #       honest thing to print when no secret is available.
@@ -140,13 +140,13 @@
 set -u
 set -o pipefail
 
-# I pathspec (`-- .` e `:(exclude,literal)<path>`) sono relativi alla CWD,
-# mentre i path prodotti da `git ls-tree` sono relativi alla RADICE del repo:
-# lanciato da una sottodirectory il check perderebbe TUTTE le esclusioni senza
-# dirlo. Ci si porta alla radice una volta sola, in modo esplicito.
+# Pathspecs (`-- .` and `:(exclude,literal)<path>`) are relative to the CWD,
+# while paths produced by `git ls-tree` are relative to the repo ROOT: run
+# from a subdirectory, the check would silently lose ALL exclusions. We move
+# to the root once, explicitly.
 _toplevel="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -z "$_toplevel" ]; then
-    echo "PRECONDIZIONE ASSENTE: non siamo dentro un repository git" >&2
+    echo "PRECONDITION MISSING: not inside a git repository" >&2
     exit 3
 fi
 cd "$_toplevel" || exit 3
@@ -162,7 +162,7 @@ CONTENT_STAGES="${LEAK_CONTENT_STAGES:-all}"
 case "$CONTENT_STAGES" in
     all|skip) ;;
     *)
-        echo "PRECONDIZIONE ASSENTE: LEAK_CONTENT_STAGES=$CONTENT_STAGES non riconosciuto (atteso: all, skip)" >&2
+        echo "PRECONDITION MISSING: LEAK_CONTENT_STAGES=$CONTENT_STAGES not recognized (expected: all, skip)" >&2
         exit 3
         ;;
 esac
@@ -178,7 +178,7 @@ if [ "$CONTENT_STAGES" = "all" ]; then
     for _v in LEAK_WORD_TERMS LEAK_PHRASE_TERMS LEAK_NAME_TERMS LEAK_PII_TERMS LEAK_PATH_TERMS; do
         eval "_val=\${$_v:-}"
         if [ -z "$_val" ]; then
-            echo "PRECONDIZIONE ASSENTE: $_v" >&2
+            echo "PRECONDITION MISSING: $_v" >&2
             exit 3
         fi
     done
@@ -199,7 +199,7 @@ TARGET_REF="${1:-HEAD}"
 if [ "$TARGET_REF" != "HEAD" ]; then
     case "$TARGET_REF" in
         *[!0-9a-fA-F]*)
-            echo "tree-scan: TARGET_REF deve essere HEAD o uno SHA esadecimale, ricevuto: $TARGET_REF" >&2
+            echo "tree-scan: TARGET_REF must be HEAD or a hex SHA, received: $TARGET_REF" >&2
             exit 3
             ;;
     esac
@@ -222,7 +222,7 @@ path_count=0
 # HEAD must exist and have tracked files.
 # ---------------------------------------------------------------------------
 if ! git rev-parse -q --verify "$TARGET_REF" >/dev/null 2>&1; then
-    echo "PRECONDIZIONE ASSENTE: nessun commit su $TARGET_REF" >&2
+    echo "PRECONDITION MISSING: no commits on $TARGET_REF" >&2
     exit 3
 fi
 
@@ -246,7 +246,7 @@ count_nul() { tr -dc '\0' < "$1" | wc -c | tr -d ' '; }
 git ls-tree -r -z --name-only "$TARGET_REF" > "$tracked_file" 2>/dev/null
 files_scanned="$(count_nul "$tracked_file")"
 if [ -z "$files_scanned" ] || [ "$files_scanned" -eq 0 ]; then
-    echo "PRECONDIZIONE ASSENTE: zero file tracciati in $TARGET_REF" >&2
+    echo "PRECONDITION MISSING: zero tracked files in $TARGET_REF" >&2
     exit 3
 fi
 
@@ -266,8 +266,8 @@ fi
 # printed below.
 # ---------------------------------------------------------------------------
 if [ "$CONTENT_STAGES" = "skip" ]; then
-    echo "tree-scan: NON MISURATO — LEAK_CONTENT_STAGES=skip (pull request da fork: le liste non sono disponibili a questo job per disegno); la copertura piena gira sul push di merge" >&2
-    echo "MISURATI: $files_scanned file tracciati, 0 sottoposti agli stadi"
+    echo "tree-scan: NOT MEASURED — LEAK_CONTENT_STAGES=skip (pull request from a fork: the lists are not available to this job by design); full coverage runs on the merge push" >&2
+    echo "MEASURED: $files_scanned tracked files, 0 subjected to the stages"
     exit 0
 fi
 
@@ -279,7 +279,7 @@ grep -z -E "$PATH_TERMS" "$tracked_file" > "$path_hits" || true
 path_count="$(count_nul "$path_hits")"
 if [ "$path_count" -gt 0 ]; then
     fail=1
-    echo "tree-scan: STADIO PATH — $path_count path che non devono esistere in un repo pubblico:" >&2
+    echo "tree-scan: PATH STAGE — $path_count paths that must not exist in a public repo:" >&2
     tr '\0' '\n' < "$path_hits" | sed 's/^/  /' >&2
 fi
 
@@ -302,7 +302,7 @@ pathterm_count="$(count_nul "$pathterm_hits")"
 rm -f "$pathterm_tmp"
 if [ "$pathterm_count" -gt 0 ]; then
     fail=1
-    echo "tree-scan: STADIO PATH-TERMS — $pathterm_count path che contengono un termine sorvegliato:" >&2
+    echo "tree-scan: PATH-TERMS STAGE — $pathterm_count paths containing a watched term:" >&2
     tr '\0' '\n' < "$pathterm_hits" | sed 's/^/  /' >&2
 fi
 
@@ -319,7 +319,7 @@ while IFS= read -r -d '' _rec; do
 done < <(git ls-tree -r -l -z "$TARGET_REF" 2>/dev/null) > "$large_file"
 unset _rec _meta _size _lpath
 large_count="$(count_nul "$large_file")"
-echo "tree-scan: $large_count file > $MAX_BYTES byte esclusi dai 4 stadi di contenuto per dimensione (vedi nota PERFORMANCE in testa allo script); restano coperti dallo stadio PATH per il loro path" >&2
+echo "tree-scan: $large_count files > $MAX_BYTES bytes excluded from the 4 content stages by size (see the PERFORMANCE note at the top of the script); still covered by the PATH stage for their path" >&2
 
 # ---------------------------------------------------------------------------
 # LEAK_EXCLUDE_PATHS (optional, publishable — see header note): same
@@ -333,7 +333,7 @@ if [ -n "$EXCLUDE_PATHS" ]; then
     grep -z -E "$EXCLUDE_PATHS" "$tracked_file" > "$excludepaths_hits"
     _eg=$?
     if [ "$_eg" -gt 1 ]; then
-        echo "PRECONDIZIONE ASSENTE: LEAK_EXCLUDE_PATHS non e' una regex estesa valida (grep rc=$_eg); l'esclusione non sarebbe stata applicata e il log direbbe '0 file esclusi'" >&2
+        echo "PRECONDITION MISSING: LEAK_EXCLUDE_PATHS is not a valid extended regex (grep rc=$_eg); the exclusion would not have been applied and the log would say '0 files excluded'" >&2
         exit 3
     fi
     unset _eg
@@ -341,7 +341,7 @@ else
     : > "$excludepaths_hits"
 fi
 excludepaths_count="$(count_nul "$excludepaths_hits")"
-echo "tree-scan: $excludepaths_count file esclusi dai 4 stadi di contenuto per LEAK_EXCLUDE_PATHS (mai dallo stadio PATH)" >&2
+echo "tree-scan: $excludepaths_count files excluded from the 4 content stages by LEAK_EXCLUDE_PATHS (never from the PATH stage)" >&2
 
 sort -z -u "$path_hits" "$large_file" "$excludepaths_hits" > "$content_excl"
 grep -z -E "$ATTRIBUTION_PATHS" "$tracked_file" > "${tracked_file}.attrib" || true
@@ -363,7 +363,7 @@ build_exclude_args() {
 }
 content_scanned=$(( files_scanned - $(count_nul "$content_excl") ))
 if [ "$content_scanned" -le 0 ]; then
-    echo "PRECONDIZIONE ASSENTE: zero file raggiungono i 4 stadi di contenuto (tracciati=$files_scanned, esclusi: PATH=$path_count dimensione=$large_count LEAK_EXCLUDE_PATHS=$excludepaths_count). I 4 stadi non hanno misurato nulla: non e' un albero pulito." >&2
+    echo "PRECONDITION MISSING: zero files reach the 4 content stages (tracked=$files_scanned, excluded: PATH=$path_count size=$large_count LEAK_EXCLUDE_PATHS=$excludepaths_count). The 4 stages measured nothing: this is not a clean tree." >&2
     exit 3
 fi
 
@@ -391,7 +391,7 @@ git_grep_records() {
     fi
     rc="${PIPESTATUS[0]}"
     if [ "$rc" -gt 1 ]; then
-        echo "tree-scan: errore interno in git grep (rc=$rc), impossibile misurare" >&2
+        echo "tree-scan: internal error in git grep (rc=$rc), unable to measure" >&2
         exit 3
     fi
     return 0
@@ -405,7 +405,7 @@ awk -F'\t' '{print $1":"$2}' "$word_raw" > "$word_report"
 word_count="$(wc -l < "$word_report" | tr -d ' ')"
 if [ "$word_count" -gt 0 ]; then
     fail=1
-    echo "tree-scan: STADIO WORD — $word_count occorrenze:" >&2
+    echo "tree-scan: WORD STAGE — $word_count occurrences:" >&2
     sed 's/^/  /' "$word_report" >&2
 fi
 
@@ -417,7 +417,7 @@ awk -F'\t' '{print $1":"$2}' "$phrase_raw" > "$phrase_report"
 phrase_count="$(wc -l < "$phrase_report" | tr -d ' ')"
 if [ "$phrase_count" -gt 0 ]; then
     fail=1
-    echo "tree-scan: STADIO PHRASE — $phrase_count occorrenze:" >&2
+    echo "tree-scan: PHRASE STAGE — $phrase_count occurrences:" >&2
     sed 's/^/  /' "$phrase_report" >&2
 fi
 
@@ -430,7 +430,7 @@ awk -F'\t' '{print $1":"$2}' "$name_raw" > "$name_report"
 name_count="$(wc -l < "$name_report" | tr -d ' ')"
 if [ "$name_count" -gt 0 ]; then
     fail=1
-    echo "tree-scan: STADIO NAME — $name_count occorrenze fuori da una superficie di attribuzione:" >&2
+    echo "tree-scan: NAME STAGE — $name_count occurrences outside an attribution surface:" >&2
     sed 's/^/  /' "$name_report" >&2
 fi
 
@@ -471,14 +471,14 @@ rm -f "${pii_raw}.content" "${pii_raw}.pathline" "${pii_raw}.allow_lines"
 pii_count="$(wc -l < "$pii_report" | tr -d ' ')"
 if [ "$pii_count" -gt 0 ]; then
     fail=1
-    echo "tree-scan: STADIO PII — $pii_count occorrenze:" >&2
+    echo "tree-scan: PII STAGE — $pii_count occurrences:" >&2
     sed 's/^/  /' "$pii_report" >&2
 fi
 
 if [ "$fail" -ne 0 ]; then
-    echo "tree-scan: conteggi — PATH=$path_count PATH-TERMS=$pathterm_count WORD=$word_count PHRASE=$phrase_count NAME=$name_count PII=$pii_count" >&2
+    echo "tree-scan: counts — PATH=$path_count PATH-TERMS=$pathterm_count WORD=$word_count PHRASE=$phrase_count NAME=$name_count PII=$pii_count" >&2
     exit 1
 fi
 
-echo "MISURATI: $files_scanned file tracciati, $content_scanned sottoposti ai 4 stadi di contenuto (esclusi: $path_count PATH, $large_count dimensione, $excludepaths_count LEAK_EXCLUDE_PATHS)"
+echo "MEASURED: $files_scanned tracked files, $content_scanned subjected to the 4 content stages (excluded: $path_count PATH, $large_count size, $excludepaths_count LEAK_EXCLUDE_PATHS)"
 exit 0

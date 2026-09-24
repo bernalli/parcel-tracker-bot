@@ -113,8 +113,9 @@ class ParcelRepository:
     async def get_by_tracking_number(self, tracking_number: str) -> Parcel | None:
         """Look up a parcel by code WITHOUT owner scoping — test/maintenance only.
 
-        Since P1-e (UNIQUE(user_id, tracking_number)) a code can belong to several
-        users; this returns an arbitrary match. Production code must use
+        Parcels are unique per (user_id, tracking_number) rather than globally,
+        so a code can belong to several users; this returns an arbitrary match.
+        Production code must use
         :meth:`get_for_user` instead.
         """
         async with get_connection(self._db_path) as conn:
@@ -435,7 +436,7 @@ class ParcelRepository:
     async def count_events_for_user(self, *, user_id: int) -> int:
         """Count tracking-history rows owned by a user.
 
-        Scopes directly on ``tracking_history.user_id`` (P1-e): joining on
+        Scopes directly on ``tracking_history.user_id``: joining on
         ``tracking_number`` alone would over-count when two users track the same code.
         """
         async with get_connection(self._db_path) as conn:
