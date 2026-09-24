@@ -1,4 +1,4 @@
-# Branch protection (post-F8 setup notes)
+# Branch protection
 
 Configured manually in GitHub repo settings → **Branches → main**.
 

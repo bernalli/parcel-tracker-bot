@@ -1,4 +1,4 @@
-"""Tests for F0.5 — rich City, Country location + provider carrier in Track17Tracker."""
+"""Tests for rich City, Country location + provider carrier in Track17Tracker."""
 
 from __future__ import annotations
 

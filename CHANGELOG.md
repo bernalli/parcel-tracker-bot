@@ -185,7 +185,7 @@ First public release candidate. Full feature set:
 
 ### Tests
 - 24 new tracker-specific test files with parametrized HTML fixture parsing.
-- 1 integration test for scheduler fallback (3 scenarios, F0).
+- 1 integration test for scheduler fallback (3 scenarios).
 - 1 integration test for detection routing (25 sample tracking IDs + registration check).
 - Baseline: 414 tests passing, coverage maintained.
 
@@ -198,7 +198,7 @@ First public release candidate. Full feature set:
 - `/health`, `/health <name>`, `/health reset <name>` (admin) Telegram commands
 - `/notify` command family: interactive keyboard, quick on/off/all/none, callback toggle
 - Scheduler refactor: dynamic interval per ShipmentStatus, parallel batch via asyncio.gather, per-tracker token bucket rate limiter, priority queue
-- Feature D notifications: `user_notification_prefs` + `notification_cooldown_log` tables, defaults DELIVERED/EXCEPTION/OUT_FOR_DELIVERY/RETURNED ON, configurable cooldown
+- Notifications: `user_notification_prefs` + `notification_cooldown_log` tables, defaults DELIVERED/EXCEPTION/OUT_FOR_DELIVERY/RETURNED ON, configurable cooldown
 - New env: LOG_LEVEL, LOG_FORMAT, METRICS_*, ADMIN_USER_IDS, BATCH_SIZE, RATE_LIMIT_*, NOTIFY_COOLDOWN_MINUTES
 
 ### Changed

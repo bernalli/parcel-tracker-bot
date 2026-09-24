@@ -53,7 +53,7 @@ SAMPLES: list[_Sample] = [
     _Sample(
         "EM987654321JP", "ems"
     ),  # ambiguous EM-prefix; expect ems > japan_post (priority 33 vs 31)
-    # Existing trackers (preserved by F1/F2 register_builtins)
+    # Existing trackers (preserved by register_builtins)
     _Sample("1234567890", "dhl"),  # DHL Express 10-digit
 ]
 
