@@ -2,9 +2,8 @@ name: tree-scan
 
 # Required repository SECRETS (Settings -> Secrets and variables -> Actions
 # -> Secrets): LEAK_WORD_TERMS, LEAK_PHRASE_TERMS, LEAK_NAME_TERMS,
-# LEAK_PII_TERMS, LEAK_PATH_TERMS. These five ARE the secret (hostnames,
-# personal paths, handles, forbidden directory/file names) and this workflow
-# never writes them to a tracked file. On a pull request from a FORK, GitHub
+# LEAK_PII_TERMS, LEAK_PATH_TERMS. These five ARE the secret and this
+# workflow never writes them to a tracked file. On a pull request from a FORK, GitHub
 # never exposes them to this job at all (see "WHY THIS USES `pull_request`"
 # below) — LEAK_CONTENT_STAGES makes that explicit rather than leaving
 # tree-scan.sh to discover five empty strings on its own.
@@ -99,8 +98,7 @@ jobs:
 
       - name: Run tree-scan.sh against the commit under review
         env:
-          # The five term lists ARE the secret (hostnames, personal paths,
-          # handles, forbidden directory/file names) and never appear in
+          # The five term lists ARE the secret and never appear in
           # this repo's tracked files — see tree-scan.sh header. Configure
           # them as repository secrets: Settings -> Secrets and variables
           # -> Actions -> Secrets. On a pull_request from a FORK these

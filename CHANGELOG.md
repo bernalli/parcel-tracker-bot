@@ -97,9 +97,9 @@ cleaner notifications, a complete delivery lifecycle, and real admin tooling.
 
 ## [0.1.0] — 2026-05-10
 
-Promoted from `v0.1.0-rc.1` after production deploy. Includes 4 deploy
-regression fixes discovered during the migration smoke test, plus a UX
-standardisation pass on the bot menu.
+Promoted from `v0.1.0-rc.1`. Includes 4 regression fixes found during a
+smoke test of the container image, plus a UX standardisation pass on the bot
+menu.
 
 ### Added
 
