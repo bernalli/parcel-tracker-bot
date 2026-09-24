@@ -1,4 +1,4 @@
-"""Amazon Logistics tracker (Tier D — detection + Track17 delega)."""
+"""Amazon Logistics tracker (Tier D — detection + Track17 delegation)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from parcel_tracker.trackers._track17_backed import Track17BackedTracker
 
 
 class AmazonLogisticsTracker(Track17BackedTracker):
-    """Amazon Logistics — TBA prefix tracking IDs, detection-only with Track17 delega."""
+    """Amazon Logistics — TBA prefix tracking IDs, detection-only with Track17 delegation."""
 
     name: ClassVar[str] = "amazon_logistics"
     priority: ClassVar[int] = 40

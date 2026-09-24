@@ -27,7 +27,7 @@ def test_card_shows_name_code_status_carrier() -> None:
 
 def test_card_falls_back_to_code_as_title() -> None:
     card = messages.parcel_detail_card(_parcel())
-    assert card.count("1Z999AA10123456784") == 2  # titolo + riga codice, non di più
+    assert card.count("1Z999AA10123456784") == 2  # title + code line, no more
 
 
 def test_card_optional_rows_absent_when_null() -> None:
@@ -46,14 +46,14 @@ def test_card_location_event_and_check_time() -> None:
     card = messages.parcel_detail_card(p)
     assert "📍 Milano, IT" in card
     assert "Arrived at facility" in card
-    assert "06/06/2026" in card  # last_event_time formattato
-    assert "/2026" in card.splitlines()[-1]  # riga last check presente
+    assert "06/06/2026" in card  # last_event_time formatted
+    assert "/2026" in card.splitlines()[-1]  # last check line present
 
 
 def test_card_escapes_html_in_name_and_event() -> None:
     p = _parcel(name="<b>evil</b>", last_event="a <script> tag")
     card = messages.parcel_detail_card(p)
-    assert "<b>evil</b>" not in card  # il nome è escapato
+    assert "<b>evil</b>" not in card  # the name is escaped
     assert "&lt;b&gt;evil&lt;/b&gt;" in card
     assert "&lt;script&gt;" in card
 

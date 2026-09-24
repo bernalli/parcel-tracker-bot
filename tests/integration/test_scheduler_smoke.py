@@ -45,5 +45,5 @@ async def test_build_bot_data_includes_plan2_dependencies(tmp_path: Path) -> Non
     # notifier is intentionally NOT created in build_bot_data — it requires
     # application.bot which only exists post-Application.builder().build().
     assert "notifier" not in bot_data
-    assert "prefs" in bot_data  # item 26 wired NotificationPreferences
+    assert "prefs" in bot_data  # NotificationPreferences is wired in
     assert "notification_repo" in bot_data

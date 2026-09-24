@@ -162,7 +162,7 @@ First public release candidate. Full feature set:
 
 ### Added
 - 19 Tier S full-scraper trackers: UPS, USPS, Royal Mail, La Poste, Deutsche Post, Aramex, Australia Post, Canada Post, Correos (ES), Correios (BR), FedEx (with TNT folded), DPD, GLS Europe, Yodel, Evri (Hermes rebrand), Bpost, PostNL, Oesterreichische Post, Swiss Post.
-- 5 Tier D detection-only trackers: Amazon Logistics, China Post, EMS, Singapore Post, Japan Post. Delega `fetch` to Track17 with carrier identity rebrand.
+- 5 Tier D detection-only trackers: Amazon Logistics, China Post, EMS, Singapore Post, Japan Post. Delegates `fetch` to Track17 with carrier identity rebrand.
 - New `Track17BackedTracker` base class for Tier D pattern.
 - Multi-locale status keyword mapping (EN/IT/PT/FR/DE/ES out-of-the-box).
 - `docs/trackers.md` with complete tracker catalog.

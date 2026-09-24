@@ -1,4 +1,4 @@
-"""EMS tracker (Tier D — detection + Track17 delega)."""
+"""EMS tracker (Tier D — detection + Track17 delegation)."""
 
 from __future__ import annotations
 

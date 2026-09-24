@@ -1,4 +1,4 @@
-"""Japan Post tracker (Tier D — detection + Track17 delega)."""
+"""Japan Post tracker (Tier D — detection + Track17 delegation)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from parcel_tracker.trackers._track17_backed import Track17BackedTracker
 
 
 class JapanPostTracker(Track17BackedTracker):
-    """Japan Post — UPU JP suffix, detection-only with Track17 delega."""
+    """Japan Post — UPU JP suffix, detection-only with Track17 delegation."""
 
     name: ClassVar[str] = "japan_post"
     priority: ClassVar[int] = 31

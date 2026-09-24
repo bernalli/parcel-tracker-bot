@@ -27,7 +27,7 @@ async def test_add_multiword_name_joined() -> None:
     await parcel_commands.cmd_add(_update(reply), _ctx(repo, ["TN12345678", "iPhone", "15", "Pro"]))  # type: ignore[arg-type]
     parcel = repo.create.await_args.args[0]
     assert parcel.name == "iPhone 15 Pro"
-    assert parcel.carrier_code is None  # parametro posizionale carrier rimosso
+    assert parcel.carrier_code is None  # positional carrier parameter removed
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,7 @@ async def test_add_without_name_sets_pending_and_asks() -> None:
     await parcel_commands.cmd_add(_update(reply), ctx)  # type: ignore[arg-type]
     assert ctx.user_data["pending"] == {"action": "name", "tn": "TN12345678"}
     kwargs = reply.await_args.kwargs
-    assert kwargs.get("reply_markup") is not None  # keyboard Skip presente
+    assert kwargs.get("reply_markup") is not None  # Skip keyboard present
 
 
 @pytest.mark.asyncio

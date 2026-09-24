@@ -252,7 +252,7 @@ async def _action_clean(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def _action_cleanall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # item 14: 'Remove all' is destructive — confirm before executing.
+    # 'Remove all' is destructive — confirm before executing.
     if not await _admin_gate(update, context):
         return
     from parcel_tracker.bot.keyboards import cleanall_confirm  # noqa: PLC0415
@@ -370,7 +370,7 @@ async def _refresh_parcel(
     if query is None or user is None:
         return
     if tracking_number in _REFRESH_IN_FLIGHT:
-        return  # il messaggio mostra già "checking…"
+        return  # the message already shows "checking…"
     _REFRESH_IN_FLIGHT.add(tracking_number)
     try:
         await _edit(query, messages.refresh_in_progress(), None)
