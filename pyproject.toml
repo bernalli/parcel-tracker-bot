@@ -62,7 +62,7 @@ Funding = "https://github.com/sponsors/bernalli"
 parcel-tracker = "parcel_tracker.main:main"
 
 [project.entry-points."parcel_tracker.trackers"]
-# Built-in trackers will register themselves here in F1.
+# Built-in trackers will register themselves here.
 # External plugins can register via this same entry-point.
 
 [tool.setuptools.packages.find]

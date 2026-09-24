@@ -1,4 +1,4 @@
-"""Tests for the global PTB error handler (F0.8)."""
+"""Tests for the global PTB error handler."""
 
 from __future__ import annotations
 
