@@ -172,7 +172,7 @@ async def _check_updates_impl(context: _JobContext) -> None:
     notifier: TelegramNotifier = context.bot_data["notifier"]
     config = context.bot_data["config"]
     rate_limiter: RateLimiter = context.bot_data["rate_limiter"]
-    prefs = context.bot_data.get("prefs")  # None until T19 wires NotificationPreferences
+    prefs = context.bot_data.get("prefs")  # None until NotificationPreferences is wired in
     geocoder = context.bot_data.get("geocoder")
     map_renderer = context.bot_data.get("map_renderer")
     now: Callable[[], datetime] = context.bot_data.get("now", _now_default)

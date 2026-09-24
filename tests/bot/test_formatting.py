@@ -47,7 +47,7 @@ def test_status_emoji_known_status() -> None:
 
 def test_status_emoji_fallback_parcel() -> None:
     assert status_emoji(ShipmentStatus.NOT_FOUND) == "❓"
-    # qualunque status sconosciuto degrada a 📦 (guard difensivo)
+    # any unknown status degrades to 📦 (defensive guard)
     assert status_emoji(None) == "📦"  # type: ignore[arg-type]
 
 
@@ -59,4 +59,4 @@ def test_fmt_check_time_formats_dd_mm_yyyy_hhmm() -> None:
     dt = datetime(2026, 6, 7, 10, 40, tzinfo=UTC)
     out = fmt_check_time(dt)
     assert "/2026" in out
-    assert ":" in out  # ha anche l'orario
+    assert ":" in out  # also has the time

@@ -1,4 +1,4 @@
-"""China Post tracker (Tier D — detection + Track17 delega)."""
+"""China Post tracker (Tier D — detection + Track17 delegation)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from parcel_tracker.trackers._track17_backed import Track17BackedTracker
 
 
 class ChinaPostTracker(Track17BackedTracker):
-    """China Post — UPU CN with leading-letter discriminator, detection-only with Track17 delega."""
+    """China Post — UPU CN with leading-letter discriminator, detection-only with Track17 delegation."""
 
     name: ClassVar[str] = "china_post"
     priority: ClassVar[int] = 35

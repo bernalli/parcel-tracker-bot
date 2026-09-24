@@ -66,8 +66,8 @@ async def test_refresh_quarantined_prefixes_notice() -> None:
     ):
         await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
     text = update.callback_query.edit_message_text.await_args.args[0]
-    assert "⏳" in text  # avviso quarantena
-    assert "iPhone" in text  # card dal DB comunque mostrata
+    assert "⏳" in text  # quarantine notice
+    assert "iPhone" in text  # card still shown from the DB
 
 
 @pytest.mark.asyncio

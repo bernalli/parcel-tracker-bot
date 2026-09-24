@@ -264,8 +264,8 @@ async def _consume_pending_name(
         t.priority > 1 for t in detector.detect(candidate)
     )
     if specific_match or _looks_like_tracking(candidate):
-        # È un altro tracking number: scarda il pending (già poppato) e lascia
-        # che handle_message lo tratti come un nuovo auto-add.
+        # It's a different tracking number: discard the pending action (already
+        # popped) and let handle_message treat it as a new auto-add.
         return False
     repo = context.bot_data["parcel_repo"]
     name = text.strip()[:_NAME_MAX_LEN]
