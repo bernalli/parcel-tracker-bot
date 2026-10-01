@@ -27,8 +27,9 @@ docker compose logs -f parcel-tracker
 
 Common causes:
 
-- **You are not allowlisted.** Only `OWNER_ID` and `ALLOWED_USER_IDS` can talk to the bot.
-  Add yourself with `/adduser <id>` from the owner account.
+- **You are not allowlisted.** Only `OWNER_ID`, `ADMIN_USER_IDS`, `ALLOWED_USER_IDS` and users
+  added with `/adduser` can talk to the bot. Send `/whoami` to get your ID, then add it with
+  `/adduser <id>` from an admin account (the owner is always an admin).
 - **The token is wrong / revoked.** Telegram returns 401. Regenerate the token in `@BotFather`.
 - **Network issue.** The container needs outbound HTTPS to `api.telegram.org`. If you run
   behind a corporate proxy, set `HTTPS_PROXY` in the environment.

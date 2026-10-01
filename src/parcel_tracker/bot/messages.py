@@ -41,7 +41,7 @@ def unauthorized() -> str:
 
 
 def owner_only() -> str:
-    return _("⛔ Only the owner can use this command.")
+    return _("⛔ Only admins can use this command.")
 
 
 def parcel_added(name: str) -> str:

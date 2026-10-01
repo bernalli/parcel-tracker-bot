@@ -79,7 +79,7 @@ async def test_cmd_adduser_owner_only() -> None:
     context = _make_context(args=["123"], owner_id=1)
     await cmd_adduser(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "owner" in text.lower()
+    assert "admin" in text.lower()
 
 
 @pytest.mark.asyncio
@@ -99,7 +99,7 @@ async def test_cmd_removeuser_owner_only() -> None:
     context = _make_context(args=["123"], owner_id=1)
     await cmd_removeuser(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "owner" in text.lower()
+    assert "admin" in text.lower()
 
 
 @pytest.mark.asyncio
