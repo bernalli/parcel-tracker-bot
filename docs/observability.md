@@ -25,7 +25,7 @@ Set `LOG_FULL_TRACKING_ID=true` if you are debugging locally and want the raw va
 ## Prometheus metrics
 
 The bot starts an HTTP exporter on `METRICS_BIND_HOST:METRICS_PORT` (default `0.0.0.0:9090`).
-Disable with `METRICS_ENABLED=false`. Eight metrics are exposed:
+Disable with `METRICS_ENABLED=false`. Eight metrics are registered:
 
 | Metric                                              | Type      | Labels         |
 |-----------------------------------------------------|-----------|----------------|
@@ -38,7 +38,10 @@ Disable with `METRICS_ENABLED=false`. Eight metrics are exposed:
 | `parceltracker_scheduler_tick_duration_seconds`     | histogram | (none)               |
 | `parceltracker_active_shipments`                    | gauge     | (none)               |
 
-`outcome ∈ {success, failure, quarantined, retry_exhausted}`.
+`outcome ∈ {success, failure, quarantined}`.
+
+`parceltracker_db_query_duration_seconds` and `parceltracker_active_shipments` are
+registered but not populated yet; they always read empty/zero.
 
 ## Wiring Prometheus
 

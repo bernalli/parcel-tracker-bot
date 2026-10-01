@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "parcel-tracker-bot"
 version = "0.3.0"
-description = "Self-hosted Telegram bot for tracking parcels across 30+ couriers worldwide"
+description = "Self-hosted Telegram bot for tracking parcels across 24+ couriers worldwide"
 authors = [{ name = "Samuele Martinalli" }]
 readme = "README.md"
 license = { text = "MIT" }
