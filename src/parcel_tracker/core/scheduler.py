@@ -15,7 +15,7 @@ from parcel_tracker.core.event_status import status_from_text
 from parcel_tracker.core.health import HealthManager
 from parcel_tracker.core.rate_limiter import RateLimiter
 from parcel_tracker.core.status_intervals import get_interval_minutes, is_due
-from parcel_tracker.core.tracker_base import TrackingResult
+from parcel_tracker.core.tracker_base import AbstractTracker, FetchError, TrackingResult
 from parcel_tracker.db.models import Parcel, ShipmentStatus, TrackingEvent
 from parcel_tracker.db.repository import ParcelRepository
 from parcel_tracker.notifier.telegram import TelegramNotifier
@@ -561,6 +561,69 @@ async def _notify(  # noqa: PLR0913
     )
 
 
+async def _fetch_first(
+    matches: list[AbstractTracker],
+    tracking_number: str,
+    *,
+    health: HealthManager,
+    rate_limiter: RateLimiter,
+) -> tuple[TrackingResult | None, bool]:
+    """Try ``matches`` in priority order; return (first found result, attempted any)."""
+    final_result: TrackingResult | None = None
+    attempted = False
+
+    for tracker in matches:
+        if await health.is_quarantined(tracker.name, tracking_number):
+            logger.debug(
+                "Skipping %s/%s — quarantined",
+                tracker.name,
+                tracking_number,
+            )
+            # The gauge reports the tracker-wide circuit, not this one shipment.
+            tracker_down = await health.is_tracker_quarantined(tracker.name)
+            QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(1 if tracker_down else 0)
+            CHECK_TOTAL.labels(tracker=tracker.name, outcome="quarantined").inc()
+            continue
+
+        attempted = True
+        QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(0)
+        await rate_limiter.acquire(tracker.name)
+
+        try:
+            with CHECK_LATENCY_SECONDS.labels(tracker=tracker.name).time():
+                result = await tracker.fetch(tracking_number)
+        except Exception as exc:  # noqa: BLE001 (instrumentation)
+            logger.warning(
+                "Tracker %s failed for %s: %s",
+                tracker.name,
+                tracking_number,
+                exc,
+            )
+            CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
+            await health.record_failure(tracker.name, tracking_number)
+            continue
+
+        if not result.found:
+            if result.error_kind is FetchError.RATE_LIMITED:
+                # Our quota, not the carrier's health: no quarantine strike, and no
+                # fallback either (it would only spend another tracker's quota).
+                CHECK_TOTAL.labels(tracker=tracker.name, outcome="rate_limited").inc()
+                break
+            CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
+            await health.record_failure(tracker.name, tracking_number)
+            if result.error_kind is FetchError.TRANSIENT:
+                # HttpClient already retried with back-off; try again next cycle
+                # instead of falling through to the fallback tracker.
+                break
+            continue
+
+        CHECK_TOTAL.labels(tracker=tracker.name, outcome="success").inc()
+        await health.record_success(tracker.name, tracking_number)
+        final_result = result
+        break
+    return final_result, attempted
+
+
 async def _check_one(  # noqa: PLR0913
     *,
     parcel: Parcel,
@@ -624,7 +687,8 @@ async def _check_one_unlocked(  # noqa: PLR0913, C901
 
     Fallback semantics: when matches[0] fails (raises or returns
     found=False) or is quarantined, try matches[1], matches[2], ... until one
-    returns found=True. Each tracker still records its own success/failure
+    returns found=True. A TRANSIENT or RATE_LIMITED result stops the chain for
+    this cycle: the HTTP layer already retried, and the parcel is polled again. Each tracker still records its own success/failure
     against its quarantine ladder; rate limit is acquired per tracker per call.
 
     Returns one of: "updated" | "no_change" | "failed" | "quarantined" |
@@ -637,49 +701,9 @@ async def _check_one_unlocked(  # noqa: PLR0913, C901
         logger.debug("No tracker matches for %s", parcel.tracking_number)
         return "no_tracker"
 
-    final_result: TrackingResult | None = None
-    attempted = False
-
-    for tracker in matches:
-        if await health.is_quarantined(tracker.name, parcel.tracking_number):
-            logger.debug(
-                "Skipping %s/%s — quarantined",
-                tracker.name,
-                parcel.tracking_number,
-            )
-            # The gauge reports the tracker-wide circuit, not this one shipment.
-            tracker_down = await health.is_tracker_quarantined(tracker.name)
-            QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(1 if tracker_down else 0)
-            CHECK_TOTAL.labels(tracker=tracker.name, outcome="quarantined").inc()
-            continue
-
-        attempted = True
-        QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(0)
-        await rate_limiter.acquire(tracker.name)
-
-        try:
-            with CHECK_LATENCY_SECONDS.labels(tracker=tracker.name).time():
-                result = await tracker.fetch(parcel.tracking_number)
-        except Exception as exc:  # noqa: BLE001 (instrumentation)
-            logger.warning(
-                "Tracker %s failed for %s: %s",
-                tracker.name,
-                parcel.tracking_number,
-                exc,
-            )
-            CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
-            await health.record_failure(tracker.name, parcel.tracking_number)
-            continue
-
-        if not result.found:
-            CHECK_TOTAL.labels(tracker=tracker.name, outcome="failure").inc()
-            await health.record_failure(tracker.name, parcel.tracking_number)
-            continue
-
-        CHECK_TOTAL.labels(tracker=tracker.name, outcome="success").inc()
-        await health.record_success(tracker.name, parcel.tracking_number)
-        final_result = result
-        break
+    final_result, attempted = await _fetch_first(
+        matches, parcel.tracking_number, health=health, rate_limiter=rate_limiter
+    )
 
     await parcel_repo.set_last_check_at(parcel.tracking_number, now(), user_id=user_id)
 

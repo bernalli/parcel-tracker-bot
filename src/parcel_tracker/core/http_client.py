@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
+
+from parcel_tracker.core.retry_policy import RetryProfile, RetryProfileConfig, send_with_retry
 
 _DEFAULT_USER_AGENTS: list[str] = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -39,6 +42,8 @@ class HttpClient:
     - UA rotation per-request
     - Configurable timeout
     - Default headers for common scrape scenarios
+    - Retry with jittered back-off on network transients, 408/429/5xx and
+      ``Retry-After`` (``retry_profile=None`` disables it)
 
     Used by tracker plugins.
     """
@@ -49,9 +54,11 @@ class HttpClient:
         timeout: float = 30.0,
         user_agents: list[str] | None = None,
         max_response_bytes: int = MAX_RESPONSE_BYTES,
+        retry_profile: RetryProfileConfig | None = RetryProfile.HTTP_DEFAULT,
     ) -> None:
         self._user_agents = user_agents or default_user_agents()
         self._max_bytes = max_response_bytes
+        self._retry_profile = retry_profile
         self._client = httpx.AsyncClient(
             timeout=httpx.Timeout(timeout, connect=10.0),
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
@@ -78,10 +85,13 @@ class HttpClient:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
-        request = self._client.build_request(
-            "GET", url, params=params, headers=self._default_headers(headers)
+        return await self._send(
+            lambda: self._send_capped(
+                self._client.build_request(
+                    "GET", url, params=params, headers=self._default_headers(headers)
+                )
+            )
         )
-        return await self._send_capped(request)
 
     async def post(
         self,
@@ -91,10 +101,13 @@ class HttpClient:
         json: Any = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
-        request = self._client.build_request(
-            "POST", url, data=data, json=json, headers=self._default_headers(headers)
+        return await self._send(
+            lambda: self._send_capped(
+                self._client.build_request(
+                    "POST", url, data=data, json=json, headers=self._default_headers(headers)
+                )
+            )
         )
-        return await self._send_capped(request)
 
     async def _send_capped(self, request: httpx.Request) -> httpx.Response:
         """Send ``request`` and buffer at most ``max_response_bytes`` of the body."""
@@ -119,6 +132,11 @@ class HttpClient:
             request=request,
             extensions=response.extensions,
         )
+
+    async def _send(self, send: Callable[[], Awaitable[httpx.Response]]) -> httpx.Response:
+        if self._retry_profile is None:
+            return await send()
+        return await send_with_retry(send, self._retry_profile)
 
     async def close(self) -> None:
         await self._client.aclose()

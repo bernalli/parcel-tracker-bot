@@ -5,9 +5,47 @@ from __future__ import annotations
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import ClassVar
 
+import httpx
+
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
+
+
+class FetchError(Enum):
+    """Why a lookup returned ``found=False``.
+
+    The scheduler treats them differently: NOT_FOUND and PERMANENT fall through to
+    the next tracker; TRANSIENT and RATE_LIMITED end this cycle's lookup (the HTTP
+    layer already retried) so a momentary outage does not burn fallback quota.
+    """
+
+    NOT_FOUND = "not_found"
+    TRANSIENT = "transient"
+    RATE_LIMITED = "rate_limited"
+    PERMANENT = "permanent"
+
+
+_TRANSIENT_EXCEPTIONS = (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError)
+
+
+def classify_status(status_code: int) -> FetchError:
+    """Map a non-200 HTTP status to a FetchError."""
+    if status_code == 429:  # noqa: PLR2004
+        return FetchError.RATE_LIMITED
+    if status_code == 408 or status_code >= 500:  # noqa: PLR2004
+        return FetchError.TRANSIENT
+    if status_code in (404, 410):  # noqa: PLR2004
+        return FetchError.NOT_FOUND
+    return FetchError.PERMANENT
+
+
+def classify_exception(exc: BaseException) -> FetchError:
+    """Map an exception raised while fetching to a FetchError."""
+    if isinstance(exc, _TRANSIENT_EXCEPTIONS):
+        return FetchError.TRANSIENT
+    return FetchError.PERMANENT
 
 
 @dataclass(slots=True)
@@ -26,6 +64,7 @@ class TrackingResult:
     events: list[TrackingEvent] = field(default_factory=list)
     error: str | None = None
     carrier_handoff: bool = False
+    error_kind: FetchError = FetchError.NOT_FOUND
 
 
 def last_location_from(events: list[TrackingEvent]) -> str | None:
