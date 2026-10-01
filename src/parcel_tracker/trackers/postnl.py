@@ -9,7 +9,13 @@ from typing import ClassVar
 from bs4 import BeautifulSoup
 
 from parcel_tracker.core.http_client import HttpClient
-from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult, last_location_from
+from parcel_tracker.core.tracker_base import (
+    AbstractTracker,
+    TrackingResult,
+    classify_exception,
+    classify_status,
+    last_location_from,
+)
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
 
 logger = logging.getLogger(__name__)
@@ -88,6 +94,7 @@ class PostnlTracker(AbstractTracker):
                 found=False,
                 carrier_name="PostNL",
                 error=str(exc),
+                error_kind=classify_exception(exc),
             )
 
         if response.status_code != 200:
@@ -96,6 +103,7 @@ class PostnlTracker(AbstractTracker):
                 found=False,
                 carrier_name="PostNL",
                 error=f"HTTP {response.status_code}",
+                error_kind=classify_status(response.status_code),
             )
 
         return self._parse_html(normalized, response.text)

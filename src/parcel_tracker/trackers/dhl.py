@@ -13,7 +13,13 @@ from typing import ClassVar
 from bs4 import BeautifulSoup
 
 from parcel_tracker.core.http_client import HttpClient
-from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult, last_location_from
+from parcel_tracker.core.tracker_base import (
+    AbstractTracker,
+    TrackingResult,
+    classify_exception,
+    classify_status,
+    last_location_from,
+)
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
 
 logger = logging.getLogger(__name__)
@@ -54,13 +60,19 @@ class DhlTracker(AbstractTracker):
                 exc,
                 extra={"tracker": self.name, "tracking_id": normalized},
             )
-            return TrackingResult(tracking_number=normalized, found=False, error=str(exc))
+            return TrackingResult(
+                tracking_number=normalized,
+                found=False,
+                error=str(exc),
+                error_kind=classify_exception(exc),
+            )
 
         if response.status_code != 200:
             return TrackingResult(
                 tracking_number=normalized,
                 found=False,
                 error=f"HTTP {response.status_code}",
+                error_kind=classify_status(response.status_code),
             )
 
         return self._parse_html(normalized, response.text)

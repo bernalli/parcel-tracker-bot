@@ -29,8 +29,12 @@ See ``tests/unit/test_retry_policy.py`` for the ``_patch_retry_waits`` fixture.
 
 from __future__ import annotations
 
+import asyncio
+import random
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import TypeVar
 
 import httpx
@@ -42,13 +46,21 @@ from tenacity import (
     wait_fixed,
 )
 
-__all__ = ["RetryProfile", "RetryProfileConfig", "apply_retry"]
+__all__ = [
+    "TRANSIENT_STATUS_CODES",
+    "RetryProfile",
+    "RetryProfileConfig",
+    "apply_retry",
+    "retry_after_seconds",
+    "send_with_retry",
+]
 
 T = TypeVar("T")
 
 # ---------------------------------------------------------------------------
 # Retryable exception set — network-layer transients only.
-# HTTP 4xx / 5xx are *not* retried here; trackers handle status codes.
+# ``apply_retry`` retries these only; ``send_with_retry`` below also retries
+# TRANSIENT_STATUS_CODES responses.
 # ---------------------------------------------------------------------------
 _RETRYABLE_EXCEPTIONS = (
     httpx.ConnectError,
@@ -91,6 +103,10 @@ class RetryProfile:
         Moderate retries for stable carrier APIs (DHL, UPS, FedEx).
         4 attempts, exponential back-off 2-16 s.
 
+    HTTP_DEFAULT
+        Applied by ``HttpClient`` to every tracker request.
+        3 attempts, exponential back-off with jitter 1-8 s, ``Retry-After`` honoured.
+
     UNIVERSAL_FALLBACK
         Limited retries for catch-all aggregator (17track).
         3 attempts, fixed 5 s wait.  Quarantine takes over after exhaustion.
@@ -109,6 +125,14 @@ class RetryProfile:
         max_attempts=4,
         base_wait_seconds=2.0,
         max_wait_seconds=16.0,
+        use_exponential=True,
+    )
+
+    HTTP_DEFAULT: RetryProfileConfig = RetryProfileConfig(
+        name="http_default",
+        max_attempts=3,
+        base_wait_seconds=1.0,
+        max_wait_seconds=8.0,
         use_exponential=True,
     )
 
@@ -173,3 +197,75 @@ def apply_retry(
         return wrapper
 
     return decorator
+
+
+# ---------------------------------------------------------------------------
+# HTTP-level retry (used by HttpClient)
+# ---------------------------------------------------------------------------
+
+# Responses worth retrying: timeouts, rate limits and server-side transients.
+TRANSIENT_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
+
+# Upper bound on a server-requested wait, so one Retry-After cannot stall a tick.
+MAX_RETRY_AFTER_SECONDS = 30.0
+
+# Resolved at call time so tests can monkeypatch it to a no-op.
+_sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
+
+
+def retry_after_seconds(response: httpx.Response, *, now: datetime | None = None) -> float | None:
+    """Seconds requested by a ``Retry-After`` header (delta or HTTP date), capped.
+
+    Returns None when the header is absent or unparseable.
+    """
+    raw = response.headers.get("Retry-After")
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if raw.isdigit():
+        seconds = float(raw)
+    else:
+        try:
+            when = parsedate_to_datetime(raw)
+        except (TypeError, ValueError):
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        seconds = (when - (now or datetime.now(UTC))).total_seconds()
+    return min(max(seconds, 0.0), MAX_RETRY_AFTER_SECONDS)
+
+
+def _backoff_seconds(profile: RetryProfileConfig, attempt: int) -> float:
+    if not profile.use_exponential:
+        return profile.base_wait_seconds
+    ceiling = min(profile.max_wait_seconds, profile.base_wait_seconds * 2 ** (attempt - 1))
+    jitter: float = random.uniform(0.5, 1.0)  # noqa: S311 (jitter, not crypto)
+    return float(ceiling) * jitter
+
+
+async def send_with_retry(
+    send: Callable[[], Awaitable[httpx.Response]],
+    profile: RetryProfileConfig,
+) -> httpx.Response:
+    """Run ``send`` until it returns a non-transient response or attempts run out.
+
+    Network transients (``_RETRYABLE_EXCEPTIONS``) and ``TRANSIENT_STATUS_CODES``
+    are retried with jittered back-off; a ``Retry-After`` header takes precedence.
+    The last response is returned, or the last network error re-raised, once
+    ``profile.max_attempts`` is reached, so the caller still sees what happened.
+    """
+    for attempt in range(1, profile.max_attempts + 1):
+        last = attempt == profile.max_attempts
+        try:
+            response = await send()
+        except _RETRYABLE_EXCEPTIONS:
+            if last:
+                raise
+            delay = _backoff_seconds(profile, attempt)
+        else:
+            if last or response.status_code not in TRANSIENT_STATUS_CODES:
+                return response
+            requested = retry_after_seconds(response)
+            delay = _backoff_seconds(profile, attempt) if requested is None else requested
+        await _sleep(delay)
+    raise RuntimeError("retry loop exited without result")  # pragma: no cover
