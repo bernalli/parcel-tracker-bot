@@ -12,7 +12,13 @@ import re
 from typing import Any, ClassVar
 
 from parcel_tracker.core.http_client import HttpClient
-from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult
+from parcel_tracker.core.tracker_base import (
+    AbstractTracker,
+    FetchError,
+    TrackingResult,
+    classify_exception,
+    classify_status,
+)
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
 
 logger = logging.getLogger(__name__)
@@ -95,7 +101,12 @@ class Track17Tracker(AbstractTracker):
                 normalized,
                 extra={"tracker": self.name, "tracking_id": normalized},
             )
-            return TrackingResult(tracking_number=normalized, found=False, error=str(exc))
+            return TrackingResult(
+                tracking_number=normalized,
+                found=False,
+                error=str(exc),
+                error_kind=classify_exception(exc),
+            )
 
     async def _register(self, tracking_id: str) -> None:
         """Register the tracking ID with 17track (idempotent server-side)."""
@@ -124,6 +135,12 @@ class Track17Tracker(AbstractTracker):
                 tracking_number=tracking_id,
                 found=False,
                 error=f"non-JSON response (HTTP {response.status_code})",
+                # A 200 with a non-JSON body is the upstream hiccup described above.
+                error_kind=(
+                    FetchError.TRANSIENT
+                    if response.status_code == 200  # noqa: PLR2004
+                    else classify_status(response.status_code)
+                ),
             )
         accepted = data.get("data", {}).get("accepted", []) or []
         if not accepted:
