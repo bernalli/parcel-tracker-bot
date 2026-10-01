@@ -107,7 +107,18 @@ class ParcelRepository:
                 )
                 await conn.commit()
             except aiosqlite.IntegrityError:
-                return None
+                # A removed/archived row for the same code blocks the insert:
+                # re-adding it reactivates that row instead of reporting a duplicate.
+                cursor = await conn.execute(
+                    "UPDATE parcels SET is_active = 1, name = COALESCE(?, name), "
+                    "delivered_at = NULL, delivery_disputed = 0, "
+                    "updated_at = CURRENT_TIMESTAMP "
+                    "WHERE user_id = ? AND tracking_number = ? AND is_active = 0",
+                    (parcel.name, parcel.user_id, parcel.tracking_number),
+                )
+                await conn.commit()
+                if not cursor.rowcount:
+                    return None
         return parcel
 
     async def get_by_tracking_number(self, tracking_number: str) -> Parcel | None:
