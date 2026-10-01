@@ -47,11 +47,6 @@ dev = [
     "freezegun>=1.5",
     "babel>=2.16.0",
 ]
-observability = [
-    "structlog>=24.4.0",
-    "prometheus-client>=0.21.0",
-    "python-json-logger>=2.0.7",
-]
 
 [project.urls]
 Repository = "https://github.com/bernalli/parcel-tracker-bot"
