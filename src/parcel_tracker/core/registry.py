@@ -57,8 +57,8 @@ class TrackerRegistry:
             module = importlib.util.module_from_spec(spec)
             try:
                 spec.loader.exec_module(module)
-            except (ImportError, SyntaxError) as exc:
-                logger.error("Failed to import plugin %s: %s", py_file, exc)
+            except Exception:  # noqa: BLE001 — one broken plugin must not stop the bot
+                logger.exception("Failed to import plugin %s", py_file)
                 continue
 
             tracker_cls = getattr(module, "Tracker", None)
@@ -77,6 +77,8 @@ class TrackerRegistry:
                 loaded += 1
             except ValueError as exc:
                 logger.warning("Skipping duplicate plugin %s: %s", py_file, exc)
+            except Exception:  # noqa: BLE001 — constructor failures are isolated too
+                logger.exception("Failed to initialise plugin %s", py_file)
 
         logger.info("Loaded %d plugins from %s", loaded, directory)
         return loaded
