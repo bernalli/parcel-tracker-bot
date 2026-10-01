@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from parcel_tracker.bot.roles import is_admin
 from parcel_tracker.i18n import _
 
 logger = logging.getLogger(__name__)
@@ -139,8 +140,7 @@ async def cmd_health_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
     cfg = context.bot_data["config"]
     user_id = update.effective_user.id if update.effective_user else 0
-    admin_ids = cfg.admin_user_ids
-    if user_id not in admin_ids:
+    if not is_admin(cfg, user_id):
         await update.message.reply_text(_("❌ This command is admin-only."))
         return
 

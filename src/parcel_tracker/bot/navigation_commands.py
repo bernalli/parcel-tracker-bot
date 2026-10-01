@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from parcel_tracker.bot import messages
 from parcel_tracker.bot.keyboards import main_menu
+from parcel_tracker.bot.roles import is_admin
 
 if TYPE_CHECKING:
     from telegram import Update
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def _is_admin(user_id: int, config: Config) -> bool:
-    return user_id in config.admin_user_ids
+    return is_admin(config, user_id)
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

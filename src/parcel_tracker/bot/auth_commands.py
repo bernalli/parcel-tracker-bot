@@ -9,16 +9,14 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from parcel_tracker.bot import messages
+from parcel_tracker.bot.roles import is_admin
 
 logger = logging.getLogger(__name__)
 
 
 def _is_owner(context: Any, user_id: int) -> bool:
-    """Check whether the given user_id matches the configured owner."""
-    config = context.bot_data.get("config")
-    if config is None:
-        return False
-    return bool(getattr(config, "owner_id", None) == user_id)
+    """Admin-only commands are open to every admin, the owner included."""
+    return is_admin(context.bot_data.get("config"), user_id)
 
 
 async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
