@@ -23,7 +23,7 @@ services:
     cpus: 1.0
     pids_limit: 100
     healthcheck:
-      test: ["CMD", "python", "-c", "import sqlite3, os; sqlite3.connect(os.getenv('DATABASE_PATH','/app/data/bot.db')).execute('SELECT 1')"]
+      test: ["CMD", "python", "-c", "import os, pathlib, sqlite3; sqlite3.connect(pathlib.Path(os.getenv('DATABASE_PATH','/app/data/bot.db')).absolute().as_uri() + '?mode=ro', uri=True).execute('SELECT 1')"]
       interval: 5m
       timeout: 15s
       retries: 3

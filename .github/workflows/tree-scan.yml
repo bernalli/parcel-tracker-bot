@@ -74,6 +74,9 @@ name: tree-scan
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   tree-scan:
     runs-on: ubuntu-24.04
