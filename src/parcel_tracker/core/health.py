@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import TypeVar
 
@@ -25,17 +25,38 @@ class QuarantineThresholds:
     level3_hours: int
 
 
+# The tracker-wide circuit needs more evidence than one shipment: a few codes the
+# carrier does not know yet must not quarantine the tracker for everyone.
+AGGREGATE_FAILURE_MULTIPLIER = 4
+# Failures further apart than this do not add up to an outage.
+AGGREGATE_WINDOW = timedelta(minutes=30)
+
+
+def _scaled(thresholds: QuarantineThresholds, factor: int) -> QuarantineThresholds:
+    return replace(
+        thresholds,
+        level1_failures=thresholds.level1_failures * factor,
+        level2_failures=thresholds.level2_failures * factor,
+        level3_failures=thresholds.level3_failures * factor,
+    )
+
+
 class HealthManager:
     """
     Coordinates health tracking with quarantine escalation.
 
-    On each failure, increments consecutive_failures via repo and applies
-    quarantine when thresholds are crossed:
-      - 3 failures consecutive → 1h quarantine
-      - 6 failures consecutive → 6h quarantine
-      - 12 failures consecutive → 24h quarantine
+    Health is kept at two levels:
 
-    On success, resets consecutive_failures and clears quarantine_until.
+    - per shipment ``(tracker, tracking_id)``: diagnostics and a per-code
+      quarantine, escalating at ``thresholds`` (3/6/12 consecutive failures);
+    - per tracker ``(tracker, "")``: the aggregate circuit that ``/health`` and the
+      ``parceltracker_quarantine_active`` gauge read. Every shipment's result also
+      updates it; it trips at ``aggregate_thresholds`` (default 4x the per-shipment
+      ones) of consecutive failures across shipments, where a gap longer than
+      ``aggregate_window`` since the last failure starts the count again.
+
+    On success, consecutive_failures is reset and quarantine_until cleared, at both
+    levels.
     """
 
     def __init__(
@@ -43,20 +64,48 @@ class HealthManager:
         repo: HealthRepository,
         *,
         thresholds: QuarantineThresholds,
+        aggregate_thresholds: QuarantineThresholds | None = None,
+        aggregate_window: timedelta = AGGREGATE_WINDOW,
     ) -> None:
         self.repo = repo
         self.thresholds = thresholds
+        self.aggregate_thresholds = aggregate_thresholds or _scaled(
+            thresholds, AGGREGATE_FAILURE_MULTIPLIER
+        )
+        self.aggregate_window = aggregate_window
 
     async def record_success(self, tracker_id: str, tracking_id: str = "") -> None:
         await self.repo.record_success(tracker_id, tracking_id)
+        if tracking_id:
+            await self.repo.record_success(tracker_id, "")
 
     async def record_failure(self, tracker_id: str, tracking_id: str = "") -> None:
+        if not tracking_id:
+            await self._record_failure_at(tracker_id, "", self.thresholds)
+            return
+        await self._record_failure_at(tracker_id, tracking_id, self.thresholds)
+        aggregate = await self.repo.get_state(tracker_id, "")
+        if (
+            aggregate is not None
+            and aggregate.last_failure_at is not None
+            and datetime.now(UTC) - aggregate.last_failure_at > self.aggregate_window
+        ):
+            await self.repo.reset_consecutive(tracker_id, "")
+        await self._record_failure_at(tracker_id, "", self.aggregate_thresholds)
+
+    async def is_tracker_quarantined(self, tracker_id: str) -> bool:
+        """True when the tracker-wide circuit is open (all shipments skipped)."""
+        return await self.repo.is_quarantined(tracker_id, "")
+
+    async def _record_failure_at(
+        self, tracker_id: str, tracking_id: str, thresholds: QuarantineThresholds
+    ) -> None:
         await self.repo.record_failure(tracker_id, tracking_id)
         state = await self.repo.get_state(tracker_id, tracking_id)
         if state is None:
             return
 
-        hours = self._compute_quarantine_hours(state.consecutive_failures)
+        hours = self._compute_quarantine_hours(state.consecutive_failures, thresholds)
         if hours > 0:
             until = datetime.now(UTC) + timedelta(hours=hours)
             await self.repo.set_quarantine(tracker_id, tracking_id, until)
@@ -75,8 +124,10 @@ class HealthManager:
             return True
         return await self.repo.is_quarantined(tracker_id, tracking_id)
 
-    def _compute_quarantine_hours(self, consecutive_failures: int) -> int:
-        t = self.thresholds
+    def _compute_quarantine_hours(
+        self, consecutive_failures: int, thresholds: QuarantineThresholds | None = None
+    ) -> int:
+        t = thresholds or self.thresholds
         if consecutive_failures >= t.level3_failures:
             return t.level3_hours
         if consecutive_failures >= t.level2_failures:

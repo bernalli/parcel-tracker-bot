@@ -138,6 +138,16 @@ class HealthRepository:
                 total_failures=row["total_failures"],
             )
 
+    async def reset_consecutive(self, tracker_id: str, tracking_id: str = "") -> None:
+        """Restart the consecutive-failure count of one entry (quarantine untouched)."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE tracker_health SET consecutive_failures = 0 "
+                "WHERE tracker_id = ? AND tracking_id = ?",
+                (tracker_id, tracking_id),
+            )
+            await conn.commit()
+
     async def reset_tracker(self, tracker_id: str) -> None:
         """Reset all transient counters and quarantine_until for ALL entries of a tracker."""
         async with get_connection(self._db_path) as conn:
