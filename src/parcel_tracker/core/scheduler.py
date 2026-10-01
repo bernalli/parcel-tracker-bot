@@ -436,7 +436,9 @@ async def _check_one(  # noqa: PLR0913, C901
                 tracker.name,
                 parcel.tracking_number,
             )
-            QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(1)
+            # The gauge reports the tracker-wide circuit, not this one shipment.
+            tracker_down = await health.is_tracker_quarantined(tracker.name)
+            QUARANTINE_ACTIVE.labels(tracker=tracker.name).set(1 if tracker_down else 0)
             CHECK_TOTAL.labels(tracker=tracker.name, outcome="quarantined").inc()
             continue
 
