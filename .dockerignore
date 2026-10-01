@@ -47,3 +47,25 @@ docs/
 .git/
 .gitignore
 .gitattributes
+
+# Secrets and local data anywhere in the context, not just at its root:
+# unlike .gitignore, a bare pattern here only matches at the top level.
+**/.env
+**/.env.*
+.envrc
+**/secrets/
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/id_rsa*
+**/id_ed25519*
+.netrc
+.pypirc
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite3
+**/*.sql
+**/*.dump
+docker-compose.override.yaml
