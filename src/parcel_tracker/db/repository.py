@@ -22,6 +22,15 @@ def _owner_params(user_id: int | None) -> tuple[int | None, int | None]:
     return (user_id, user_id)
 
 
+# Tables holding per-user personal data, children before parents.
+_USER_DATA_TABLES: tuple[str, ...] = (
+    "tracking_history",
+    "notification_cooldown_log",
+    "user_notification_prefs",
+    "parcels",
+)
+
+
 class UserRepository:
     """CRUD for the allowed_users table."""
 
@@ -48,7 +57,17 @@ class UserRepository:
                 return False
 
     async def remove_user(self, user_id: int) -> bool:
+        """Revoke a user and erase everything stored about them, in one transaction.
+
+        Returns True if the user was on the allow-list. Parcels, tracking history,
+        notification preferences and cooldown rows are deleted either way.
+        """
         async with get_connection(self._db_path) as conn:
+            for table in _USER_DATA_TABLES:
+                await conn.execute(
+                    f"DELETE FROM {table} WHERE user_id = ?",  # noqa: S608  # nosec B608 — fixed table names
+                    (user_id,),
+                )
             cursor = await conn.execute("DELETE FROM allowed_users WHERE user_id = ?", (user_id,))
             await conn.commit()
             return bool(cursor.rowcount)
