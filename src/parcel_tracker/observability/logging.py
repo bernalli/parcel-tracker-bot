@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import re
 import sys
 from typing import Any
 
@@ -39,6 +40,41 @@ def _log_with_kwargs(
     if extra:
         kwargs["extra"] = extra
     _original_log(self, level, msg, args, **kwargs)
+
+
+# Tracking-code shape: 8-40 upper-case letters/digits with at least 3 digits
+# (UPU S10, UPS 1Z…, numeric AWBs). Matches the bot's own acceptance heuristic.
+_TRACKING_LIKE = re.compile(r"\b(?=(?:[A-Z]*\d){3})[A-Z0-9]{8,40}\b")
+
+
+class TrackingIdRedactor(logging.Filter):
+    """Replace tracking-code-like tokens in every record with their hash.
+
+    Applied on the root handler so it covers every call site, the ``extra``
+    ``tracking_id`` field, and messages built from exceptions (httpx errors
+    embed the request URL, query string included). Disabled when
+    ``LOG_FULL_TRACKING_ID=true``.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if os.getenv("LOG_FULL_TRACKING_ID", "false").lower() == "true":
+            return True
+        try:
+            message = record.getMessage()
+        except (TypeError, ValueError):
+            return True
+        if record.exc_info:
+            # Exception text often carries the code (e.g. the request URL), so the
+            # traceback is rendered here, redacted, and folded into the message.
+            message += "\n" + logging.Formatter().formatException(record.exc_info)
+            record.exc_info = None
+            record.exc_text = None
+        record.msg = _TRACKING_LIKE.sub(lambda m: hash_tracking_id(m.group(0)), message)
+        record.args = None
+        tid = getattr(record, "tracking_id", None)
+        if isinstance(tid, str):
+            record.tracking_id = hash_tracking_id(tid)
+        return True
 
 
 def configure_logging(*, log_level: str = "INFO", log_format: str = "json") -> None:
@@ -81,6 +117,7 @@ def configure_logging(*, log_level: str = "INFO", log_format: str = "json") -> N
     )
 
     handler = logging.StreamHandler(sys.stderr)
+    handler.addFilter(TrackingIdRedactor())
     handler.setFormatter(
         structlog.stdlib.ProcessorFormatter(
             foreign_pre_chain=shared_processors,

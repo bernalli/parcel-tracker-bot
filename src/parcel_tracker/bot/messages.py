@@ -50,7 +50,7 @@ def parcel_added(name: str) -> str:
 
 def parcel_duplicate(tracking_number: str) -> str:
     return _("⚠️ Parcel <code>{tracking_number}</code> is already tracked.").format(
-        tracking_number=tracking_number
+        tracking_number=esc(tracking_number)
     )
 
 
@@ -62,12 +62,14 @@ def max_active_reached(limit: int) -> str:
 
 
 def parcel_removed(tracking_number: str) -> str:
-    return _("🗑 Parcel removed: <b>{tracking_number}</b>").format(tracking_number=tracking_number)
+    return _("🗑 Parcel removed: <b>{tracking_number}</b>").format(
+        tracking_number=esc(tracking_number)
+    )
 
 
 def parcel_not_found(tracking_number: str) -> str:
     return _("❌ Parcel <code>{tracking_number}</code> not found.").format(
-        tracking_number=tracking_number
+        tracking_number=esc(tracking_number)
     )
 
 
@@ -83,7 +85,7 @@ def no_parcels_active() -> str:
 
 def no_events(tracking_number: str) -> str:
     return _("No events for <code>{tracking_number}</code>.").format(
-        tracking_number=tracking_number
+        tracking_number=esc(tracking_number)
     )
 
 
@@ -163,17 +165,17 @@ def map_no_position(tracking_number: str) -> str:
 
 def lang_current(current: str, available: list[str]) -> str:
     return _("Current language: <code>{current}</code>\nAvailable: {available}").format(
-        current=current, available=", ".join(available)
+        current=esc(current), available=esc(", ".join(available))
     )
 
 
 def lang_changed(new: str) -> str:
-    return _("Language switched to <code>{new}</code>.").format(new=new)
+    return _("Language switched to <code>{new}</code>.").format(new=esc(new))
 
 
 def lang_not_supported(requested: str, available: list[str]) -> str:
     return _("Language <code>{requested}</code> is not available. Try: {available}").format(
-        requested=requested, available=", ".join(available)
+        requested=esc(requested), available=esc(", ".join(available))
     )
 
 
@@ -251,12 +253,12 @@ def no_delivered_parcels() -> str:
 
 def events_for(tracking_number: str) -> str:
     return _("<b>Events for <code>{tracking_number}</code></b>").format(
-        tracking_number=tracking_number
+        tracking_number=esc(tracking_number)
     )
 
 
 def to_add_use(text: str) -> str:
-    return _("To add, use: <code>/add {text}</code>").format(text=text)
+    return _("To add, use: <code>/add {text}</code>").format(text=esc(text))
 
 
 def carrier_label() -> str:
