@@ -391,10 +391,14 @@ def parcel_detail_card(parcel: Parcel) -> str:
         status_label,
     )
 
+    # Kept out of the f-strings below: babel cannot extract gettext calls nested
+    # in f-strings on Python < 3.12.
+    status_word = _("Status")
+    last_check_word = _("Last check")
     lines = [
         f"📦 <b>{esc(parcel.name or parcel.tracking_number)}</b>",
         f"<code>{esc(parcel.tracking_number)}</code>",
-        f"{_('Status')}: {status_emoji(parcel.status)} <b>{status_label(parcel.status)}</b>",
+        f"{status_word}: {status_emoji(parcel.status)} <b>{status_label(parcel.status)}</b>",
         f"{carrier_label()}: {esc(parcel.carrier_name or parcel.carrier_code or '?')}",
     ]
     if parcel.last_location:
@@ -407,5 +411,5 @@ def parcel_detail_card(parcel: Parcel) -> str:
         lines.append(row)
     checked = fmt_check_time(parcel.last_check_at)
     if checked:
-        lines.append(f"{_('Last check')}: {checked}")
+        lines.append(f"{last_check_word}: {checked}")
     return "\n".join(lines)

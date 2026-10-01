@@ -8,6 +8,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from parcel_tracker.db.models import ShipmentStatus
+from parcel_tracker.i18n import _
 from parcel_tracker.notifier.preferences import is_default_on
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,10 @@ def _resolve_enabled(prefs: dict[str, bool], status: ShipmentStatus) -> bool:
     if status.value in prefs:
         return prefs[status.value]
     return is_default_on(status.value)
+
+
+def _menu_text() -> str:
+    return _("🔔 <b>Notification preferences</b>\n\nTap a status to toggle on/off.")
 
 
 def _build_keyboard(prefs: dict[str, bool]) -> InlineKeyboardMarkup:
@@ -48,7 +53,7 @@ async def cmd_notify(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     prefs: dict[str, bool] = await repo.get_all_prefs(user_id)
     keyboard = _build_keyboard(prefs)
     await reply_to.reply_text(
-        "🔔 <b>Notification preferences</b>\n\nTap a status to toggle on/off.",
+        _menu_text(),
         parse_mode="HTML",
         reply_markup=keyboard,
     )
@@ -70,13 +75,13 @@ async def cmd_notify_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE
     if sub == "all":
         for status in _NOTIFIABLE_STATUS:
             await repo.set_pref(user_id=user_id, status_value=status.value, enabled=True)
-        await reply_to.reply_text("✅ All notifications enabled.")
+        await reply_to.reply_text(_("✅ All notifications enabled."))
         return
 
     if sub == "none":
         for status in _NOTIFIABLE_STATUS:
             await repo.set_pref(user_id=user_id, status_value=status.value, enabled=False)
-        await reply_to.reply_text("🔇 All notifications disabled.")
+        await reply_to.reply_text(_("🔇 All notifications disabled."))
         return
 
     if sub in {"on", "off"} and len(context.args) >= 2:
@@ -87,12 +92,16 @@ async def cmd_notify_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         if match is None:
             valid = ", ".join(s.value for s in _NOTIFIABLE_STATUS)
-            await reply_to.reply_text(f"❌ Unknown status. Valid: {valid}.")
+            await reply_to.reply_text(_("❌ Unknown status. Valid: {valid}.").format(valid=valid))
             return
         enabled = sub == "on"
         await repo.set_pref(user_id=user_id, status_value=match.value, enabled=enabled)
-        verb = "enabled" if enabled else "disabled"
-        await reply_to.reply_text(f"🔔 <code>{match.value}</code> {verb}.", parse_mode="HTML")
+        template = (
+            _("🔔 <code>{status}</code> enabled.")
+            if enabled
+            else _("🔔 <code>{status}</code> disabled.")
+        )
+        await reply_to.reply_text(template.format(status=match.value), parse_mode="HTML")
         return
 
     await cmd_notify(update, context)
@@ -118,12 +127,14 @@ async def on_notify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     new_value = not current
     await repo.set_pref(user_id=user_id, status_value=status_value, enabled=new_value)
 
-    await query.answer(f"{status_value} → {'on' if new_value else 'off'}")
+    await query.answer(
+        (_("{status} → on") if new_value else _("{status} → off")).format(status=status_value)
+    )
 
     prefs: dict[str, bool] = await repo.get_all_prefs(user_id)
     keyboard = _build_keyboard(prefs)
     await query.edit_message_text(
-        "🔔 <b>Notification preferences</b>\n\nTap a status to toggle on/off.",
+        _menu_text(),
         parse_mode="HTML",
         reply_markup=keyboard,
     )
