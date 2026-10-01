@@ -76,13 +76,13 @@ async def test_refresh_in_flight_guard_skips_second_tap() -> None:
     repo.get_for_user.return_value = _parcel()
     update = _cb_update("parcel:refresh:TN1")
     context = SimpleNamespace(bot_data={"parcel_repo": repo}, user_data={})
-    callbacks._REFRESH_IN_FLIGHT.add("TN1")
+    callbacks._REFRESH_IN_FLIGHT.add((10, "TN1"))
     try:
         with patch.object(callbacks, "check_parcel_now", new=AsyncMock(), create=True) as chk:
             await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
         chk.assert_not_awaited()
     finally:
-        callbacks._REFRESH_IN_FLIGHT.discard("TN1")
+        callbacks._REFRESH_IN_FLIGHT.discard((10, "TN1"))
 
 
 @pytest.mark.asyncio
