@@ -104,8 +104,18 @@ async def test_failed_delivery_prompt_is_retried_next_tick(tmp_path: Path) -> No
 @pytest.mark.asyncio
 async def test_failed_expired_update_is_retried_next_tick(tmp_path: Path) -> None:
     bot_data = await _bot_data(tmp_path, _result(ShipmentStatus.EXPIRED))
+    outcomes: list[Exception | None] = [TimeoutError("telegram"), None]
+
+    async def _send_events_update(**kwargs: Any) -> None:
+        # Behave like TelegramNotifier: report delivered events through the callback.
+        outcome = outcomes.pop(0) if outcomes else None
+        if outcome is not None:
+            raise outcome
+        if kwargs.get("on_events_sent") is not None:
+            await kwargs["on_events_sent"](kwargs["new_events"])
+
     send = bot_data["notifier"].send_events_update
-    send.side_effect = [TimeoutError("telegram"), None]
+    send.side_effect = _send_events_update
     ctx = MagicMock()
     ctx.bot_data = bot_data
     repo = bot_data["parcel_repo"]

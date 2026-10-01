@@ -194,7 +194,6 @@ async def _flush_stalled_notifications(  # noqa: PLR0913
             unnotified = await parcel_repo.get_unnotified(parcel.tracking_number, user_id=user_id)
             if not unnotified:
                 continue
-            unnotified_ids = [row_id for row_id, _ev in unnotified]
             if parcel.status is ShipmentStatus.DELIVERED:
                 await notifier.send_delivery_confirmation(
                     chat_id=user_id,
@@ -202,7 +201,9 @@ async def _flush_stalled_notifications(  # noqa: PLR0913
                     parcel_name=parcel.name,
                     location=parcel.last_location,
                 )
+                await parcel_repo.mark_notified([row_id for row_id, _ev in unnotified])
             else:
+                # _notify marks each batch notified as its message goes out.
                 await _notify(
                     parcel=parcel,
                     user_id=user_id,
@@ -217,11 +218,10 @@ async def _flush_stalled_notifications(  # noqa: PLR0913
                         last_location=parcel.last_location,
                     ),
                     status_changed=False,
-                    new_events=[ev for _id, ev in unnotified],
+                    unnotified=unnotified,
                     geocoder=geocoder,
                     map_renderer=map_renderer,
                 )
-            await parcel_repo.mark_notified(unnotified_ids)
         except Exception:  # noqa: BLE001 — one bad send must not abort the sweep
             logger.warning(
                 "pending notification retry failed for %s (will retry next tick)",
