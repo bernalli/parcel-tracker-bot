@@ -12,7 +12,18 @@ scrapers (see ``trackers/bpost.py``) and adds the Italian carrier vocabulary.
 
 from __future__ import annotations
 
+import re
+
 from parcel_tracker.db.models import ShipmentStatus
+
+# A negated delivery ("Not delivered", "Undelivered", "could not be delivered",
+# "Non consegnato", "non è stato consegnato") contains the DELIVERED keywords as a
+# substring, so it is checked before the keyword table and wins over it.
+_NEGATED_DELIVERY = re.compile(
+    r"(?:\bun|\b(?:can)?not\s+(?:yet\s+)?(?:be(?:en)?\s+)?|n't\s+(?:be(?:en)?\s+)?"
+    r"|\bnon\s+(?:ancora\s+)?(?:(?:è|e)\s+stat[oa]\s+)?)"
+    r"(?:delivered|consegnat)"
+)
 
 # Checked top-to-bottom; first keyword hit wins. Order matters: terminal and
 # more specific states are listed before broader ones (e.g. DELIVERED before
@@ -94,6 +105,8 @@ def status_from_text(text: str | None) -> ShipmentStatus | None:
     low = text.strip().casefold()
     if not low:
         return None
+    if _NEGATED_DELIVERY.search(low):
+        return ShipmentStatus.UNDELIVERED
     for status, keywords in _STATUS_KEYWORDS:
         if any(keyword in low for keyword in keywords):
             return status
