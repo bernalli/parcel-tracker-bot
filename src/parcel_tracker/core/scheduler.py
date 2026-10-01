@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -50,6 +51,39 @@ def sort_by_priority(parcels: list[Parcel]) -> list[Parcel]:
 
 class _JobContext(Protocol):
     bot_data: dict[str, Any]
+
+
+class _KeyedLock:
+    """A lock plus the number of tasks holding or waiting on it."""
+
+    __slots__ = ("lock", "users")
+
+    def __init__(self) -> None:
+        self.lock = asyncio.Lock()
+        self.users = 0
+
+
+_CHECK_LOCKS: dict[tuple[int, str], _KeyedLock] = {}
+
+
+@asynccontextmanager
+async def _parcel_check_lock(user_id: int, tracking_number: str) -> AsyncIterator[bool]:
+    """Hold the per-(user, parcel) check lock; yields True if it had to wait.
+
+    Entries are dropped when the last holder or waiter leaves, so the registry only
+    ever contains parcels being checked right now.
+    """
+    key = (user_id, tracking_number)
+    entry = _CHECK_LOCKS.setdefault(key, _KeyedLock())
+    entry.users += 1
+    waited = entry.lock.locked()
+    try:
+        async with entry.lock:
+            yield waited
+    finally:
+        entry.users -= 1
+        if entry.users == 0:
+            _CHECK_LOCKS.pop(key, None)
 
 
 def _now_default() -> datetime:
@@ -394,7 +428,51 @@ async def _notify(  # noqa: PLR0913
     )
 
 
-async def _check_one(  # noqa: PLR0913, C901
+async def _check_one(  # noqa: PLR0913
+    *,
+    parcel: Parcel,
+    user_id: int,
+    parcel_repo: ParcelRepository,
+    detector: CourierDetector,
+    health: HealthManager,
+    notifier: TelegramNotifier,
+    rate_limiter: RateLimiter,
+    prefs: Any | None,
+    now: Callable[[], datetime],
+    geocoder: Any | None = None,
+    map_renderer: Any | None = None,
+    notify_events: bool = True,
+) -> str:
+    """Serialise checks of one (user, parcel) across every entrypoint.
+
+    The periodic poll, /checkall and the manual refresh all land here. Without the
+    lock two concurrent runs read the same stale status and the same unnotified
+    events, and the user gets the update (or the delivery prompt) twice. A run that
+    had to wait re-reads the parcel, so it compares against what the first run wrote.
+    """
+    async with _parcel_check_lock(user_id, parcel.tracking_number) as waited:
+        if waited:
+            fresh = await parcel_repo.get_for_user(parcel.tracking_number, user_id=user_id)
+            if fresh is None or not fresh.is_active:
+                return "no_change"
+            parcel = fresh
+        return await _check_one_unlocked(
+            parcel=parcel,
+            user_id=user_id,
+            parcel_repo=parcel_repo,
+            detector=detector,
+            health=health,
+            notifier=notifier,
+            rate_limiter=rate_limiter,
+            prefs=prefs,
+            now=now,
+            geocoder=geocoder,
+            map_renderer=map_renderer,
+            notify_events=notify_events,
+        )
+
+
+async def _check_one_unlocked(  # noqa: PLR0913, C901
     *,
     parcel: Parcel,
     user_id: int,
