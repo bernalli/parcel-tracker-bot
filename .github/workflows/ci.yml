@@ -52,3 +52,33 @@ jobs:
           files: coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  docker-build:
+    # Builds the runtime image on every PR without pushing it, so Dockerfile
+    # changes are verified before a release tag is cut.
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: parcel-tracker-bot:ci
+
+      - name: Smoke-test image
+        run: |
+          test "$(docker run --rm --entrypoint id parcel-tracker-bot:ci -u)" = "1000"
+          docker run --rm --entrypoint python parcel-tracker-bot:ci -c "import parcel_tracker.main"
+          stray="$(docker run --rm --entrypoint find parcel-tracker-bot:ci /app /usr/local/lib \
+            \( -name .git -o -name .env -o -name '*.db' -o -name tests -path '*parcel_tracker*' \) -print)"
+          if [ -n "$stray" ]; then echo "unexpected files in image: $stray"; exit 1; fi

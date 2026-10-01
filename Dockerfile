@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ─── Stage 1: builder ──────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -27,7 +27,7 @@ RUN set -eu; for po in src/parcel_tracker/i18n/locale/*/LC_MESSAGES/messages.po;
 RUN pip install --prefix=/install --no-warn-script-location .
 
 # ─── Stage 2: runtime ──────────────────────────────────────────────
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -39,7 +39,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --shell /bin/bash --uid 1000 botuser \
+    && useradd --create-home --shell /usr/sbin/nologin --uid 1000 botuser \
     && mkdir -p /app/data /app/plugins \
     && chown -R botuser:botuser /app
 
@@ -47,8 +47,9 @@ COPY --from=builder /install /usr/local
 
 USER botuser
 
-# Healthcheck: process alive + DB reachable
+# Healthcheck: DB exists and is readable. Opened read-only so a missing
+# database fails the check instead of being silently created empty.
 HEALTHCHECK --interval=5m --timeout=15s --start-period=30s --retries=3 \
-    CMD python -c "import sqlite3, os; sqlite3.connect(os.getenv('DATABASE_PATH','/app/data/bot.db')).execute('SELECT 1')" || exit 1
+    CMD python -c "import os, pathlib, sqlite3; sqlite3.connect(pathlib.Path(os.getenv('DATABASE_PATH','/app/data/bot.db')).absolute().as_uri() + '?mode=ro', uri=True).execute('SELECT 1')" || exit 1
 
 CMD ["parcel-tracker"]
