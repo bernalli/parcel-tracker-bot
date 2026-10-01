@@ -55,6 +55,7 @@ from parcel_tracker.bot.parcel_commands import (
     cmd_list,  # noqa: F401  (lazy lookup target)
     cmd_remove,  # noqa: F401  (lazy lookup target)
 )
+from parcel_tracker.bot.roles import is_admin
 from parcel_tracker.i18n import _
 
 if TYPE_CHECKING:
@@ -69,15 +70,10 @@ def _back_only_keyboard() -> InlineKeyboardMarkup:
 
 
 def _is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    config = context.bot_data.get("config")
     user = update.effective_user
-    if config is None or user is None:
+    if user is None:
         return False
-    admin_ids: frozenset[int] = getattr(config, "admin_user_ids", frozenset())
-    try:
-        return user.id in admin_ids
-    except TypeError:
-        return False
+    return is_admin(context.bot_data.get("config"), user.id)
 
 
 async def _edit(query: Any, text: str, reply_markup: InlineKeyboardMarkup | None) -> None:

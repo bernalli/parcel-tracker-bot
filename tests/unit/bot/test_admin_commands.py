@@ -58,7 +58,7 @@ async def test_cmd_clean_owner_only() -> None:
     context = _make_context(owner_id=1)
     await cmd_clean(update, context)
     text = update.message.reply_text.call_args.args[0]
-    assert "owner" in text.lower()
+    assert "admin" in text.lower()
 
 
 @pytest.mark.asyncio

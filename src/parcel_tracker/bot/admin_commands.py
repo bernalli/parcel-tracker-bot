@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from parcel_tracker.bot import messages
+from parcel_tracker.bot.roles import is_admin
 
 if TYPE_CHECKING:
     from telegram import Update
@@ -15,10 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def _is_owner(context: Any, user_id: int) -> bool:
-    config = context.bot_data.get("config")
-    if config is None:
-        return False
-    return bool(getattr(config, "owner_id", None) == user_id)
+    """Admin-only commands are open to every admin, the owner included."""
+    return is_admin(context.bot_data.get("config"), user_id)
 
 
 async def cmd_clean(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

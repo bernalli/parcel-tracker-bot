@@ -57,10 +57,13 @@ to specify a carrier.
 
 ### `HealthManager`
 
-Tracks per-tracker success/failure ratios, records consecutive failures, and quarantines a
-tracker for `1h / 6h / 24h` after `3 / 6 / 12` consecutive failures of a
-`(tracker, tracking_id)` pair; a tracker-wide entry, when present, blocks every code. The
-scheduler checks `is_quarantined()` before each call and skips quarantined trackers.
+Tracks health at two levels. Per shipment, a `(tracker, tracking_id)` pair is quarantined
+for `1h / 6h / 24h` after `3 / 6 / 12` consecutive failures. Per tracker, every shipment's
+result also feeds an aggregate `(tracker, "")` circuit that trips after `12 / 24 / 48`
+consecutive failures across shipments (a gap of more than 30 minutes since the last failure
+starts the count again) and then blocks every code. `/health` and the
+`parceltracker_quarantine_active` gauge read the aggregate. The scheduler checks
+`is_quarantined()` before each call and skips quarantined trackers.
 
 ### `Scheduler`
 

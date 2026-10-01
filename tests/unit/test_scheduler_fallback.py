@@ -68,6 +68,7 @@ def _make_context(
         return tracker_name in quarantined_names
 
     health.is_quarantined = AsyncMock(side_effect=_is_quarantined)
+    health.is_tracker_quarantined = AsyncMock(return_value=False)
     health.record_success = AsyncMock()
     health.record_failure = AsyncMock()
 
