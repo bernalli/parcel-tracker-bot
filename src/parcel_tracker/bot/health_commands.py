@@ -9,6 +9,8 @@ from datetime import UTC, datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from parcel_tracker.i18n import _
+
 logger = logging.getLogger(__name__)
 
 _GREEN = "🟢"
@@ -38,11 +40,15 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     registry = context.bot_data["registry"]
     health_repo = context.bot_data["health_repo"]
 
-    lines = ["📊 <b>Tracker Health</b> (last 24h aggregate)", ""]
+    lines = [_("📊 <b>Tracker Health</b> (last 24h aggregate)"), ""]
     for tracker in registry.iter_all():
         state = await health_repo.get_state(tracker.name, "")
         if state is None or state.total_checks == 0:
-            lines.append(f"{_GREEN} <code>{tracker.name}</code> — no data yet")
+            lines.append(
+                _("{emoji} <code>{name}</code> — no data yet").format(
+                    emoji=_GREEN, name=tracker.name
+                )
+            )
             continue
         success_rate = (state.total_checks - state.total_failures) / state.total_checks
         emoji = compute_color_emoji(
@@ -52,14 +58,19 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         quarantine_note = ""
         if state.quarantine_until and state.quarantine_until > datetime.now(UTC):
             until_short = state.quarantine_until.strftime("%H:%M UTC")
-            quarantine_note = f" — quarantined until {until_short}"
+            quarantine_note = _(" — quarantined until {until}").format(until=until_short)
         lines.append(
-            f"{emoji} <code>{tracker.name}</code> "
-            f"{pct}% — {state.total_checks} checks{quarantine_note}"
+            _("{emoji} <code>{name}</code> {pct}% — {checks} checks{note}").format(
+                emoji=emoji,
+                name=tracker.name,
+                pct=pct,
+                checks=state.total_checks,
+                note=quarantine_note,
+            )
         )
 
     lines.append("")
-    lines.append("Use /health &lt;name&gt; for details.")
+    lines.append(_("Use /health &lt;name&gt; for details."))
     text = "\n".join(lines)
     await reply_to.reply_text(text, parse_mode="HTML")
 
@@ -69,7 +80,7 @@ async def cmd_health_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if update.message is None:
         return
     if not context.args:
-        await update.message.reply_text("Usage: /health <tracker_name>")
+        await update.message.reply_text(_("Usage: /health <tracker_name>"))
         return
     name = context.args[0].lower()
     registry = context.bot_data["registry"]
@@ -78,14 +89,16 @@ async def cmd_health_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     valid = {t.name for t in registry.iter_all()}
     if name not in valid:
         await update.message.reply_text(
-            f"❌ Unknown tracker '{name}'. Use /health to see the list."
+            _("❌ Unknown tracker '{name}'. Use /health to see the list.").format(name=name)
         )
         return
 
     state = await health_repo.get_state(name, "")
     if state is None or state.total_checks == 0:
         await update.message.reply_text(
-            f"📊 <b>{html.escape(name)}</b>\n\nNo data yet — tracker registered but never called.",
+            _("📊 <b>{name}</b>\n\nNo data yet — tracker registered but never called.").format(
+                name=html.escape(name)
+            ),
             parse_mode="HTML",
         )
         return
@@ -97,15 +110,25 @@ async def cmd_health_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     last_failure = state.last_failure_at.isoformat(sep=" ") if state.last_failure_at else "—"
     quarantine = state.quarantine_until.isoformat(sep=" ") if state.quarantine_until else "—"
 
-    text = (
-        f"📊 <b>{html.escape(name)}</b> health detail\n\n"
-        f"Status: {emoji} {pct}% success rate\n"
-        f"Last success: <code>{last_success}</code>\n"
-        f"Last failure: <code>{last_failure}</code>\n"
-        f"Consecutive failures: {state.consecutive_failures}\n"
-        f"Quarantine until: <code>{quarantine}</code>\n"
-        f"Total checks: {state.total_checks}\n"
-        f"Total failures: {state.total_failures}"
+    text = _(
+        "📊 <b>{name}</b> health detail\n\n"
+        "Status: {emoji} {pct}% success rate\n"
+        "Last success: <code>{last_success}</code>\n"
+        "Last failure: <code>{last_failure}</code>\n"
+        "Consecutive failures: {consecutive}\n"
+        "Quarantine until: <code>{quarantine}</code>\n"
+        "Total checks: {checks}\n"
+        "Total failures: {failures}"
+    ).format(
+        name=html.escape(name),
+        emoji=emoji,
+        pct=pct,
+        last_success=last_success,
+        last_failure=last_failure,
+        consecutive=state.consecutive_failures,
+        quarantine=quarantine,
+        checks=state.total_checks,
+        failures=state.total_failures,
     )
     await update.message.reply_text(text, parse_mode="HTML")
 
@@ -118,24 +141,25 @@ async def cmd_health_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     user_id = update.effective_user.id if update.effective_user else 0
     admin_ids = cfg.admin_user_ids
     if user_id not in admin_ids:
-        await update.message.reply_text("❌ This command is admin-only.")
+        await update.message.reply_text(_("❌ This command is admin-only."))
         return
 
     if not context.args:
-        await update.message.reply_text("Usage: /health reset <tracker_name>")
+        await update.message.reply_text(_("Usage: /health reset <tracker_name>"))
         return
     name = context.args[0].lower()
     registry = context.bot_data["registry"]
     valid = {t.name for t in registry.iter_all()}
     if name not in valid:
         await update.message.reply_text(
-            f"❌ Unknown tracker '{name}'. Use /health to see the list."
+            _("❌ Unknown tracker '{name}'. Use /health to see the list.").format(name=name)
         )
         return
     health_repo = context.bot_data["health_repo"]
     await health_repo.reset_tracker(name)
     await update.message.reply_text(
-        f"✅ Reset done for tracker '<code>{html.escape(name)}</code>'.\n"
-        f"Cleared counters and quarantine.",
+        _(
+            "✅ Reset done for tracker '<code>{name}</code>'.\nCleared counters and quarantine."
+        ).format(name=html.escape(name)),
         parse_mode="HTML",
     )
