@@ -27,6 +27,9 @@ def _looks_like_tracking(candidate: str) -> bool:
 
 
 _NAME_MAX_LEN = 64
+# Longest real-world codes are ~35 chars; 40 also keeps "parcel:<action>:<code>"
+# inside Telegram's 64-byte callback_data limit.
+_CODE_MAX_LEN = 40
 
 
 def _parcel_line(parcel: Parcel) -> str:
@@ -66,6 +69,9 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip().upper()
+    if len(tracking_number) > _CODE_MAX_LEN:
+        await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
+        return
     name = " ".join(args[1:]).strip()[:_NAME_MAX_LEN] or None
 
     limit = await _active_limit_reached(context, user.id)
@@ -202,7 +208,7 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await reply_to.reply_text(messages.rename_usage(), parse_mode="HTML")
         return
     tracking_number = args[0].strip()
-    new_name = " ".join(args[1:]).strip()
+    new_name = " ".join(args[1:]).strip()[:_NAME_MAX_LEN]
     repo = context.bot_data["parcel_repo"]
     ok = await repo.rename(tracking_number, user_id=user.id, name=new_name)
     if not ok:
@@ -296,9 +302,10 @@ async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         return await _consume_pending_name(pending, text, reply_to, context, user.id)
     repo = context.bot_data["parcel_repo"]
     if action == "rename":
-        ok = await repo.rename(pending["tn"], user_id=user.id, name=text)
+        name = text.strip()[:_NAME_MAX_LEN]
+        ok = await repo.rename(pending["tn"], user_id=user.id, name=name)
         msg = (
-            messages.parcel_renamed(pending["tn"], text)
+            messages.parcel_renamed(pending["tn"], name)
             if ok
             else messages.parcel_not_found(pending["tn"])
         )
@@ -350,7 +357,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if detector is not None:
         specific_match = any(t.priority > 1 for t in detector.detect(candidate))
 
-    if not (specific_match or _looks_like_tracking(candidate)):
+    if len(candidate) > _CODE_MAX_LEN or not (specific_match or _looks_like_tracking(candidate)):
         await update.message.reply_text(messages.to_add_use(candidate), parse_mode="HTML")
         return
 

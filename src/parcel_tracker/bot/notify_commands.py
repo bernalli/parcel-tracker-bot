@@ -118,6 +118,10 @@ async def on_notify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     status_value = query.data.split(":", 1)[1]
     if query.from_user is None:
         return
+    if status_value not in {s.value for s in _NOTIFIABLE_STATUS}:
+        # callback_data is client-controlled: never persist an unknown status.
+        await query.answer()
+        return
     user_id = query.from_user.id
     repo = context.bot_data["notification_repo"]
 

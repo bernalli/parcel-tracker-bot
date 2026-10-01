@@ -96,7 +96,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     by_status = " · ".join(by_status_parts)
 
     carrier_counts: Counter[str] = Counter((p.carrier_name or "?") for p in active)
-    by_carrier = " · ".join(f"{c} {n}" for c, n in carrier_counts.most_common(6))
+    by_carrier = " · ".join(f"{messages.esc(c)} {n}" for c, n in carrier_counts.most_common(6))
 
     events = await bd["parcel_repo"].count_events_for_user(user_id=user.id)
     last_check = ""
