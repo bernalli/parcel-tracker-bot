@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /usr/sbin/nologin --uid 1000 botuser \
     && mkdir -p /app/data /app/plugins \
-    && chown -R botuser:botuser /app
+    && chown botuser:botuser /app/data
 
 COPY --from=builder /install /usr/local
 
