@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -50,6 +51,39 @@ def sort_by_priority(parcels: list[Parcel]) -> list[Parcel]:
 
 class _JobContext(Protocol):
     bot_data: dict[str, Any]
+
+
+class _KeyedLock:
+    """A lock plus the number of tasks holding or waiting on it."""
+
+    __slots__ = ("lock", "users")
+
+    def __init__(self) -> None:
+        self.lock = asyncio.Lock()
+        self.users = 0
+
+
+_CHECK_LOCKS: dict[tuple[int, str], _KeyedLock] = {}
+
+
+@asynccontextmanager
+async def _parcel_check_lock(user_id: int, tracking_number: str) -> AsyncIterator[bool]:
+    """Hold the per-(user, parcel) check lock; yields True if it had to wait.
+
+    Entries are dropped when the last holder or waiter leaves, so the registry only
+    ever contains parcels being checked right now.
+    """
+    key = (user_id, tracking_number)
+    entry = _CHECK_LOCKS.setdefault(key, _KeyedLock())
+    entry.users += 1
+    waited = entry.lock.locked()
+    try:
+        async with entry.lock:
+            yield waited
+    finally:
+        entry.users -= 1
+        if entry.users == 0:
+            _CHECK_LOCKS.pop(key, None)
 
 
 def _now_default() -> datetime:
@@ -358,19 +392,26 @@ async def _notify(  # noqa: PLR0913
     prefs: Any | None,
     final_result: TrackingResult,
     status_changed: bool,
-    new_events: list[TrackingEvent],
+    unnotified: list[tuple[int, TrackingEvent]],
     geocoder: Any | None = None,
     map_renderer: Any | None = None,
 ) -> None:
-    """Render a per-event update message, gated by the user's status preference.
+    """Render a per-event update message, gated by the user's status preference,
+    and mark the events notified as each message goes out.
 
     No time cooldown: event dedup already prevents repeated notifications for the
     same events, so an explicit cooldown would only suppress legitimate updates.
     """
+    event_ids = {id(ev): row_id for row_id, ev in unnotified}
+    new_events = [ev for _id, ev in unnotified]
     enabled = prefs is None or await prefs.is_status_enabled(user_id, final_result.status)
     if not enabled:
+        await parcel_repo.mark_notified(list(event_ids.values()))
         return
     from parcel_tracker.maps.route import order_events  # noqa: PLC0415
+
+    async def _mark_sent(sent: list[TrackingEvent]) -> None:
+        await parcel_repo.mark_notified([event_ids[id(ev)] for ev in sent])
 
     ordered = order_events(new_events)
     history = await parcel_repo.get_history(parcel.tracking_number, limit=50, user_id=user_id)
@@ -391,6 +432,7 @@ async def _notify(  # noqa: PLR0913
         new_events=ordered,
         location=final_result.last_location,
         map_png=map_png,
+        on_events_sent=_mark_sent,
     )
 
 
@@ -455,7 +497,51 @@ async def _fetch_first(
     return final_result, attempted
 
 
-async def _check_one(  # noqa: PLR0913, C901
+async def _check_one(  # noqa: PLR0913
+    *,
+    parcel: Parcel,
+    user_id: int,
+    parcel_repo: ParcelRepository,
+    detector: CourierDetector,
+    health: HealthManager,
+    notifier: TelegramNotifier,
+    rate_limiter: RateLimiter,
+    prefs: Any | None,
+    now: Callable[[], datetime],
+    geocoder: Any | None = None,
+    map_renderer: Any | None = None,
+    notify_events: bool = True,
+) -> str:
+    """Serialise checks of one (user, parcel) across every entrypoint.
+
+    The periodic poll, /checkall and the manual refresh all land here. Without the
+    lock two concurrent runs read the same stale status and the same unnotified
+    events, and the user gets the update (or the delivery prompt) twice. A run that
+    had to wait re-reads the parcel, so it compares against what the first run wrote.
+    """
+    async with _parcel_check_lock(user_id, parcel.tracking_number) as waited:
+        if waited:
+            fresh = await parcel_repo.get_for_user(parcel.tracking_number, user_id=user_id)
+            if fresh is None or not fresh.is_active:
+                return "no_change"
+            parcel = fresh
+        return await _check_one_unlocked(
+            parcel=parcel,
+            user_id=user_id,
+            parcel_repo=parcel_repo,
+            detector=detector,
+            health=health,
+            notifier=notifier,
+            rate_limiter=rate_limiter,
+            prefs=prefs,
+            now=now,
+            geocoder=geocoder,
+            map_renderer=map_renderer,
+            notify_events=notify_events,
+        )
+
+
+async def _check_one_unlocked(  # noqa: PLR0913, C901
     *,
     parcel: Parcel,
     user_id: int,
@@ -544,8 +630,9 @@ async def _check_one(  # noqa: PLR0913, C901
     if not (unnotified or status_changed):
         return "no_change"
     if notify_events:
-        # Marked only after _notify returns cleanly (sent, or suppressed by prefs);
-        # a raised exception skips the mark so the event is retried next cycle.
+        # _notify marks each batch of events as its message goes out (or all of them
+        # when prefs suppress the update); events of a failed send stay unnotified
+        # and are retried next cycle.
         await _notify(
             parcel=parcel,
             user_id=user_id,
@@ -554,11 +641,12 @@ async def _check_one(  # noqa: PLR0913, C901
             prefs=prefs,
             final_result=final_result,
             status_changed=status_changed,
-            new_events=[ev for _id, ev in unnotified],
+            unnotified=unnotified,
             geocoder=geocoder,
             map_renderer=map_renderer,
         )
-    await parcel_repo.mark_notified(unnotified_ids)
+    else:
+        await parcel_repo.mark_notified(unnotified_ids)
     return "updated"
 
 
