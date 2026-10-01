@@ -73,12 +73,13 @@ Drop the file as `plugins/acme.py` (or `plugins/<region>/acme.py`). Restart the 
   17track `1`.
 - **`tracking_id_patterns`** are anchored regexes (`^…$`). Be precise — over-broad regexes
   steal IDs from the right tracker.
-- **`fetch`** is `async`. Use `self.http_client()` so requests share UA rotation, timeout, and
-  the retry decorator in `core/retry_policy.py`.
-- **Retry**: decorate `fetch` with `@apply_retry(profile=…)` if you want an explicit retry
-  policy. The default is exponential backoff 2s→16s, max 4 attempts.
-- **Health**: do not call `HealthManager` from inside `fetch`; the scheduler already wraps
-  every call with `@health_aware`.
+- **`fetch`** is `async`. Use `parcel_tracker.core.http_client.HttpClient` so requests share
+  UA rotation and timeouts. It does not retry on its own.
+- **Retry**: nothing retries a failed `fetch` within a tick; the scheduler simply tries the
+  next matching tracker and checks again on the next tick. If you want in-call retries,
+  decorate `fetch` with `@apply_retry(RetryProfile.…)` from `core/retry_policy.py`.
+- **Health**: do not call `HealthManager` from inside `fetch`; the scheduler records
+  success/failure and applies quarantine around every call.
 
 ## Tier D — delegate to 17track
 
