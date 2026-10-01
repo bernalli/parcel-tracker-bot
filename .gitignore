@@ -2,12 +2,26 @@
 .env
 .env.*
 !.env.example
+.envrc
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.netrc
+.pypirc
 
 # Database
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite3
+*.sql
+*.dump
 data/
 !src/parcel_tracker/maps/data/
 !src/parcel_tracker/maps/data/**
@@ -18,6 +32,7 @@ plugins/*
 
 # Docker overrides
 docker-compose.override.yml
+docker-compose.override.yaml
 
 # Python
 __pycache__/
