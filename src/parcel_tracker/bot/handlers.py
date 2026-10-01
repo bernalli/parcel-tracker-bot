@@ -12,6 +12,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -27,6 +28,7 @@ from parcel_tracker.bot.auth_commands import (
     cmd_users,
     cmd_whoami,
 )
+from parcel_tracker.bot.auth_gate import AUTH_GATE_GROUP, authorization_gate
 from parcel_tracker.bot.callbacks import handle_callback
 from parcel_tracker.bot.lang_command import cmd_lang
 from parcel_tracker.bot.navigation_commands import (
@@ -74,6 +76,10 @@ def register_handlers(
     app.bot_data["parcel_repo"] = parcel_repo
     app.bot_data["user_repo"] = user_repo
     app.bot_data["registry"] = registry
+
+    # Authorization gate: runs before every other handler group and stops updates
+    # from users who are not owner/admin/allow-listed (see bot/auth_gate.py).
+    app.add_handler(TypeHandler(Update, authorization_gate), group=AUTH_GATE_GROUP)
 
     # Auth & navigation
     app.add_handler(CommandHandler("whoami", cmd_whoami))

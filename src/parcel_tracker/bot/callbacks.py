@@ -351,7 +351,8 @@ async def _handle_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE, nam
 # --- parcel:<action>:<tn> handlers -----------------------------------------
 
 
-_REFRESH_IN_FLIGHT: set[str] = set()
+# Keyed by (user, code): two users tracking the same code must not block each other.
+_REFRESH_IN_FLIGHT: set[tuple[int, str]] = set()
 
 
 async def _refresh_parcel(
@@ -369,16 +370,17 @@ async def _refresh_parcel(
     user = update.effective_user
     if query is None or user is None:
         return
-    if tracking_number in _REFRESH_IN_FLIGHT:
+    key = (user.id, tracking_number)
+    if key in _REFRESH_IN_FLIGHT:
         return  # the message already shows "checking…"
-    _REFRESH_IN_FLIGHT.add(tracking_number)
+    _REFRESH_IN_FLIGHT.add(key)
     try:
         await _edit(query, messages.refresh_in_progress(), None)
         outcome = await _check_parcel_now(
             context.bot_data, user_id=user.id, tracking_number=tracking_number
         )
     finally:
-        _REFRESH_IN_FLIGHT.discard(tracking_number)
+        _REFRESH_IN_FLIGHT.discard(key)
     repo = context.bot_data["parcel_repo"]
     parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if outcome is None or parcel is None:

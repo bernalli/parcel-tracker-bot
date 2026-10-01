@@ -483,19 +483,26 @@ async def _notify(  # noqa: PLR0913
     prefs: Any | None,
     final_result: TrackingResult,
     status_changed: bool,
-    new_events: list[TrackingEvent],
+    unnotified: list[tuple[int, TrackingEvent]],
     geocoder: Any | None = None,
     map_renderer: Any | None = None,
 ) -> None:
-    """Render a per-event update message, gated by the user's status preference.
+    """Render a per-event update message, gated by the user's status preference,
+    and mark the events notified as each message goes out.
 
     No time cooldown: event dedup already prevents repeated notifications for the
     same events, so an explicit cooldown would only suppress legitimate updates.
     """
+    event_ids = {id(ev): row_id for row_id, ev in unnotified}
+    new_events = [ev for _id, ev in unnotified]
     enabled = prefs is None or await prefs.is_status_enabled(user_id, final_result.status)
     if not enabled:
+        await parcel_repo.mark_notified(list(event_ids.values()))
         return
     from parcel_tracker.maps.route import order_events  # noqa: PLC0415
+
+    async def _mark_sent(sent: list[TrackingEvent]) -> None:
+        await parcel_repo.mark_notified([event_ids[id(ev)] for ev in sent])
 
     ordered = order_events(new_events)
     history = await parcel_repo.get_history(parcel.tracking_number, limit=50, user_id=user_id)
@@ -516,6 +523,7 @@ async def _notify(  # noqa: PLR0913
         new_events=ordered,
         location=final_result.last_location,
         map_png=map_png,
+        on_events_sent=_mark_sent,
     )
 
 
@@ -647,8 +655,9 @@ async def _check_one(  # noqa: PLR0913, C901
     if not (unnotified or status_changed):
         return "no_change"
     if notify_events:
-        # Marked only after _notify returns cleanly (sent, or suppressed by prefs);
-        # a raised exception skips the mark so the event is retried next cycle.
+        # _notify marks each batch of events as its message goes out (or all of them
+        # when prefs suppress the update); events of a failed send stay unnotified
+        # and are retried next cycle.
         await _notify(
             parcel=parcel,
             user_id=user_id,
@@ -657,11 +666,12 @@ async def _check_one(  # noqa: PLR0913, C901
             prefs=prefs,
             final_result=final_result,
             status_changed=status_changed,
-            new_events=[ev for _id, ev in unnotified],
+            unnotified=unnotified,
             geocoder=geocoder,
             map_renderer=map_renderer,
         )
-    await parcel_repo.mark_notified(unnotified_ids)
+    else:
+        await parcel_repo.mark_notified(unnotified_ids)
     return "updated"
 
 
