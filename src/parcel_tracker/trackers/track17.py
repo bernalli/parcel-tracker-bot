@@ -141,8 +141,9 @@ class Track17Tracker(AbstractTracker):
             for evt in provider.get("events") or []:
                 events.append(
                     TrackingEvent(
-                        time=evt.get("time_iso", ""),
-                        description=evt.get("description", ""),
+                        # 17track sends explicit nulls; the event fields are typed str.
+                        time=evt.get("time_iso") or "",
+                        description=evt.get("description") or "",
                         location=_event_location(evt),
                         carrier=provider_name,
                     )
