@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: parcel-tracker-bot 0.3.0\n"
 "Report-Msgid-Bugs-To: https://github.com/bernalli/parcel-tracker-"
 "bot/issues\n"
-"POT-Creation-Date: 2026-10-01 20:00+0000\n"
+"POT-Creation-Date: 2026-10-01 20:07+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -107,7 +107,7 @@ msgstr ""
 msgid "Usage: /health reset <tracker_name>"
 msgstr ""
 
-#: src/parcel_tracker/bot/health_commands.py:161
+#: src/parcel_tracker/bot/health_commands.py:162
 #, python-brace-format
 msgid ""
 "✅ Reset done for tracker '<code>{name}</code>'.\n"
@@ -600,11 +600,11 @@ msgstr ""
 msgid "✏️ Tip: give this parcel a name from the menu (Rename)."
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:397
+#: src/parcel_tracker/bot/messages.py:396
 msgid "Status"
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:410
+#: src/parcel_tracker/bot/messages.py:397
 msgid "Last check"
 msgstr ""
 
@@ -628,22 +628,22 @@ msgstr ""
 msgid "❌ Unknown status. Valid: {valid}."
 msgstr ""
 
-#: src/parcel_tracker/bot/notify_commands.py:99
+#: src/parcel_tracker/bot/notify_commands.py:100
 #, python-brace-format
 msgid "🔔 <code>{status}</code> enabled."
 msgstr ""
 
-#: src/parcel_tracker/bot/notify_commands.py:100
+#: src/parcel_tracker/bot/notify_commands.py:102
 #, python-brace-format
 msgid "🔔 <code>{status}</code> disabled."
 msgstr ""
 
-#: src/parcel_tracker/bot/notify_commands.py:129
+#: src/parcel_tracker/bot/notify_commands.py:131
 #, python-brace-format
 msgid "{status} → on"
 msgstr ""
 
-#: src/parcel_tracker/bot/notify_commands.py:129
+#: src/parcel_tracker/bot/notify_commands.py:131
 #, python-brace-format
 msgid "{status} → off"
 msgstr ""

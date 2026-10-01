@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: parcel-tracker-bot 0.1.0\n"
 "Report-Msgid-Bugs-To: https://github.com/bernalli/parcel-tracker-"
 "bot/issues\n"
-"POT-Creation-Date: 2026-10-01 20:00+0000\n"
+"POT-Creation-Date: 2026-10-01 20:07+0000\n"
 "PO-Revision-Date: 2026-05-09 23:31+0200\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: it\n"
@@ -120,7 +120,7 @@ msgstr "❌ Questo comando è riservato agli amministratori."
 msgid "Usage: /health reset <tracker_name>"
 msgstr "Uso: /health reset <nome_tracker>"
 
-#: src/parcel_tracker/bot/health_commands.py:161
+#: src/parcel_tracker/bot/health_commands.py:162
 #, python-brace-format
 msgid ""
 "✅ Reset done for tracker '<code>{name}</code>'.\n"
@@ -679,11 +679,11 @@ msgstr "⚠️ Corriere non raggiungibile. Mostro gli ultimi dati noti."
 msgid "✏️ Tip: give this parcel a name from the menu (Rename)."
 msgstr "✏️ Suggerimento: dai un nome a questo pacco dal menu (Rinomina)."
 
-#: src/parcel_tracker/bot/messages.py:397
+#: src/parcel_tracker/bot/messages.py:396
 msgid "Status"
 msgstr "Stato"
 
-#: src/parcel_tracker/bot/messages.py:410
+#: src/parcel_tracker/bot/messages.py:397
 msgid "Last check"
 msgstr "Ultimo controllo"
 
@@ -710,22 +710,22 @@ msgstr "🔇 Tutte le notifiche disattivate."
 msgid "❌ Unknown status. Valid: {valid}."
 msgstr "❌ Stato sconosciuto. Validi: {valid}."
 
-#: src/parcel_tracker/bot/notify_commands.py:99
+#: src/parcel_tracker/bot/notify_commands.py:100
 #, python-brace-format
 msgid "🔔 <code>{status}</code> enabled."
 msgstr "🔔 <code>{status}</code> attivato."
 
-#: src/parcel_tracker/bot/notify_commands.py:100
+#: src/parcel_tracker/bot/notify_commands.py:102
 #, python-brace-format
 msgid "🔔 <code>{status}</code> disabled."
 msgstr "🔔 <code>{status}</code> disattivato."
 
-#: src/parcel_tracker/bot/notify_commands.py:129
+#: src/parcel_tracker/bot/notify_commands.py:131
 #, python-brace-format
 msgid "{status} → on"
 msgstr "{status} → attivo"
 
-#: src/parcel_tracker/bot/notify_commands.py:129
+#: src/parcel_tracker/bot/notify_commands.py:131
 #, python-brace-format
 msgid "{status} → off"
 msgstr "{status} → disattivo"
