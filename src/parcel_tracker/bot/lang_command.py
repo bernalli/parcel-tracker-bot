@@ -9,20 +9,16 @@ from telegram.ext import ContextTypes
 
 from parcel_tracker.bot import messages
 from parcel_tracker.db.repository import UserRepository
-from parcel_tracker.i18n import (
-    Translator,
-    available_locales,
-    set_default_translator,
-)
+from parcel_tracker.i18n import activate, available_locales, translator_for
 
 LOCALE_ROOT = Path(__file__).resolve().parents[1] / "i18n" / "locale"
 
 
 async def set_user_language(user_repo: UserRepository, user_id: int, locale: str) -> None:
-    """Persist the user's locale and switch the active translator (shared by the
-    /lang command and the inline language picker)."""
+    """Persist the user's locale and use it for the rest of this update (shared by
+    the /lang command and the inline language picker). Other users are unaffected."""
     await user_repo.set_language(user_id, locale)
-    set_default_translator(Translator(locale=locale, locale_dir=LOCALE_ROOT))
+    activate(translator_for(locale, LOCALE_ROOT))
 
 
 async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
