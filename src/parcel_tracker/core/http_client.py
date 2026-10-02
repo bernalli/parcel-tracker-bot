@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import random
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -31,6 +32,41 @@ class ResponseTooLargeError(httpx.RequestError):
     """Raised when a response body exceeds ``max_response_bytes``."""
 
 
+class UnsafeRedirectError(httpx.RequestError):
+    """Raised when a carrier redirects to a non-public host or downgrades to plain HTTP."""
+
+
+def _redirect_problem(source: httpx.URL, target: httpx.URL) -> str | None:
+    """Return why following ``source`` -> ``target`` is unsafe, or ``None`` if it is fine."""
+    if target.scheme not in ("http", "https"):
+        return f"scheme {target.scheme!r}"
+    if source.scheme == "https" and target.scheme != "https":
+        return "HTTPS to HTTP downgrade"
+    host = target.host.lower().rstrip(".")
+    if host == "localhost" or host.endswith(".localhost"):
+        return "loopback host"
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return None
+    if not ip.is_global:
+        return "non-public address"
+    return None
+
+
+async def _check_redirect(response: httpx.Response) -> None:
+    """Response hook: refuse redirects that would reach internal services."""
+    if not response.has_redirect_location:
+        return
+    target = response.request.url.join(response.headers["Location"])
+    problem = _redirect_problem(response.request.url, target)
+    if problem:
+        raise UnsafeRedirectError(
+            f"refusing redirect to {target.scheme}://{target.host} ({problem})",
+            request=response.request,
+        )
+
+
 def default_user_agents() -> list[str]:
     """Return the default User-Agent rotation pool."""
     return list(_DEFAULT_USER_AGENTS)
@@ -42,6 +78,7 @@ class HttpClient:
     - UA rotation per-request
     - Configurable timeout
     - Default headers for common scrape scenarios
+    - Redirects followed only to public hosts, never from HTTPS to HTTP
     - Retry with jittered back-off on network transients, 408/429/5xx and
       ``Retry-After`` (``retry_profile=None`` disables it)
 
@@ -63,6 +100,7 @@ class HttpClient:
             timeout=httpx.Timeout(timeout, connect=10.0),
             limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
             follow_redirects=True,
+            event_hooks={"response": [_check_redirect]},
         )
 
     def _pick_ua(self) -> str:
