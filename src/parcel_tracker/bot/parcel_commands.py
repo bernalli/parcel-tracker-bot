@@ -229,6 +229,12 @@ async def cmd_checkall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     reply_to = update.effective_message
     if user is None or reply_to is None:
         return
+    from parcel_tracker.bot import throttle  # noqa: PLC0415
+
+    wait = throttle.CHECKALL.wait_seconds(user.id)
+    if wait:
+        await reply_to.reply_text(messages.try_again_in(wait), parse_mode="HTML")
+        return
     await reply_to.reply_text(messages.checkall_started(), parse_mode="HTML")
     try:
         n = await _fn(context.bot_data, user_id=user.id)

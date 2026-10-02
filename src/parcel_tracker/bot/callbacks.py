@@ -369,6 +369,22 @@ async def _refresh_parcel(
     key = (user.id, tracking_number)
     if key in _REFRESH_IN_FLIGHT:
         return  # the message already shows "checking…"
+    from parcel_tracker.bot import throttle  # noqa: PLC0415
+
+    wait = throttle.REFRESH.wait_seconds(key)
+    if wait:
+        parcel = await context.bot_data["parcel_repo"].get_for_user(
+            tracking_number, user_id=user.id
+        )
+        if parcel is None:
+            await _edit(query, messages.parcel_not_found(tracking_number), _back_only_keyboard())
+            return
+        await _edit(
+            query,
+            messages.try_again_in(wait) + "\n\n" + messages.parcel_detail_card(parcel),
+            parcel_actions_keyboard(tracking_number),
+        )
+        return
     _REFRESH_IN_FLIGHT.add(key)
     try:
         await _edit(query, messages.refresh_in_progress(), None)

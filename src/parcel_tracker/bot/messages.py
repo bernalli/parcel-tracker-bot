@@ -36,6 +36,10 @@ def help_text() -> str:
     )
 
 
+def try_again_in(seconds: int) -> str:
+    return _("⏳ Please wait {seconds}s before trying again.").format(seconds=int(seconds))
+
+
 def unauthorized() -> str:
     return _("⛔ You are not authorised to use this bot.")
 
