@@ -22,7 +22,7 @@ from parcel_tracker.bot import messages
 logger = logging.getLogger(__name__)
 
 # Group for the gate's TypeHandler: lower groups run first in python-telegram-bot.
-AUTH_GATE_GROUP = -1
+AUTH_GATE_GROUP = -2
 
 _PUBLIC_COMMANDS = frozenset({"whoami"})
 
