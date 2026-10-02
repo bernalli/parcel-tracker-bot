@@ -78,6 +78,12 @@ SCHEMA_STATEMENTS: list[str] = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS user_language (
+        user_id INTEGER PRIMARY KEY,
+        language TEXT NOT NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS notification_cooldown_log (
         user_id INTEGER NOT NULL,
         tracking_number TEXT NOT NULL,
@@ -102,7 +108,21 @@ async def init_schema(db_path: str) -> None:
         await _add_parcels_v2_columns(conn)
         await _add_tracking_history_notified(conn)
         await _migrate_to_per_user_uniqueness(conn)
+        await _copy_language_choices(conn)
         await conn.commit()
+
+
+async def _copy_language_choices(conn: aiosqlite.Connection) -> None:
+    """Idempotent: carry choices stored in allowed_users.language (pre user_language).
+
+    'en' is that column's default, indistinguishable from "never chose", so it is
+    not copied: those users follow DEFAULT_LANGUAGE.
+    """
+    await conn.execute(
+        "INSERT OR IGNORE INTO user_language (user_id, language) "
+        "SELECT user_id, language FROM allowed_users "
+        "WHERE language IS NOT NULL AND language != 'en'"
+    )
 
 
 async def _add_parcels_v2_columns(conn: aiosqlite.Connection) -> None:

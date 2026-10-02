@@ -293,7 +293,12 @@ def main() -> None:
         Application.builder().token(config.telegram_bot_token).post_init(_post_init).build()
     )
 
-    notifier = TelegramNotifier(bot=application.bot)
+    user_repo = bot_data["user_repo"]
+
+    async def _language_for(user_id: int) -> str:
+        return str(await user_repo.get_language(user_id, default=config.default_language))
+
+    notifier = TelegramNotifier(bot=application.bot, language_for=_language_for)
     bot_data["notifier"] = notifier
     application.bot_data.update(bot_data)
 
