@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import functools
 import html
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 
 from parcel_tracker.bot import messages
 from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
+from parcel_tracker.i18n import LOCALE_DIR, available_locales, translator_for, using
 from parcel_tracker.observability.metrics import (
     TELEGRAM_ERRORS_TOTAL,
     TELEGRAM_SENT_TOTAL,
@@ -137,10 +139,41 @@ def _updates_label() -> str:
     return _("Updates:")
 
 
-class TelegramNotifier:
-    def __init__(self, *, bot: _BotLike) -> None:
-        self._bot = bot
+LanguageResolver = Callable[[int], Awaitable[str]]
+_F = TypeVar("_F", bound=Callable[..., Awaitable[None]])
 
+
+def _in_recipient_language(method: _F) -> _F:
+    """Render the whole message in the language of ``chat_id``'s user."""
+
+    @functools.wraps(method)
+    async def wrapper(self: TelegramNotifier, *args: Any, **kwargs: Any) -> None:
+        translator = await self._translator_for(kwargs.get("chat_id"))
+        with using(translator):
+            await method(self, *args, **kwargs)
+
+    return wrapper  # type: ignore[return-value]
+
+
+class TelegramNotifier:
+    def __init__(self, *, bot: _BotLike, language_for: LanguageResolver | None = None) -> None:
+        self._bot = bot
+        self._language_for = language_for
+
+    async def _translator_for(self, chat_id: object) -> Any:
+        """Translator for the recipient, or None (default) when unknown."""
+        if self._language_for is None or not isinstance(chat_id, int):
+            return None
+        try:
+            locale = await self._language_for(chat_id)
+        except Exception:  # noqa: BLE001 — a lookup failure must never block a send
+            logger.warning("language lookup failed for chat %s", chat_id, exc_info=True)
+            return None
+        if locale not in available_locales(LOCALE_DIR):
+            return None
+        return translator_for(locale, LOCALE_DIR)
+
+    @_in_recipient_language
     async def send_status_update(  # noqa: PLR0913
         self,
         *,
@@ -190,6 +223,7 @@ class TelegramNotifier:
         else:
             TELEGRAM_SENT_TOTAL.labels(status_value=new_status.value).inc()
 
+    @_in_recipient_language
     async def send_delivery_confirmation(
         self,
         *,
@@ -216,6 +250,7 @@ class TelegramNotifier:
         else:
             TELEGRAM_SENT_TOTAL.labels(status_value=ShipmentStatus.DELIVERED.value).inc()
 
+    @_in_recipient_language
     async def send_events_update(  # noqa: PLR0913
         self,
         *,
