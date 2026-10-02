@@ -37,6 +37,10 @@ def help_text() -> str:
     )
 
 
+def try_again_in(seconds: int) -> str:
+    return _("⏳ Please wait {seconds}s before trying again.").format(seconds=int(seconds))
+
+
 def forgetme_confirm_prompt() -> str:
     return _(
         "⚠️ <b>Delete all your data?</b>\n\n"
