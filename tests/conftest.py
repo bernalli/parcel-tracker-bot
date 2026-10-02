@@ -35,3 +35,12 @@ def tmp_db_path(tmp_path: Path) -> Path:
 def fixtures_dir() -> Path:
     """Path to the test fixtures directory."""
     return Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture(autouse=True)
+def _reset_cooldowns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Per-user cooldowns are module state; give every test a clean slate."""
+    from parcel_tracker.bot import throttle
+
+    monkeypatch.setattr(throttle, "CHECKALL", throttle.Cooldown(throttle.CHECKALL_COOLDOWN_S))
+    monkeypatch.setattr(throttle, "REFRESH", throttle.Cooldown(throttle.REFRESH_COOLDOWN_S))
