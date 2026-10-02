@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: parcel-tracker-bot 0.3.0\n"
 "Report-Msgid-Bugs-To: https://github.com/bernalli/parcel-tracker-"
 "bot/issues\n"
-"POT-Creation-Date: 2026-10-02 06:42+0000\n"
+"POT-Creation-Date: 2026-10-02 06:57+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -667,7 +667,7 @@ msgstr ""
 msgid "🗑 Yes, delete my data"
 msgstr ""
 
-#: src/parcel_tracker/notifier/telegram.py:137
+#: src/parcel_tracker/notifier/telegram.py:139
 msgid "Updates:"
 msgstr ""
 
