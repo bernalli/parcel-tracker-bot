@@ -38,6 +38,8 @@ architecture so you can add national couriers without forking the project.
   + public map tiles: no geocoding API, no accounts.
 - **Observability** — Prometheus exporter on `:9090/metrics` + structured JSON logs (structlog).
 - **i18n** — English and Italian shipped, more via PR. Per-user language via `/lang`.
+- **Privacy** — `/forgetme` erases a user's data; removed/archived parcels are deleted after
+  `DATA_RETENTION_DAYS` (default 180).
 - **Hardened container** — read-only rootfs, no-new-privileges, dropped capabilities, resource limits.
 
 ## Quick start

@@ -32,12 +32,25 @@ def help_text() -> str:
         "• Send a tracking number → I track it automatically\n"
         "• /menu — buttons for list, status, events, map, settings\n"
         "• /list — your active parcels\n"
+        "• /forgetme — delete all your data\n"
         "• /help — this message"
     )
 
 
 def try_again_in(seconds: int) -> str:
     return _("⏳ Please wait {seconds}s before trying again.").format(seconds=int(seconds))
+
+
+def forgetme_confirm_prompt() -> str:
+    return _(
+        "⚠️ <b>Delete all your data?</b>\n\n"
+        "Your parcels (active and archived), their tracking history, your notification "
+        "settings and your language choice will be deleted. This cannot be undone."
+    )
+
+
+def forgetme_done() -> str:
+    return _("🗑 Done: everything the bot stored about you has been deleted.")
 
 
 def unauthorized() -> str:
