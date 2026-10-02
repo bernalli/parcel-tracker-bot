@@ -27,6 +27,7 @@ _USER_DATA_TABLES: tuple[str, ...] = (
     "tracking_history",
     "notification_cooldown_log",
     "user_notification_prefs",
+    "user_language",
     "parcels",
 )
 
@@ -92,17 +93,24 @@ class UserRepository:
             rows = await cursor.fetchall()
         return [row["user_id"] for row in rows]
 
-    async def get_language(self, user_id: int) -> str:
+    async def get_language(self, user_id: int, default: str = "en") -> str:
+        """The user's chosen UI language, or ``default`` if they never chose one."""
         async with get_connection(self._db_path) as conn:
             cursor = await conn.execute(
-                "SELECT language FROM allowed_users WHERE user_id = ?",
+                "SELECT language FROM user_language WHERE user_id = ?",
                 (user_id,),
             )
             row = await cursor.fetchone()
-        return row["language"] if row else "en"
+        return str(row["language"]) if row else default
 
     async def set_language(self, user_id: int, language: str) -> None:
+        """Persist a language choice for any user (owner and env-allowed users included)."""
         async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "INSERT INTO user_language (user_id, language) VALUES (?, ?) "
+                "ON CONFLICT(user_id) DO UPDATE SET language = excluded.language",
+                (user_id, language),
+            )
             await conn.execute(
                 "UPDATE allowed_users SET language = ? WHERE user_id = ?",
                 (language, user_id),

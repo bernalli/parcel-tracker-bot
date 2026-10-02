@@ -31,6 +31,7 @@ from parcel_tracker.bot.auth_commands import (
 from parcel_tracker.bot.auth_gate import AUTH_GATE_GROUP, authorization_gate
 from parcel_tracker.bot.callbacks import handle_callback
 from parcel_tracker.bot.lang_command import cmd_lang
+from parcel_tracker.bot.language import LANGUAGE_GROUP, apply_user_language
 from parcel_tracker.bot.navigation_commands import (
     cmd_help,
     cmd_map,
@@ -81,6 +82,9 @@ def register_handlers(
     # Authorization gate: runs before every other handler group and stops updates
     # from users who are not owner/admin/allow-listed (see bot/auth_gate.py).
     app.add_handler(TypeHandler(Update, authorization_gate), group=AUTH_GATE_GROUP)
+    # Then the sender's language, so every reply uses it instead of a
+    # process-wide one (see bot/language.py).
+    app.add_handler(TypeHandler(Update, apply_user_language), group=LANGUAGE_GROUP)
 
     # Auth & navigation
     app.add_handler(CommandHandler("whoami", cmd_whoami))

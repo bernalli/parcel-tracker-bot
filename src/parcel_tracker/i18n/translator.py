@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import gettext
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Final
 
@@ -54,6 +57,12 @@ def available_locales(locale_dir: Path) -> list[str]:
 
 _default: Translator | None = None
 
+# Per-update / per-recipient translator. Set for the duration of one update or one
+# outgoing notification, so a user's language never leaks to other users.
+_active: ContextVar[Translator | None] = ContextVar("parcel_tracker_translator", default=None)
+
+_cache: dict[tuple[str, str], Translator] = {}
+
 
 def set_default_translator(translator: Translator) -> None:
     global _default  # noqa: PLW0603
@@ -64,3 +73,32 @@ def get_default_translator() -> Translator:
     if _default is None:
         raise RuntimeError("Translator not initialised; call set_default_translator() first")
     return _default
+
+
+def current_translator() -> Translator:
+    """The translator for the current update/notification, else the default."""
+    active = _active.get()
+    return active if active is not None else get_default_translator()
+
+
+def translator_for(locale: str, locale_dir: Path) -> Translator:
+    """Cached Translator for ``locale`` (catalogs are parsed once per process)."""
+    key = (locale, str(locale_dir))
+    if key not in _cache:
+        _cache[key] = Translator(locale=locale, locale_dir=locale_dir)
+    return _cache[key]
+
+
+def activate(translator: Translator | None) -> None:
+    """Use ``translator`` for the rest of the current task (None = default)."""
+    _active.set(translator)
+
+
+@contextmanager
+def using(translator: Translator | None) -> Iterator[None]:
+    """Use ``translator`` inside the ``with`` block only."""
+    token = _active.set(translator)
+    try:
+        yield
+    finally:
+        _active.reset(token)
