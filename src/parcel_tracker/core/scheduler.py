@@ -264,6 +264,21 @@ async def _flush_stalled_notifications(  # noqa: PLR0913
             )
 
 
+async def _apply_retention(parcel_repo: ParcelRepository, days: int) -> None:
+    """Delete stale removed/archived parcels (DATA_RETENTION_DAYS). Never blocks polling."""
+    if not isinstance(days, int) or days <= 0:
+        return
+    try:
+        purged = await parcel_repo.purge_inactive_older_than(days=days)
+    except Exception:  # noqa: BLE001 — logged and retried next tick
+        logger.warning("data retention purge failed", exc_info=True)
+        return
+    if purged:
+        logger.info(
+            "data retention: deleted %d inactive parcel(s) older than %d days", purged, days
+        )
+
+
 async def check_updates(context: _JobContext) -> None:
     """Periodic job: instrumented entry point. Wraps body with scheduler tick histogram."""
     with SCHEDULER_TICK_DURATION_SECONDS.time():
@@ -292,6 +307,8 @@ async def _check_updates_impl(context: _JobContext) -> None:
     geocoder = context.bot_data.get("geocoder")
     map_renderer = context.bot_data.get("map_renderer")
     now: Callable[[], datetime] = context.bot_data.get("now", _now_default)
+
+    await _apply_retention(parcel_repo, getattr(config, "data_retention_days", 0))
 
     # Users whose parcels must be tracked: the allowed_users DB table PLUS the owner
     # and the env-configured allow-list. The owner is authorised via OWNER_ID and is

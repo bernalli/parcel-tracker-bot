@@ -56,6 +56,9 @@ class Config:
     rate_limit_default_per_min: int = 10
     rate_limit_overrides: dict[str, int] = field(default_factory=dict)
     notify_cooldown_minutes: int = 60
+    # Removed/archived parcels (and their history) are deleted after this many
+    # days without changes; 0 keeps them forever.
+    data_retention_days: int = 180
     admin_user_ids: frozenset[int] = field(default_factory=frozenset)
 
     maps_enabled: bool = True
@@ -115,6 +118,7 @@ class Config:
             owner_id=owner_id,
             allowed_user_ids=allowed,
             check_interval_minutes=_int_env("CHECK_INTERVAL_MINUTES", 30),
+            data_retention_days=_int_env("DATA_RETENTION_DAYS", 180),
             max_active_shipments=_int_env("MAX_ACTIVE_SHIPMENTS", 20),
             status_interval_overrides=_status_interval_overrides_env(),
             database_path=os.getenv("DATABASE_PATH", "/app/data/bot.db"),
