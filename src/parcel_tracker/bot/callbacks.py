@@ -289,6 +289,12 @@ async def _action_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await _edit(query, messages.prompt_revoke_value(), _back_only_keyboard())
 
 
+async def _action_forgetme_do(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    from parcel_tracker.bot.privacy_commands import erase_my_data  # noqa: PLC0415
+
+    await erase_my_data(update, context)
+
+
 def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
     """Resolve an action name to its handler at dispatch time.
 
@@ -314,6 +320,7 @@ def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
         "whoami": "_action_whoami",
         "adduser": "_action_adduser",
         "revoke": "_action_revoke",
+        "forgetme_do": "_action_forgetme_do",
     }
     attr = table.get(name)
     if attr is None:

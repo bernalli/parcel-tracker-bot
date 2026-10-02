@@ -48,6 +48,7 @@ from parcel_tracker.bot.parcel_commands import (
     cmd_status,
     handle_message,
 )
+from parcel_tracker.bot.privacy_commands import cmd_forgetme
 
 if TYPE_CHECKING:
     from telegram.ext import Application
@@ -103,6 +104,7 @@ def register_handlers(
         ("clean", cmd_clean),
         ("cleanall", cmd_cleanall),
         ("stats", cmd_stats),
+        ("forgetme", cmd_forgetme),
     ]
     for cmd, fn in parcel_nav_cmds:
         app.add_handler(CommandHandler(cmd, fn))

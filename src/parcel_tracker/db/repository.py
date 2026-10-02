@@ -31,6 +31,14 @@ _USER_DATA_TABLES: tuple[str, ...] = (
 )
 
 
+async def _delete_user_rows(conn: aiosqlite.Connection, user_id: int) -> None:
+    for table in _USER_DATA_TABLES:
+        await conn.execute(
+            f"DELETE FROM {table} WHERE user_id = ?",  # noqa: S608  # nosec B608 — fixed table names
+            (user_id,),
+        )
+
+
 class UserRepository:
     """CRUD for the allowed_users table."""
 
@@ -56,6 +64,16 @@ class UserRepository:
             except aiosqlite.IntegrityError:
                 return False
 
+    async def erase_user_data(self, user_id: int) -> None:
+        """Delete everything stored about a user, keeping their authorisation as is.
+
+        Used by /forgetme: parcels, tracking history, notification preferences,
+        cooldown rows (and any other per-user table) go, in one transaction.
+        """
+        async with get_connection(self._db_path) as conn:
+            await _delete_user_rows(conn, user_id)
+            await conn.commit()
+
     async def remove_user(self, user_id: int) -> bool:
         """Revoke a user and erase everything stored about them, in one transaction.
 
@@ -63,11 +81,7 @@ class UserRepository:
         notification preferences and cooldown rows are deleted either way.
         """
         async with get_connection(self._db_path) as conn:
-            for table in _USER_DATA_TABLES:
-                await conn.execute(
-                    f"DELETE FROM {table} WHERE user_id = ?",  # noqa: S608  # nosec B608 — fixed table names
-                    (user_id,),
-                )
+            await _delete_user_rows(conn, user_id)
             cursor = await conn.execute("DELETE FROM allowed_users WHERE user_id = ?", (user_id,))
             await conn.commit()
             return bool(cursor.rowcount)
@@ -397,6 +411,30 @@ class ParcelRepository:
             )
             await conn.commit()
             return cursor.rowcount
+
+    async def purge_inactive_older_than(self, *, days: int) -> int:
+        """Delete removed/archived parcels untouched for ``days`` days, with their
+        tracking history and cooldown rows. Returns the number of parcels deleted;
+        ``days <= 0`` disables the purge."""
+        if days <= 0:
+            return 0
+        cutoff = f"-{int(days)} days"
+        stale = (
+            "SELECT user_id, tracking_number FROM parcels "
+            "WHERE is_active = 0 AND updated_at < datetime('now', ?)"
+        )
+        async with get_connection(self._db_path) as conn:
+            for table in ("tracking_history", "notification_cooldown_log"):
+                await conn.execute(
+                    f"DELETE FROM {table} WHERE (user_id, tracking_number) IN ({stale})",  # noqa: S608  # nosec B608 — fixed table names
+                    (cutoff,),
+                )
+            cursor = await conn.execute(
+                "DELETE FROM parcels WHERE is_active = 0 AND updated_at < datetime('now', ?)",
+                (cutoff,),
+            )
+            await conn.commit()
+            return int(cursor.rowcount or 0)
 
     async def deactivate_all_for_user(self, *, user_id: int) -> int:
         """Deactivate ALL active parcels for a user (archive everything). Returns count."""
