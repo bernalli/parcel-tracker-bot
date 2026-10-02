@@ -13,8 +13,8 @@ from parcel_tracker.core.http_client import HttpClient, UnsafeRedirectError
     [
         "http://127.0.0.1:8080/admin",
         "http://169.254.169.254/latest/meta-data/",
-        "https://10.0.0.5/internal",
-        "https://192.168.1.1/",
+        "https://192.0.2.10/internal",
+        "https://198.51.100.7/",
         "https://[::1]/",
         "https://localhost/",
         "https://bot.localhost/",
