@@ -14,7 +14,13 @@ from telegram import (
     BotCommandScopeDefault,
     Update,
 )
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    filters,
+)
 
 from parcel_tracker.bot import messages
 from parcel_tracker.bot.handlers import register_handlers
@@ -68,12 +74,16 @@ async def _health_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 def _register_health_handlers(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
     """Register /health command family with sub-command dispatch."""
-    application.add_handler(CommandHandler("health", _health_dispatch))
+    application.add_handler(
+        CommandHandler("health", _health_dispatch, filters=filters.UpdateType.MESSAGE)
+    )
 
 
 def _register_notify_handlers(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
     """Register /notify command and inline-button callback."""
-    application.add_handler(CommandHandler("notify", cmd_notify_dispatch))
+    application.add_handler(
+        CommandHandler("notify", cmd_notify_dispatch, filters=filters.UpdateType.MESSAGE)
+    )
     application.add_handler(CallbackQueryHandler(on_notify_callback, pattern=r"^notify:"))
 
 

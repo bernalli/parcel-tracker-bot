@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from bs4 import BeautifulSoup
 
+from parcel_tracker.core.event_status import is_negated_delivery
 from parcel_tracker.core.http_client import HttpClient
 from parcel_tracker.core.tracker_base import (
     AbstractTracker,
@@ -173,6 +174,8 @@ class OesterreichischePostTracker(AbstractTracker):
     @staticmethod
     def _map_status(raw: str) -> ShipmentStatus:
         text = raw.lower()
+        if is_negated_delivery(text):
+            return ShipmentStatus.UNDELIVERED
         # Order matters: "in zustellung" (out for delivery) must be checked before
         # "zugestellt" (delivered) since the former contains "zustell" overlap risk
         # only on substring search; the keywords as defined are disjoint, but the

@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -83,12 +84,12 @@ async def cmd_health_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not context.args:
         await update.message.reply_text(_("Usage: /health <tracker_name>"))
         return
-    name = context.args[0].lower()
     registry = context.bot_data["registry"]
     health_repo = context.bot_data["health_repo"]
 
-    valid = {t.name for t in registry.iter_all()}
-    if name not in valid:
+    name = _resolve_tracker_name(registry, context.args[0])
+    if name is None:
+        name = context.args[0]
         await update.message.reply_text(
             _("❌ Unknown tracker '{name}'. Use /health to see the list.").format(name=name)
         )
@@ -147,10 +148,10 @@ async def cmd_health_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not context.args:
         await update.message.reply_text(_("Usage: /health reset <tracker_name>"))
         return
-    name = context.args[0].lower()
     registry = context.bot_data["registry"]
-    valid = {t.name for t in registry.iter_all()}
-    if name not in valid:
+    name = _resolve_tracker_name(registry, context.args[0])
+    if name is None:
+        name = context.args[0]
         await update.message.reply_text(
             _("❌ Unknown tracker '{name}'. Use /health to see the list.").format(name=name)
         )
@@ -163,3 +164,15 @@ async def cmd_health_reset(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         ).format(name=html.escape(name)),
         parse_mode="HTML",
     )
+
+
+def _resolve_tracker_name(registry: Any, requested: str) -> str | None:
+    """The registered tracker name matching ``requested`` case-insensitively.
+
+    Plugin names may be mixed-case ("AcmeExpress"); users type them any way.
+    """
+    wanted = requested.casefold()
+    for tracker in registry.iter_all():
+        if tracker.name.casefold() == wanted:
+            return str(tracker.name)
+    return None

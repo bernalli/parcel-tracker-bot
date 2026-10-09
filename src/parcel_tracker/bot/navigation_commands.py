@@ -68,7 +68,9 @@ async def cmd_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode="HTML",
         )
         return
-    tracking_number = args[0].strip()
+    from parcel_tracker.core.shipments import normalize_tracking_number  # noqa: PLC0415
+
+    tracking_number = normalize_tracking_number(args[0])
     repo = context.bot_data["parcel_repo"]
     parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if parcel is None:

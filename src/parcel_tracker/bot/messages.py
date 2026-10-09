@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 from typing import TYPE_CHECKING
 
-from parcel_tracker.i18n import _
+from parcel_tracker.i18n import _, _n
 
 if TYPE_CHECKING:
     from parcel_tracker.db.models import Parcel
@@ -454,3 +454,45 @@ def stall_alert(title: str | None, tracking_number: str, *, days: int, status_te
         "The shipment may be stuck: consider contacting the carrier."
     ).format(days=int(days), status=status_text)
     return f"{head}<code>{esc(tracking_number)}</code>\n\n{body}"
+
+
+def user_protected(user_id: int) -> str:
+    return _(
+        "⛔ User <code>{user_id}</code> is authorised in the configuration "
+        "(OWNER_ID, ADMIN_USER_IDS or ALLOWED_USER_IDS). Remove them from .env instead."
+    ).format(user_id=user_id)
+
+
+def whoami(user_id: int, username: str | None) -> str:
+    if username:
+        return _("Your ID: <code>{user_id}</code>\nUsername: @{username}").format(
+            user_id=user_id, username=esc(username)
+        )
+    return _("Your ID: <code>{user_id}</code>\nUsername: (none)").format(user_id=user_id)
+
+
+def count_active(n: int) -> str:
+    return _n("{n} active", "{n} active", n).format(n=n)
+
+
+def count_archived(n: int) -> str:
+    return _n("{n} archived", "{n} archived", n).format(n=n)
+
+
+def bulk_added(*, added: int, duplicates: int, over_limit: int) -> str:
+    lines = [_n("✅ Added {n} parcel.", "✅ Added {n} parcels.", added).format(n=added)]
+    if duplicates:
+        lines.append(
+            _n("{n} was already tracked.", "{n} were already tracked.", duplicates).format(
+                n=duplicates
+            )
+        )
+    if over_limit:
+        lines.append(
+            _n(
+                "⚠️ {n} not added: active parcel limit reached.",
+                "⚠️ {n} not added: active parcel limit reached.",
+                over_limit,
+            ).format(n=over_limit)
+        )
+    return "\n".join(lines)

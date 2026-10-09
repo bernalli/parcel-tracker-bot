@@ -9,7 +9,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from parcel_tracker.bot import messages
-from parcel_tracker.bot.roles import is_admin
+from parcel_tracker.bot.roles import is_admin, is_config_authorized
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +29,7 @@ async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     reply_to = update.effective_message
     if user is None or reply_to is None:
         return
-    username = f"@{user.username}" if user.username else "(no username)"
-    text = f"Your ID: <code>{user.id}</code>\nUsername: {username}"
-    await reply_to.reply_text(text, parse_mode="HTML")
+    await reply_to.reply_text(messages.whoami(user.id, user.username), parse_mode="HTML")
 
 
 async def cmd_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -80,9 +78,20 @@ async def cmd_removeuser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text(messages.removeuser_usage(), parse_mode="HTML")
         return
 
-    user_repo = context.bot_data["user_repo"]
-    await user_repo.remove_user(target_user_id)
-    await update.message.reply_text(messages.user_removed(target_user_id), parse_mode="HTML")
+    await update.message.reply_text(await revoke_user(context, target_user_id), parse_mode="HTML")
+
+
+async def revoke_user(context: ContextTypes.DEFAULT_TYPE, target_user_id: int) -> str:
+    """Revoke an allow-listed user; refuse users authorised by the configuration.
+
+    Shared by /removeuser and the guided "Revoke user" prompt. Returns the reply.
+    """
+    if is_config_authorized(context.bot_data.get("config"), target_user_id):
+        return messages.user_protected(target_user_id)
+    removed = await context.bot_data["user_repo"].remove_user(target_user_id)
+    if removed:
+        return messages.user_removed(target_user_id)
+    return messages.user_not_present(target_user_id)
 
 
 async def cmd_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

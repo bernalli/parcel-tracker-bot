@@ -8,6 +8,7 @@ treated exactly the same way.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -47,9 +48,88 @@ class _DetectorLike(Protocol):
 def normalize_tracking_number(raw: str) -> str:
     """Upper-case and drop the spaces, dashes and dots carriers print inside codes.
 
-    ``"1z 999 aa1-0123 4567 84"`` → ``"1Z999AA10123456784"``.
+    ``"1z 999 aa1-0123 4567 84"`` → ``"1Z999AA10123456784"``. NFKC folds
+    full-width characters (``"１Ｚ…"`` from some phone keyboards) to ASCII; any
+    other non-ASCII character is left in place and fails validation.
     """
-    return _SEPARATORS.sub("", raw.strip()).upper()
+    folded = unicodedata.normalize("NFKC", raw)
+    return _SEPARATORS.sub("", folded.strip()).upper()
+
+
+# --- UPU S10 (international postal items: RR123456785IT, LX…CN, CP…DE) --------
+
+_S10_RE = re.compile(r"^([A-Z]{2})(\d{8})(\d)([A-Z]{2})$")
+_S10_WEIGHTS = (8, 6, 4, 2, 3, 5, 9, 7)
+_S10_CHECK_TEN = 10
+_S10_CHECK_ELEVEN = 11
+
+# Postal operator for the S10 country suffix (the country that issued the item).
+S10_OPERATORS: dict[str, str] = {
+    "AT": "Österreichische Post",
+    "AU": "Australia Post",
+    "BE": "bpost",
+    "BR": "Correios",
+    "CA": "Canada Post",
+    "CH": "Swiss Post",
+    "CN": "China Post",
+    "CZ": "Česká pošta",
+    "DE": "Deutsche Post",
+    "DK": "PostNord Denmark",
+    "ES": "Correos",
+    "FI": "Posti",
+    "FR": "La Poste",
+    "GB": "Royal Mail",
+    "GR": "ELTA Hellenic Post",
+    "HK": "Hongkong Post",
+    "IE": "An Post",
+    "IL": "Israel Post",
+    "IN": "India Post",
+    "IT": "Poste Italiane",
+    "JP": "Japan Post",
+    "KR": "Korea Post",
+    "LU": "POST Luxembourg",
+    "MX": "Correos de México",
+    "MY": "Pos Malaysia",
+    "NL": "PostNL",
+    "NO": "Posten Norge",
+    "NZ": "NZ Post",
+    "PL": "Poczta Polska",
+    "PT": "CTT",
+    "RO": "Poșta Română",
+    "RU": "Russian Post",
+    "SE": "PostNord Sweden",
+    "SG": "Singapore Post",
+    "TH": "Thailand Post",
+    "TR": "PTT",
+    "TW": "Chunghwa Post",
+    "UA": "Ukrposhta",
+    "US": "USPS",
+    "ZA": "South African Post Office",
+}
+
+
+def s10_check_digit(serial: str) -> int:
+    """UPU S10 check digit for an 8-digit serial number."""
+    total = sum(int(d) * w for d, w in zip(serial, _S10_WEIGHTS, strict=True))
+    check = _S10_CHECK_ELEVEN - total % _S10_CHECK_ELEVEN
+    if check == _S10_CHECK_TEN:
+        return 0
+    if check == _S10_CHECK_ELEVEN:
+        return 5
+    return check
+
+
+def is_upu_s10(code: str) -> bool:
+    """True for a well-formed international postal code with a valid check digit."""
+    m = _S10_RE.fullmatch(code)
+    return m is not None and s10_check_digit(m.group(2)) == int(m.group(3))
+
+
+def s10_operator(code: str) -> str | None:
+    """Name of the postal operator that issued an S10 code, when known."""
+    if not is_upu_s10(code):
+        return None
+    return S10_OPERATORS.get(code[-2:])
 
 
 def is_valid_tracking_number(code: str) -> bool:
@@ -64,6 +144,15 @@ def matches_specific_carrier(code: str, detector: _DetectorLike | None) -> bool:
     return any(getattr(t, "priority", 0) > 1 for t in detector.detect(code))
 
 
+def is_known_code_format(code: str, detector: _DetectorLike | None) -> bool:
+    """A code that is certainly a tracking number: a carrier pattern or a valid S10.
+
+    Used where a false positive is costly (the reply to "what name for this
+    parcel?" must not turn "AirPods2023" into a new parcel).
+    """
+    return is_upu_s10(code) or matches_specific_carrier(code, detector)
+
+
 def looks_like_tracking(code: str, detector: _DetectorLike | None = None) -> bool:
     """Decide whether a word found in free text is a tracking code.
 
@@ -72,7 +161,7 @@ def looks_like_tracking(code: str, detector: _DetectorLike | None = None) -> boo
     """
     if not is_valid_tracking_number(code):
         return False
-    if matches_specific_carrier(code, detector):
+    if is_known_code_format(code, detector):
         return True
     if not _FREE_TEXT_SHAPE.fullmatch(code):
         return False

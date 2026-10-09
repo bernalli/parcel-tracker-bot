@@ -106,14 +106,17 @@ class UserRepository:
     async def remove_user(self, user_id: int) -> bool:
         """Revoke a user and erase everything stored about them, in one transaction.
 
-        Returns True if the user was on the allow-list. Parcels, tracking history,
-        notification preferences and cooldown rows are deleted either way.
+        Returns True if the user was on the allow-list. Nothing is erased for an ID
+        that is not on it: such a user may be authorised another way (owner,
+        ADMIN_USER_IDS, ALLOWED_USER_IDS) and keeps using the bot.
         """
         async with get_connection(self._db_path) as conn:
-            await _delete_user_rows(conn, user_id)
             cursor = await conn.execute("DELETE FROM allowed_users WHERE user_id = ?", (user_id,))
+            if not cursor.rowcount:
+                return False
+            await _delete_user_rows(conn, user_id)
             await conn.commit()
-            return bool(cursor.rowcount)
+            return True
 
     async def get_allowed_user_ids(self) -> list[int]:
         async with get_connection(self._db_path) as conn:

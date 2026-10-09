@@ -56,7 +56,11 @@ async def test_parcel_rename_sets_pending_and_prompts() -> None:
     update = SimpleNamespace(callback_query=q, effective_user=SimpleNamespace(id=10))
     context = SimpleNamespace(bot_data={"parcel_repo": AsyncMock()}, user_data={})
     await callbacks.handle_callback(update, context)
-    assert context.user_data["pending"] == {"action": "rename", "tn": "A"}
+    assert context.user_data["pending"] | {"at": None} == {
+        "at": None,
+        "action": "rename",
+        "tn": "A",
+    }
 
 
 @pytest.mark.asyncio

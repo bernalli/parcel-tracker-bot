@@ -55,6 +55,7 @@ from parcel_tracker.bot.parcel_commands import (
     cmd_list,  # noqa: F401  (lazy lookup target)
     cmd_remove,  # noqa: F401  (lazy lookup target)
 )
+from parcel_tracker.bot.pending import clear_pending, set_pending
 from parcel_tracker.bot.roles import is_admin
 from parcel_tracker.i18n import _
 
@@ -185,7 +186,10 @@ async def _action_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if query is None or user is None:
         return
     user_repo = context.bot_data["user_repo"]
-    current = await user_repo.get_language(user.id)
+    config = context.bot_data.get("config")
+    current = await user_repo.get_language(
+        user.id, default=getattr(config, "default_language", "en") or "en"
+    )
     locales = available_locales(LOCALE_ROOT)
     await _edit(query, messages.lang_current(current, locales), language_picker(locales, current))
 
@@ -273,8 +277,7 @@ async def _action_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not await _admin_gate(update, context):
         return
     query = update.callback_query
-    if context.user_data is not None:
-        context.user_data["pending"] = {"action": "adduser"}
+    set_pending(context, "adduser")
     if query is not None:
         await _edit(query, messages.prompt_adduser_value(), _back_only_keyboard())
 
@@ -283,8 +286,7 @@ async def _action_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not await _admin_gate(update, context):
         return
     query = update.callback_query
-    if context.user_data is not None:
-        context.user_data["pending"] = {"action": "revoke"}
+    set_pending(context, "revoke")
     if query is not None:
         await _edit(query, messages.prompt_revoke_value(), _back_only_keyboard())
 
@@ -480,8 +482,7 @@ async def _handle_parcel(
             await _edit(query, messages.parcel_added_auto(tracking_number), None)
         return
     if action == "rename":
-        if context.user_data is not None:
-            context.user_data["pending"] = {"action": "rename", "tn": tracking_number}
+        set_pending(context, "rename", tn=tracking_number)
         query = update.callback_query
         if query is not None:
             await _edit(query, messages.prompt_rename_value(tracking_number), _back_only_keyboard())
@@ -621,6 +622,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
     data = query.data or ""
     logger.debug("Callback received: %s", data)
+    # Any tap abandons a half-finished guided input (rename, authorise, …); the
+    # handler below arms a new one if this button asks for text.
+    clear_pending(context)
 
     parts = data.split(":", 2)
     prefix = parts[0] if parts else ""

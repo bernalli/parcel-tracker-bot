@@ -7,6 +7,7 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
+from parcel_tracker.bot.formatting import status_label
 from parcel_tracker.db.models import ShipmentStatus
 from parcel_tracker.i18n import _
 from parcel_tracker.notifier.preferences import is_default_on
@@ -35,7 +36,7 @@ def _build_keyboard(prefs: dict[str, bool]) -> InlineKeyboardMarkup:
         rows.append(
             [
                 InlineKeyboardButton(
-                    f"{marker} {status.value}",
+                    f"{marker} {status_label(status)}",
                     callback_data=f"notify:{status.value}",
                 )
             ]
@@ -132,7 +133,9 @@ async def on_notify_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await repo.set_pref(user_id=user_id, status_value=status_value, enabled=new_value)
 
     await query.answer(
-        (_("{status} → on") if new_value else _("{status} → off")).format(status=status_value)
+        (_("{status} → on") if new_value else _("{status} → off")).format(
+            status=status_label(ShipmentStatus(status_value))
+        )
     )
 
     prefs: dict[str, bool] = await repo.get_all_prefs(user_id)

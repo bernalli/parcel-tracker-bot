@@ -2,23 +2,34 @@
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 from babel.messages.extract import extract_from_dir
 from babel.messages.pofile import read_po
 
-SRC = Path(__file__).resolve().parents[3] / "src" / "parcel_tracker"
+ROOT = Path(__file__).resolve().parents[3]
+SRC = ROOT / "src" / "parcel_tracker"
 LOCALE = SRC / "i18n" / "locale"
 LOCALES = sorted(p.parent.parent.name for p in LOCALE.glob("*/LC_MESSAGES/messages.po"))
 
 
+def _i18n_tool() -> ModuleType:
+    """scripts/i18n.py: the extraction settings the catalogs are built with."""
+    spec = importlib.util.spec_from_file_location("i18n_tool", ROOT / "scripts" / "i18n.py")
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _code_msgids() -> set[str]:
+    tool = _i18n_tool()
     ids: set[str] = set()
     for _file, _line, message, _comments, _ctx in extract_from_dir(
-        str(SRC),
-        method_map=[("**.py", "python")],
-        keywords={"_": None, "ngettext": (1, 2)},
+        str(SRC), method_map=tool.METHOD_MAP, options_map=tool.OPTIONS, keywords=tool.KEYWORDS
     ):
         ids.add(message if isinstance(message, str) else message[0])
     return ids

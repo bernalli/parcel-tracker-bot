@@ -60,6 +60,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Edited messages are ignored: re-running an edited /remove or /checkall (or
+# re-adding an edited code) is never what the user meant.
+NEW_MESSAGES = filters.UpdateType.MESSAGE
+
 # A Telegram command handler coroutine type alias matching CommandHandler's signature.
 CommandFn = Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None]]
 
@@ -87,8 +91,8 @@ def register_handlers(
     app.add_handler(TypeHandler(Update, apply_user_language), group=LANGUAGE_GROUP)
 
     # Auth & navigation
-    app.add_handler(CommandHandler("whoami", cmd_whoami))
-    app.add_handler(CommandHandler("lang", cmd_lang))
+    app.add_handler(CommandHandler("whoami", cmd_whoami, filters=NEW_MESSAGES))
+    app.add_handler(CommandHandler("lang", cmd_lang, filters=NEW_MESSAGES))
 
     # Parcel & nav commands
     parcel_nav_cmds: list[tuple[str, CommandFn]] = [
@@ -111,7 +115,7 @@ def register_handlers(
         ("forgetme", cmd_forgetme),
     ]
     for cmd, fn in parcel_nav_cmds:
-        app.add_handler(CommandHandler(cmd, fn))
+        app.add_handler(CommandHandler(cmd, fn, filters=NEW_MESSAGES))
 
     # Admin user commands
     auth_cmds: list[tuple[str, CommandFn]] = [
@@ -120,9 +124,16 @@ def register_handlers(
         ("users", cmd_users),
     ]
     for cmd, fn in auth_cmds:
-        app.add_handler(CommandHandler(cmd, fn))
+        app.add_handler(CommandHandler(cmd, fn, filters=NEW_MESSAGES))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # Auto-add only in private chats: in a group every ordinary message would get
+    # a "to add, use /add …" reply.
+    app.add_handler(
+        MessageHandler(
+            filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE & NEW_MESSAGES,
+            handle_message,
+        )
+    )
     # Pattern-restricted catch-all: only handle the four prefixes we own.
     # Other prefix-specific handlers (notify:*) are registered later in main.py
     # and must not be shadowed by an unrestricted CallbackQueryHandler.

@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from bs4 import BeautifulSoup
 
+from parcel_tracker.core.event_status import is_negated_delivery
 from parcel_tracker.core.http_client import HttpClient
 from parcel_tracker.core.tracker_base import (
     AbstractTracker,
@@ -190,6 +191,8 @@ class DpdTracker(AbstractTracker):
     @staticmethod
     def _map_status(raw: str) -> ShipmentStatus:
         text = raw.lower()
+        if is_negated_delivery(text):
+            return ShipmentStatus.UNDELIVERED
         # Order matters: "out for delivery" must be checked before "delivered"
         # because in some locales / phrasings "delivered" can appear as a
         # substring of out-for-delivery descriptions.

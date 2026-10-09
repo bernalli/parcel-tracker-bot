@@ -100,7 +100,11 @@ async def test_pending_name_tracking_like_falls_through_to_autoadd() -> None:
     repo.rename.assert_not_awaited()  # NOT consumed as a name
     repo.create.assert_awaited()  # treated as a new parcel
     # the new auto-add (nameless) replaced the pending action with its own
-    assert context.user_data["pending"] == {"action": "name", "tn": "RR123456785IT"}
+    assert context.user_data["pending"] | {"at": None} == {
+        "at": None,
+        "action": "name",
+        "tn": "RR123456785IT",
+    }
 
 
 @pytest.mark.asyncio

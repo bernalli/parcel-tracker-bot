@@ -20,10 +20,37 @@ from parcel_tracker.db.models import ShipmentStatus
 # "Non consegnato", "non è stato consegnato") contains the DELIVERED keywords as a
 # substring, so it is checked before the keyword table and wins over it.
 _NEGATED_DELIVERY = re.compile(
-    r"(?:\bun|\b(?:can)?not\s+(?:yet\s+)?(?:be(?:en)?\s+)?|n't\s+(?:be(?:en)?\s+)?"
-    r"|\bnon\s+(?:ancora\s+)?(?:(?:è|e)\s+stat[oa]\s+)?)"
-    r"(?:delivered|consegnat)"
+    "|".join(
+        (
+            # English / Italian: "not delivered", "undelivered", "couldn't be
+            # delivered", "non consegnato", "non è stato consegnato"
+            r"(?:\bun|\b(?:can)?not\s+(?:yet\s+)?(?:be(?:en)?\s+)?|n't\s+(?:be(?:en)?\s+)?"
+            r"|\bnon\s+(?:ancora\s+)?(?:(?:è|e)\s+stat[oa]\s+)?)(?:delivered|consegnat)",
+            # French: "non livré", "n'a pas pu être livré", "pas encore livré"
+            r"\b(?:non|pas)\s+(?:encore\s+)?(?:pu\s+)?(?:(?:être|été)\s+)?livr",
+            # Spanish: "no entregado", "no ha sido entregado", "no se ha podido entregar"
+            r"\bno\s+(?:ha\s+(?:sido\s+)?|se\s+ha\s+podido\s+|pudo\s+ser\s+)?entreg",
+            # Portuguese: "não entregue", "nao foi entregue"
+            r"\bn[ãa]o\s+(?:foi\s+)?entregue",
+            # German: "nicht zugestellt", "konnte nicht zugestellt werden", "unzustellbar"
+            r"\bnicht\s+(?:\w+\s+)?zugestellt|\bnicht\s+zustellbar|\bunzustellbar"
+            r"|zustellung\s+nicht\s+m(?:ö|oe?)glich",
+            # Dutch: "niet afgeleverd", "niet bezorgd"
+            r"\bniet\s+(?:\w+\s+)?(?:afgeleverd|bezorgd)",
+        )
+    )
 )
+
+
+def is_negated_delivery(text: str) -> bool:
+    """True for a failed or pending delivery phrased with a negation.
+
+    "Not delivered", "nicht zugestellt" or "non livré" contain the very keyword
+    ("delivered", "zugestellt", "livré") that status mappers look for, so every
+    mapper must check this first or it reads a failed delivery as delivered.
+    """
+    return bool(_NEGATED_DELIVERY.search(text.casefold()))
+
 
 # Checked top-to-bottom; first keyword hit wins. Order matters: terminal and
 # more specific states are listed before broader ones (e.g. DELIVERED before
@@ -105,7 +132,7 @@ def status_from_text(text: str | None) -> ShipmentStatus | None:
     low = text.strip().casefold()
     if not low:
         return None
-    if _NEGATED_DELIVERY.search(low):
+    if is_negated_delivery(low):
         return ShipmentStatus.UNDELIVERED
     for status, keywords in _STATUS_KEYWORDS:
         if any(keyword in low for keyword in keywords):

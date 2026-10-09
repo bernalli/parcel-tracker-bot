@@ -72,7 +72,11 @@ async def test_auto_add_without_name_sets_pending_and_asks() -> None:
         args=[], bot_data={"parcel_repo": repo, "detector": None}, user_data={}
     )
     await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
-    assert context.user_data["pending"] == {"action": "name", "tn": "1Z999AA10123456784"}
+    assert context.user_data["pending"] | {"at": None} == {
+        "at": None,
+        "action": "name",
+        "tn": "1Z999AA10123456784",
+    }
     markup = reply.await_args.kwargs["reply_markup"]
     flat = [b.callback_data for row in markup.inline_keyboard for b in row]
     assert "parcel:skipname:1Z999AA10123456784" in flat
