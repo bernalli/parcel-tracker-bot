@@ -72,6 +72,9 @@ set honest delivery promises, and spot a carrier having a bad week.
   sent to a carrier or to 17track. Only the tracking number is.
 - Archived shipments are deleted after `DATA_RETENTION_DAYS` days (default
   180, `0` keeps them). Export them first if you want to keep records.
+- In an export, a cell that starts with `=`, `+`, `-` or `@` gets a leading
+  apostrophe, so a spreadsheet shows it as text instead of running it as a
+  formula. Importing the file removes the apostrophe again.
 - **Settings → Delete all my data** in the dashboard, or `/forgetme` in
   Telegram, erases everything stored about you.
 

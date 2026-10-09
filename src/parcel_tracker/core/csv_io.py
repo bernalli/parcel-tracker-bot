@@ -119,6 +119,24 @@ def _norm_header(value: str) -> str:
     return "".join(ch for ch in value.lower() if ch.isalnum())
 
 
+# Spreadsheets evaluate a cell that starts with one of these as a formula, so a
+# customer name such as "=HYPERLINK(...)" in an export could run in Excel
+# (CSV injection, CWE-1236). Export prefixes such cells with an apostrophe, which
+# makes spreadsheets read them as text; import removes exactly one apostrophe
+# again, so an exported file round-trips unchanged.
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _escape_cell(value: str) -> str:
+    return "'" + value if value.lstrip("'").startswith(_FORMULA_PREFIXES) else value
+
+
+def _unescape_cell(value: str) -> str:
+    if value.startswith("'") and value.lstrip("'").startswith(_FORMULA_PREFIXES):
+        return value[1:]
+    return value
+
+
 def export_csv(parcels: Iterable[Parcel]) -> str:
     """Render shipments as CSV text (UTF-8, comma-separated, header row)."""
     buf = io.StringIO()
@@ -126,7 +144,8 @@ def export_csv(parcels: Iterable[Parcel]) -> str:
     writer.writerow(EXPORT_COLUMNS)
     for p in parcels:
         writer.writerow(
-            [
+            _escape_cell(cell)
+            for cell in (
                 p.tracking_number,
                 p.name or "",
                 p.order_ref or "",
@@ -142,7 +161,7 @@ def export_csv(parcels: Iterable[Parcel]) -> str:
                 p.created_at.isoformat() if p.created_at else "",
                 p.delivered_at.isoformat() if p.delivered_at else "",
                 "yes" if p.is_active else "no",
-            ]
+            )
         )
     return buf.getvalue()
 
@@ -213,8 +232,9 @@ def _row_input(
 ) -> tuple[ShipmentInput | None, str | None]:
     values: dict[str, str] = {}
     for key, cell in zip(columns, cells, strict=False):
-        if key and cell.strip() and key not in values:
-            values[key] = cell.strip()
+        value = _unescape_cell(cell.strip())
+        if key and value.strip() and key not in values:
+            values[key] = value
     code = normalize_tracking_number(values.get("tracking_number", ""))
     if not is_valid_tracking_number(code):
         return None, "invalid tracking number"

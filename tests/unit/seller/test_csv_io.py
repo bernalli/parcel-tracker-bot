@@ -44,6 +44,32 @@ def test_export_has_header_and_values() -> None:
     assert record["active"] == "yes"
 
 
+@pytest.mark.parametrize(
+    "value",
+    ['=HYPERLINK("http://evil","x")', "+39 333 1234567", "-fragile", "@SUM(A1)", "'=already"],
+)
+def test_export_neutralises_formulas_and_import_restores_them(value: str) -> None:
+    parcel = Parcel(tracking_number="RR123456785IT", user_id=1, recipient=value, notes=value)
+    exported = export_csv([parcel])
+    record = dict(zip(*list(csv.reader(io.StringIO(exported))), strict=True))
+    assert record["recipient"] == "'" + value
+    assert record["notes"] == "'" + value
+    [(_line, row)] = parse_csv(exported.encode()).rows
+    assert (row.recipient, row.notes) == (value, value)
+
+
+def test_export_leaves_ordinary_values_alone() -> None:
+    parcel = Parcel(tracking_number="RR123456785IT", user_id=1, name="Mug 2-pack", order_ref="#1-A")
+    record = dict(zip(*list(csv.reader(io.StringIO(export_csv([parcel])))), strict=True))
+    assert (record["name"], record["order_ref"]) == ("Mug 2-pack", "#1-A")
+
+
+def test_import_keeps_apostrophes_that_are_not_escapes() -> None:
+    data = b"tracking_number,name\nRR123456785IT,'Tis a mug\n"
+    [(_line, row)] = parse_csv(data).rows
+    assert row.name == "'Tis a mug"
+
+
 def test_parse_semicolon_italian_header_with_bom() -> None:
     data = "﻿Codice;Ordine;Cliente;Destinazione;Note;Tag\nrr 123456785 it;#5;Ada;Roma;fragile;vip, express\n"
     parsed = parse_csv(data.encode("utf-8"))

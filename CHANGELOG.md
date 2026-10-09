@@ -31,7 +31,8 @@ long list of correctness, security and documentation fixes from a full audit.
 - **Stalled-shipment alerts**: one warning when an active parcel has had no
   carrier news for `STALL_ALERT_DAYS` (default 7).
 - **Bulk add**: several codes in one message (one per line), in the dashboard,
-  or from a `.csv` file sent to the bot; `/export` sends a CSV back.
+  or from a `.csv` file sent to the bot; `/export` sends a CSV back. Exported
+  cells that a spreadsheet would run as formulas are escaped.
 - **Official DHL tracking API** (`DHL_API_KEY`), run before the DHL and
   Deutsche Post scrapers.
 - **UPU S10 validation**: international postal codes get their check digit
