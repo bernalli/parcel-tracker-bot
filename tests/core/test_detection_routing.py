@@ -62,6 +62,8 @@ SAMPLES: list[_Sample] = [
 def _registry_and_detector() -> tuple[TrackerRegistry, CourierDetector]:
     config = MagicMock(spec=Config)
     config.track17_api_key = ""  # disable Track17 (still registers Tier D with track17=None)
+    config.dhl_api_key = None  # the official DHL API tracker is opt-in
+    config.request_timeout = 30
     registry = TrackerRegistry()
     register_builtins(registry, config)
     detector = CourierDetector(registry)

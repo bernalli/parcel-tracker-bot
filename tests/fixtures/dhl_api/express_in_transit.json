@@ -1,0 +1,37 @@
+{
+  "shipments": [
+    {
+      "id": "1234567890",
+      "service": "express",
+      "origin": {"address": {"addressLocality": "SHANGHAI - CHINA MAINLAND"}},
+      "destination": {"address": {"addressLocality": "MILAN - ITALY"}},
+      "status": {
+        "timestamp": "2026-10-08T09:12:00+02:00",
+        "location": {"address": {"addressLocality": "BERGAMO - ITALY", "countryCode": "IT"}},
+        "statusCode": "transit",
+        "status": "transit",
+        "description": "Shipment is out with courier for delivery"
+      },
+      "events": [
+        {
+          "timestamp": "2026-10-08T09:12:00+02:00",
+          "location": {"address": {"addressLocality": "BERGAMO - ITALY", "countryCode": "IT"}},
+          "statusCode": "transit",
+          "description": "Shipment is out with courier for delivery"
+        },
+        {
+          "timestamp": "2026-10-07T22:40:00+02:00",
+          "location": {"address": {"addressLocality": "LEIPZIG - GERMANY", "countryCode": "DE"}},
+          "statusCode": "transit",
+          "description": "Departed Facility in LEIPZIG - GERMANY"
+        },
+        {
+          "timestamp": "2026-10-05T03:15:00+08:00",
+          "location": {"address": {"addressLocality": "SHANGHAI - CHINA MAINLAND", "countryCode": "CN"}},
+          "statusCode": "pre-transit",
+          "description": "Shipment picked up"
+        }
+      ]
+    }
+  ]
+}

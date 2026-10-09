@@ -26,7 +26,6 @@ async def test_build_bot_data_includes_plan2_dependencies(tmp_path: Path) -> Non
         batch_size=5,
         rate_limit_default_per_min=10,
         rate_limit_overrides={"dhl": 60},
-        notify_cooldown_minutes=60,
         admin_user_ids=frozenset({1}),
     )
 

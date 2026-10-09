@@ -44,11 +44,8 @@ class Config:
     quarantine_12fail_hours: int = 24
 
     track17_api_key: str | None = None
+    # Official DHL Shipment Tracking API (developer.dhl.com); enables the dhl_api tracker.
     dhl_api_key: str | None = None
-    ups_client_id: str | None = None
-    ups_client_secret: str | None = None
-    fedex_api_key: str | None = None
-    fedex_secret_key: str | None = None
 
     metrics_enabled: bool = True
     metrics_bind_host: str = "0.0.0.0"  # noqa: S104 — Docker network scope; override via METRICS_BIND_HOST  # nosec B104
@@ -57,7 +54,6 @@ class Config:
     batch_size: int = 10
     rate_limit_default_per_min: int = 10
     rate_limit_overrides: dict[str, int] = field(default_factory=dict)
-    notify_cooldown_minutes: int = 60
     # Removed/archived parcels (and their history) are deleted after this many
     # days without changes; 0 keeps them forever.
     data_retention_days: int = 180
@@ -113,7 +109,6 @@ class Config:
         batch_size = _int_env("BATCH_SIZE", 10, minimum=1, maximum=100)
         rate_limit_default = _int_env("RATE_LIMIT_DEFAULT_PER_MIN", 10, minimum=1)
         rate_limit_overrides = _rate_limit_overrides_env()
-        notify_cooldown = _int_env("NOTIFY_COOLDOWN_MINUTES", 60, minimum=0)
         admin_raw = os.getenv("ADMIN_USER_IDS", "")
         admin_ids_list: list[int] = []
         for token_id in admin_raw.split(","):
@@ -144,17 +139,12 @@ class Config:
             quarantine_12fail_hours=_int_env("QUARANTINE_12FAIL_HOURS", 24, minimum=0),
             track17_api_key=_optional_env("TRACK17_API_KEY"),
             dhl_api_key=_optional_env("DHL_API_KEY"),
-            ups_client_id=_optional_env("UPS_CLIENT_ID"),
-            ups_client_secret=_optional_env("UPS_CLIENT_SECRET"),
-            fedex_api_key=_optional_env("FEDEX_API_KEY"),
-            fedex_secret_key=_optional_env("FEDEX_SECRET_KEY"),
             metrics_enabled=_bool_env("METRICS_ENABLED", True),
             metrics_bind_host=os.getenv("METRICS_BIND_HOST", "0.0.0.0").strip() or "0.0.0.0",  # noqa: S104  # nosec B104
             metrics_port=_int_env("METRICS_PORT", 9090, minimum=1, maximum=65535),
             batch_size=batch_size,
             rate_limit_default_per_min=rate_limit_default,
             rate_limit_overrides=rate_limit_overrides,
-            notify_cooldown_minutes=notify_cooldown,
             admin_user_ids=admin_ids,
             maps_enabled=_bool_env("MAPS_ENABLED", True),
             osm_tile_url=os.getenv(

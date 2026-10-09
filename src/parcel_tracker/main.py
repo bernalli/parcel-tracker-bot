@@ -144,7 +144,7 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
     notification_repo = NotificationRepository(config.database_path)
     prefs = NotificationPreferences(
         repo=notification_repo,
-        cooldown=CooldownConfig(minutes=config.notify_cooldown_minutes),
+        cooldown=CooldownConfig(minutes=0),
     )
 
     geocoder = None

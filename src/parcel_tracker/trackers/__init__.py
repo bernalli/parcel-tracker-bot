@@ -15,6 +15,7 @@ from parcel_tracker.trackers.correios import CorreiosTracker
 from parcel_tracker.trackers.correos import CorreosTracker
 from parcel_tracker.trackers.deutsche_post import DeutschePostTracker
 from parcel_tracker.trackers.dhl import DhlTracker
+from parcel_tracker.trackers.dhl_api import DhlApiTracker
 from parcel_tracker.trackers.dpd import DpdTracker
 from parcel_tracker.trackers.ems import EmsTracker
 from parcel_tracker.trackers.evri import EvriTracker
@@ -72,6 +73,9 @@ def register_builtins(registry: TrackerRegistry, config: Config) -> HttpClient:
     client = HttpClient(timeout=float(config.request_timeout))
     for scraper in _SCRAPERS:
         registry.register(scraper(http_client=client))
+
+    if config.dhl_api_key:
+        registry.register(DhlApiTracker(api_key=config.dhl_api_key, http_client=client))
 
     track17_instance: Track17Tracker | None = None
     if config.track17_api_key:

@@ -59,7 +59,18 @@ _STATUS_KEYWORDS: tuple[tuple[ShipmentStatus, tuple[str, ...]], ...] = (
     (ShipmentStatus.DELIVERED, ("delivered", "consegnat", "consegna effettuata")),
     (
         ShipmentStatus.OUT_FOR_DELIVERY,
-        ("out for delivery", "in consegna", "in distribuzione", "in delivery"),
+        (
+            "out for delivery",
+            "with courier for delivery",
+            "onto the delivery vehicle",
+            "in consegna",
+            "in distribuzione",
+            "in delivery",
+            "in zustellung",
+            "zustellfahrzeug",
+            "en cours de livraison",
+            "en reparto",
+        ),
     ),
     (
         ShipmentStatus.RETURNED,
