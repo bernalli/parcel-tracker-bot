@@ -1,10 +1,14 @@
 /* parcel-tracker-bot dashboard — no framework, no external requests. */
 :root {
   color-scheme: light;
-  --brand: #2dd4bf;
-  --brand-ink: #0f766e;
-  --brand-ink-hover: #0b5f59;
-  --ink: #14181f;
+  /* The project's blue (#2447E0) and its original artwork's palette. */
+  --brand: #2447e0;
+  --brand-ink: #2447e0;
+  --brand-ink-hover: #1a38b8;
+  --brand-fill: #2447e0;
+  --brand-fill-hover: #1a38b8;
+  --brand-tint: #dde5fd;
+  --ink: #101632;
   --page: #f6f7f6;
   --surface: #ffffff;
   --surface-2: #f1f2f0;
@@ -14,13 +18,13 @@
   --line: #e1e0d9;
   --axis: #c3c2b7;
   --ring: rgba(11, 11, 11, 0.1);
-  --focus: #0f766e;
+  --focus: #2447e0;
   --danger: #b42318;
   --s1: #2a78d6;
   --s2: #eb6834;
   --pill-pending-bg: #efefec; --pill-pending: #52514e;
-  --pill-transit-bg: #e6f0fc; --pill-transit: #1c5cab;
-  --pill-out-bg: #d9f6f0; --pill-out: #0b5f59;
+  --pill-transit-bg: #ebeef3; --pill-transit: #3b4a63;
+  --pill-out-bg: #dde5fd; --pill-out: #1a38b8;
   --pill-attention-bg: #fdeaea; --pill-attention: #a3231b;
   --pill-delivered-bg: #e2f4e2; --pill-delivered: #0b5e0b;
   --pill-stalled-bg: #fff1cc; --pill-stalled: #7a4f00;
@@ -33,16 +37,17 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --brand-ink: #5eead4; --brand-ink-hover: #99f6e4;
-    --ink: #e8f6f3;
+    --brand-ink: #8ea4ff; --brand-ink-hover: #b9c7ff;
+    --brand-fill: #2447e0; --brand-fill-hover: #3a5bf0; --brand-tint: #1a2350;
+    --ink: #e8ecfb;
     --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
     --text: #ffffff; --text-2: #c3c2b7; --muted: #9a988f;
     --line: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, 0.1);
-    --focus: #5eead4; --danger: #ff8a80;
+    --focus: #8ea4ff; --danger: #ff8a80;
     --s1: #3987e5; --s2: #d95926;
     --pill-pending-bg: #2a2a28; --pill-pending: #c3c2b7;
-    --pill-transit-bg: #13283f; --pill-transit: #9ec5f4;
-    --pill-out-bg: #0f2e2b; --pill-out: #7ae8d6;
+    --pill-transit-bg: #222833; --pill-transit: #b4c0d4;
+    --pill-out-bg: #1a2350; --pill-out: #b9c7ff;
     --pill-attention-bg: #3a1615; --pill-attention: #ffb4ab;
     --pill-delivered-bg: #132c13; --pill-delivered: #8fdc8f;
     --pill-stalled-bg: #3a2c08; --pill-stalled: #ffd27a;
@@ -51,16 +56,17 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --brand-ink: #5eead4; --brand-ink-hover: #99f6e4;
-  --ink: #e8f6f3;
+  --brand-ink: #8ea4ff; --brand-ink-hover: #b9c7ff;
+  --brand-fill: #2447e0; --brand-fill-hover: #3a5bf0; --brand-tint: #1a2350;
+  --ink: #e8ecfb;
   --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
   --text: #ffffff; --text-2: #c3c2b7; --muted: #9a988f;
   --line: #2c2c2a; --axis: #383835; --ring: rgba(255, 255, 255, 0.1);
-  --focus: #5eead4; --danger: #ff8a80;
+  --focus: #8ea4ff; --danger: #ff8a80;
   --s1: #3987e5; --s2: #d95926;
   --pill-pending-bg: #2a2a28; --pill-pending: #c3c2b7;
-  --pill-transit-bg: #13283f; --pill-transit: #9ec5f4;
-  --pill-out-bg: #0f2e2b; --pill-out: #7ae8d6;
+  --pill-transit-bg: #222833; --pill-transit: #b4c0d4;
+  --pill-out-bg: #1a2350; --pill-out: #b9c7ff;
   --pill-attention-bg: #3a1615; --pill-attention: #ffb4ab;
   --pill-delivered-bg: #132c13; --pill-delivered: #8fdc8f;
   --pill-stalled-bg: #3a2c08; --pill-stalled: #ffd27a;
@@ -125,10 +131,8 @@ footer.site { color: var(--muted); font-size: 0.85rem; text-align: center; paddi
 /* buttons & forms */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-weight: 600; font-size: 0.92rem; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--ring); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; line-height: 1.3; white-space: nowrap; }
 .btn:hover { background: var(--surface-2); text-decoration: none; color: var(--text); }
-.btn-primary { background: var(--brand-ink); border-color: transparent; color: #fff; }
-.btn-primary:hover { background: var(--brand-ink-hover); color: #fff; }
-:root[data-theme="dark"] .btn-primary, :root[data-theme="dark"] .btn-primary:hover { color: #06201d; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn-primary, :root:not([data-theme="light"]) .btn-primary:hover { color: #06201d; } }
+.btn-primary { background: var(--brand-fill); border-color: transparent; color: #fff; }
+.btn-primary:hover { background: var(--brand-fill-hover); color: #fff; }
 .btn-danger { color: var(--danger); }
 .btn-small { padding: 5px 10px; font-size: 0.85rem; }
 .btn-ghost { background: transparent; border-color: transparent; }
@@ -216,7 +220,7 @@ details.data-table summary { cursor: pointer; color: var(--text-2); font-size: 0
 .progress li.done::before { background: var(--brand-ink); border-color: var(--brand-ink); }
 .progress li.done::after { background: var(--brand-ink); }
 .progress li.current { font-weight: 650; color: var(--text); }
-.progress li.current::before { box-shadow: 0 0 0 4px var(--pill-out-bg); }
+.progress li.current::before { box-shadow: 0 0 0 4px var(--brand-tint); }
 .progress.problem li.current::before { background: var(--pill-attention); border-color: var(--pill-attention); box-shadow: 0 0 0 4px var(--pill-attention-bg); }
 
 /* facts & timeline */

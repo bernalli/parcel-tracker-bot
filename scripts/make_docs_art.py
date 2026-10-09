@@ -25,10 +25,21 @@ IMG = ROOT / "docs" / "img"
 LOGO = IMG / "logo"
 WEB_STATIC = ROOT / "src" / "parcel_tracker" / "web" / "static"
 
-TEAL = "#2DD4BF"
-INK = "#14181F"
-CORAL = "#FF5A36"
+# The project's blue and the palette of its original artwork.
+BLUE = "#2447E0"
+BLUE_DEEP = "#1A38B8"
+BLUE_SOFT = "#4A6BE7"
+NAVY = "#1E3A8F"
+INK = "#101632"
+CREAM = "#F6F1DD"
+SKY = "#C6D3FB"
+MIST = "#DDE5FD"
+RED = "#FF3B2E"
 WHITE = "#FFFFFF"
+
+# Face colours of the parcel (top, left, right).
+FACES_ON_BLUE = (WHITE, CREAM, SKY)  # light parcel on the blue tile and banners
+FACES_ON_LIGHT = (BLUE_SOFT, BLUE, NAVY)  # blue parcel for light backgrounds
 FONT = "'Inter', 'Inter Display', system-ui, -apple-system, 'Segoe UI', sans-serif"
 
 # --- the mark ------------------------------------------------------------------
@@ -49,9 +60,17 @@ _PIN = (
 _PIN_TRANSFORM = "translate(352 152)"
 
 
-def mark(*, ink: str = INK, pin: str = CORAL, dot: str = WHITE, uid: str = "m") -> str:
+def mark(
+    *,
+    faces: tuple[str, str, str] = FACES_ON_BLUE,
+    pin: str = RED,
+    dot: str = WHITE,
+    uid: str = "m",
+) -> str:
     """The mark on a transparent background (gaps are real holes, via masks)."""
-    faces = "".join(f'<path d="{d}"/>' for d in _FACES)
+    face_paths = "".join(
+        f'<path d="{d}" fill="{c}" stroke="{c}"/>' for d, c in zip(_FACES, faces, strict=True)
+    )
     pin_dot = f'<circle cx="0" cy="-8" r="24" fill="{dot}"/>' if dot != "hole" else ""
     pin_attr = f' mask="url(#{uid}-pin)"' if dot == "hole" else ""
     pin_mask = (
@@ -67,7 +86,7 @@ def mark(*, ink: str = INK, pin: str = CORAL, dot: str = WHITE, uid: str = "m") 
         f'<g transform="{_PIN_TRANSFORM}"><path d="{_PIN_RING}" fill="#000"/></g>'
         f"</mask>{pin_mask}</defs>"
         f'<g mask="url(#{uid}-box)"><g transform="{_BOX_TRANSFORM}">'
-        f'<g fill="{ink}" stroke="{ink}" stroke-width="18" stroke-linejoin="round">{faces}</g>'
+        f'<g stroke-width="18" stroke-linejoin="round">{face_paths}</g>'
         "</g></g>"
         f'<g transform="{_PIN_TRANSFORM}"><path d="{_PIN}" fill="{pin}"{pin_attr}/>{pin_dot}</g>'
     )
@@ -81,12 +100,12 @@ def svg(body: str, *, size: int = 512, title: str = "parcel-tracker-bot") -> str
 
 
 def icon_svg(*, radius: int = 112, scale: float = 1.0) -> str:
-    """App icon: the mark on a teal rounded square."""
+    """App icon: the light mark on a blue rounded square."""
     inner = mark(uid="i")
     if scale != 1.0:
         offset = 256 * (1 - scale)
         inner = f'<g transform="translate({offset:.1f} {offset:.1f}) scale({scale})">{inner}</g>'
-    return svg(f'<rect width="512" height="512" rx="{radius}" fill="{TEAL}"/>{inner}')
+    return svg(f'<rect width="512" height="512" rx="{radius}" fill="{BLUE}"/>{inner}')
 
 
 # --- page layouts ------------------------------------------------------------------
@@ -102,12 +121,13 @@ _BUBBLE = """
 
 _CSS = f"""
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-body {{ font-family: {FONT}; color: {INK}; background: {TEAL}; -webkit-font-smoothing: antialiased; }}
+body {{ font-family: {FONT}; color: {WHITE}; background: {BLUE}; -webkit-font-smoothing: antialiased; }}
 .frame {{ position: relative; overflow: hidden; display: flex; align-items: center; }}
 .title {{ font-weight: 800; letter-spacing: -0.035em; line-height: 1; }}
 .tagline {{ font-weight: 500; letter-spacing: -0.01em; }}
-.small {{ font-weight: 500; opacity: 0.78; }}
-.bubble {{ background: #fff; border-radius: 28px; border-bottom-left-radius: 8px; box-shadow: 10px 12px 0 rgba(20,24,31,0.14);
+.tagline {{ color: {MIST}; }}
+.small {{ font-weight: 500; color: {SKY}; }}
+.bubble {{ background: #fff; color: {INK}; border-radius: 28px; border-bottom-left-radius: 8px; box-shadow: 10px 12px 0 {BLUE_DEEP};
   padding: 26px 30px 22px; width: 420px; }}
 .b-title {{ font-weight: 700; font-size: 26px; display: flex; align-items: center; gap: 10px; }}
 .b-name {{ font-weight: 650; font-size: 22px; margin-top: 16px; }}
@@ -117,9 +137,9 @@ body {{ font-family: {FONT}; color: {INK}; background: {TEAL}; -webkit-font-smoo
 .steps li::before {{ content: ""; position: absolute; left: 50%; top: 0; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%;
   background: #fff; border: 3px solid #c3c2b7; z-index: 1; }}
 .steps li + li::after {{ content: ""; position: absolute; top: 6px; right: 50%; width: 100%; height: 4px; background: #c3c2b7; }}
-.steps li.on::before {{ background: #0F766E; border-color: #0F766E; }}
-.steps li.on::after {{ background: #0F766E; }}
-.steps li.now::before {{ box-shadow: 0 0 0 6px rgba(45,212,191,0.35); }}
+.steps li.on::before {{ background: {BLUE}; border-color: {BLUE}; }}
+.steps li.on::after {{ background: {BLUE}; }}
+.steps li.now::before {{ box-shadow: 0 0 0 6px {MIST}; }}
 .b-row {{ display: flex; justify-content: space-between; font-size: 18px; color: #52514e; }}
 .time {{ color: #898781; }}
 """
@@ -154,7 +174,7 @@ def social_html() -> str:
 .tagline {{ font-size: 30px; margin-top: 18px; }}
 .small {{ font-size: 21px; margin-top: 26px; line-height: 1.45; }}
 .chips {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }}
-.chips span {{ background: rgba(20,24,31,0.88); color: #fff; border-radius: 999px; padding: 7px 14px; font-size: 16px; font-weight: 600; white-space: nowrap; }}
+.chips span {{ background: {BLUE_DEEP}; color: #fff; border-radius: 999px; padding: 7px 14px; font-size: 16px; font-weight: 600; white-space: nowrap; }}
 .bubble {{ width: 380px; flex: none; }}
 </style></head><body><div class="frame">
 <div class="left"><svg class="logo" viewBox="0 0 512 512">{mark(uid="s")}</svg>
@@ -206,9 +226,10 @@ def write_svgs() -> None:
     LOGO.mkdir(parents=True, exist_ok=True)
     files = {
         LOGO / "icon.svg": icon_svg(),
-        LOGO / "mark.svg": svg(mark(uid="k")),
-        LOGO / "mono-black.svg": svg(mark(ink="#000", pin="#000", dot="hole", uid="b")),
-        LOGO / "mono-white.svg": svg(mark(ink="#fff", pin="#fff", dot="hole", uid="w")),
+        LOGO / "mark.svg": svg(mark(faces=FACES_ON_LIGHT, uid="k")),
+        LOGO / "mark-light.svg": svg(mark(uid="l")),
+        LOGO / "mono-black.svg": svg(mark(faces=("#000",) * 3, pin="#000", dot="hole", uid="b")),
+        LOGO / "mono-white.svg": svg(mark(faces=("#fff",) * 3, pin="#fff", dot="hole", uid="w")),
         LOGO / "avatar.svg": icon_svg(radius=0, scale=0.86),
         WEB_STATIC / "logo.svg": icon_svg(),
         WEB_STATIC / "favicon.svg": icon_svg(radius=128),

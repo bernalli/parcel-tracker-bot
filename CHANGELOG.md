@@ -44,8 +44,10 @@ long list of correctness, security and documentation fixes from a full audit.
   way everywhere.
 - Prometheus gauges `parceltracker_active_parcels` (now populated) and
   `parceltracker_stalled_parcels`; Grafana dashboard in `docs/grafana/`.
-- New brand: logo set, cover, social preview, Telegram avatar and description
-  image, rendered by `scripts/make_docs_art.py`.
+- New brand in the project's blue (`#2447E0`): logo set for blue, light and
+  dark backgrounds, cover, social preview, Telegram avatar and description
+  image, rendered by `scripts/make_docs_art.py`. The dashboard uses the same
+  blue in light and dark mode.
 - `scripts/demo_web.py` (dashboard on demo data) and `scripts/i18n.py`
   (catalog maintenance).
 - `/forgetme` self-service erasure and automatic data retention
