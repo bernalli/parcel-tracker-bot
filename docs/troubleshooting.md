@@ -68,11 +68,6 @@ A user-supplied tracking name contains characters that look like HTML to Telegra
 `&`). The bot escapes user input in admin/health paths but if you see this in a custom
 plugin, run user values through `html.escape()` before composing the message.
 
-## "tracker_id IM06010000000000" looping in logs
-
-This was the symptom of Bug #1 — fixed in `v0.1.0-foundation`. If you still see it, you are
-on a pre-`v0.1.0` build. Update.
-
 ## Container restarts every 5 minutes
 
 The healthcheck is failing. Check:
@@ -94,10 +89,44 @@ sustained higher usage suggests a leak — please open an issue.
 
 Set `LOG_LEVEL=WARNING` and restart. The default is `INFO`.
 
-## I want to run a single check manually
+## A parcel stays "Not found"
 
-```bash
-docker compose exec parcel-tracker python -m parcel_tracker.cli check <tracking_id>
-```
+New labels often take a day to get their first scan. If a parcel is still
+"Not found" after that:
 
-(The CLI sub-command is provided by the `parcel-tracker` entry point.)
+- Check the code on the carrier's own website.
+- Configure `TRACK17_API_KEY`: the built-in scrapers are best effort, and
+  17track is the fallback that covers most carriers (see [api-keys](api-keys.md)).
+- Look at `/health`: a quarantined source is skipped until it recovers.
+
+To check a parcel immediately, open it from `/menu` and tap **🔄 Update now**,
+or use **Check now** in the web dashboard.
+
+## The dashboard does not open
+
+- `/web` says the dashboard is not enabled: set `WEB_ENABLED=true` and restart.
+- The page does not load: with Docker, the port is published on the host's
+  `127.0.0.1:8080` only. Open it on the server, or through a reverse proxy
+  ([operations](operations.md#exposing-the-dashboard)). Without Docker, the
+  default listening address is `127.0.0.1`; set `WEB_BIND_HOST` if needed.
+- The log says the dashboard "could not listen": another program uses the
+  port. Change `WEB_PORT` (and the published port in `docker-compose.yml`).
+
+## "This sign-in link is invalid, already used or expired"
+
+Links from `/web` work once and expire after 15 minutes. Send `/web` again.
+
+## Links from the bot point to localhost
+
+Set `WEB_PUBLIC_URL` to the address you and your customers use, for example
+`https://parcels.example.com`, and restart.
+
+## "Invalid or missing CSRF token"
+
+The page was open before you signed in again or logged out elsewhere. Reload it
+and repeat the action.
+
+## I signed in but see no shipments
+
+Each Telegram user has their own shipments. Make sure you used `/web` from the
+account that added them.

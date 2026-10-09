@@ -45,6 +45,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /install /usr/local
 
+# Inside the container the web dashboard must listen on all interfaces so the
+# published port reaches it; docker-compose.yml binds that port to the host's
+# loopback only. It is off unless WEB_ENABLED=true.
+ENV WEB_BIND_HOST=0.0.0.0 \
+    WEB_PORT=8080
+EXPOSE 8080
+
 USER botuser
 
 # Healthcheck: DB exists and is readable. Opened read-only so a missing

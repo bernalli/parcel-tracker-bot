@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -41,8 +41,8 @@ jobs:
 
       - name: Lint (ruff)
         run: |
-          ruff check src tests
-          ruff format --check src tests
+          ruff check src tests scripts
+          ruff format --check src tests scripts
 
       - name: Type check (mypy strict)
         run: mypy src/parcel_tracker
@@ -84,6 +84,14 @@ jobs:
         run: |
           test "$(docker run --rm --entrypoint id parcel-tracker-bot:ci -u)" = "1000"
           docker run --rm --entrypoint python parcel-tracker-bot:ci -c "import parcel_tracker.main"
+          # The web dashboard ships its templates, static files and compiled catalogs.
+          docker run --rm --entrypoint python parcel-tracker-bot:ci -c "
+          from parcel_tracker.web.render import STATIC, TEMPLATES
+          from parcel_tracker.i18n import LOCALE_DIR
+          assert (TEMPLATES / 'dashboard.html').is_file(), 'templates missing'
+          assert (STATIC / 'app.css').is_file(), 'static files missing'
+          assert (LOCALE_DIR / 'it/LC_MESSAGES/messages.mo').is_file(), 'catalogs missing'
+          "
           stray="$(docker run --rm --entrypoint find parcel-tracker-bot:ci /app /usr/local/lib \
             \( -name .git -o -name .env -o -name '*.db' -o -name tests -path '*parcel_tracker*' \) -print)"
           if [ -n "$stray" ]; then echo "unexpected files in image: $stray"; exit 1; fi

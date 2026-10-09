@@ -5,6 +5,10 @@ services:
     container_name: parcel-tracker-bot
     restart: unless-stopped
     env_file: .env
+    ports:
+      # Web dashboard (WEB_ENABLED=true). Bound to the host's loopback only:
+      # put a reverse proxy in front to reach it from elsewhere (docs/operations.md).
+      - "127.0.0.1:8080:8080"
     volumes:
       # Named volume: Docker seeds it with the image's /app/data ownership
       # (botuser), so the non-root process can create the DB on first run.

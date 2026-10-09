@@ -16,3 +16,7 @@ This product includes third-party data:
   (https://www.openstreetmap.org/). Map data © OpenStreetMap contributors,
   available under the Open Database License (ODbL):
   https://www.openstreetmap.org/copyright
+  The default tiles are CARTO basemaps (https://carto.com/attributions),
+  © CARTO; any XYZ tile server can be configured with OSM_TILE_URL.
+
+- The web dashboard ships no third-party code, fonts or assets.

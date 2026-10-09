@@ -5,6 +5,121 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-10-09
+
+The "shop" release: the bot becomes a shipment control room for small online
+sellers — a web dashboard, customer tracking pages, CSV and a JSON API — and a
+long list of correctness, security and documentation fixes from a full audit.
+
+### Added
+
+- **Web dashboard** (`WEB_ENABLED=true`): KPIs, shipments that need attention,
+  weekly shipped/delivered chart, carrier performance, searchable and filterable
+  shipment list, detail pages with timeline and route map, CSV import/export,
+  settings. Password-less sign-in through a one-time link sent by `/web`. Light
+  and dark themes, mobile layout, English and Italian. See `docs/web.md`.
+- **Customer tracking pages**: a revocable public link per shipment showing only
+  carrier data, under your shop name; created from the dashboard or the bot's
+  🔗 Share button.
+- **JSON API v1** with personal tokens (list, create, read, update, archive
+  shipments; statistics) for shop integrations.
+- **Seller fields** on every shipment: order reference, customer, destination,
+  tags and notes — editable from the dashboard, the API, CSV, and the bot's
+  📝 Details button; shown on the parcel card.
+- **Seller mode**: delivered parcels are archived automatically with a short
+  notice instead of the "did you receive it?" question.
+- **Stalled-shipment alerts**: one warning when an active parcel has had no
+  carrier news for `STALL_ALERT_DAYS` (default 7).
+- **Bulk add**: several codes in one message (one per line), in the dashboard,
+  or from a `.csv` file sent to the bot; `/export` sends a CSV back.
+- **Official DHL tracking API** (`DHL_API_KEY`), run before the DHL and
+  Deutsche Post scrapers.
+- **UPU S10 validation**: international postal codes get their check digit
+  verified and show the issuing postal operator (40 mapped) from the start.
+- Codes pasted with spaces, dashes or full-width digits are normalised the same
+  way everywhere.
+- Prometheus gauges `parceltracker_active_parcels` (now populated) and
+  `parceltracker_stalled_parcels`; Grafana dashboard in `docs/grafana/`.
+- New brand: logo set, cover, social preview, Telegram avatar and description
+  image, rendered by `scripts/make_docs_art.py`.
+- `scripts/demo_web.py` (dashboard on demo data) and `scripts/i18n.py`
+  (catalog maintenance).
+- `/forgetme` self-service erasure and automatic data retention
+  (`DATA_RETENTION_DAYS`).
+
+### Changed
+
+- **`CHECK_INTERVAL_MINUTES` now defaults to 5**: it is how often the scheduler
+  wakes up, and per-status intervals (5/15/30/60 min) are honoured at last.
+- `/web` joins the Telegram command list; welcome and help texts describe the
+  new features.
+- Every built-in tracker shares one HTTP client that honours `REQUEST_TIMEOUT`
+  and is closed on shutdown; drop-in plugins get it (and the 17track client)
+  injected.
+- Out-of-range settings (zero batch size, zero rate limit, bad ports, negative
+  intervals, a non-URL `WEB_PUBLIC_URL`) stop the bot at startup.
+- The UI language is per user; public pages follow the browser.
+- Docker publishes the dashboard on `127.0.0.1:8080`.
+
+### Removed
+
+- `UPS_CLIENT_ID`, `UPS_CLIENT_SECRET`, `FEDEX_API_KEY`, `FEDEX_SECRET_KEY` and
+  `NOTIFY_COOLDOWN_MINUTES`: they were documented but never used.
+- `.env.example` entries that were never implemented
+  (`URGENT_CHECK_INTERVAL_MINUTES`, `MAX_CONSECUTIVE_ERRORS`,
+  `AUTO_ARCHIVE_HOURS`, `REQUEST_DELAY_*`).
+- The never-populated `parceltracker_db_query_duration_seconds` metric.
+
+### Fixed
+
+- Every scraper read "not delivered", "undelivered", "nicht zugestellt",
+  "non livré"… as **Delivered**, prompting a false receipt and stopping
+  polling. A shared multilingual negation check now runs first.
+- A batch of not-yet-scanned labels could quarantine a whole carrier for every
+  user: "not found" no longer counts as a carrier failure.
+- Re-adding an archived delivered parcel never tracked it again.
+- A fallback source answering "not found" overwrote a known status, and a
+  lagging source could re-open a delivery and prompt twice.
+- Checks continued on parcels removed or erased mid-fetch; duplicate delivery
+  prompts when a manual refresh raced the background sweep.
+- A status change without new events was lost when Telegram failed to send it.
+- Parcels were polled half as often as configured (drift between ticks).
+- Parcels of `ADMIN_USER_IDS` users were never polled.
+- An admin could wipe the owner's data with `/removeuser`; an abandoned
+  "authorise user" prompt could turn a pasted number into an authorised user.
+- Product names such as "AirPods2023" sent at the name prompt became parcels.
+- `/status`, `/events`, `/remove`, `/rename` and `/map` failed for lower-case
+  codes; non-ASCII codes broke Telegram buttons.
+- Status labels, `/whoami`, `/stats` and notification buttons were always in
+  English; `/lang` showed the wrong current language.
+- An Australia Post pattern captured all-digit FedEx numbers.
+- Event history was ordered by insertion, not by event time.
+- The geocoder read US state codes as countries ("Berlin, DE" stays Germany,
+  "Sacramento, CA" is California).
+- The redirect guard accepted loopback shorthands (`127.1`, `2130706433`).
+- Endless retries (and map renders) for users who blocked the bot.
+- `/health <name>` did not find mixed-case plugin names; plugins defining
+  dataclasses failed to load; 17track-backed plugins never got a 17track client.
+- `/stats` counted single quarantined codes as quarantined trackers; per-code
+  health rows kept tracking codes forever.
+- Auto-add replied to every message in group chats; edited messages re-ran
+  commands.
+- Earlier in this cycle: central authorisation gate, per-user cooldowns on
+  `/checkall` and refresh, retries and error classes for carrier requests, 5 MB
+  response cap, safe redirects, plugin isolation, long updates split under
+  Telegram's limits, terminal notifications retried, checks of one parcel
+  serialised, input validation and escaping, erasure on user removal, tracking
+  codes hashed in logs, pinned CI actions and Docker base image.
+
+### Documentation
+
+- New: `docs/web.md`, `docs/sellers.md`, `docs/operations.md`,
+  `CODE_OF_CONDUCT.md`.
+- Rewritten to match the code: README, `docs/trackers.md` (honest source tiers),
+  `docs/plugins.md` (the examples are now tested), `docs/api-keys.md`,
+  `docs/architecture.md`, `docs/observability.md`, `docs/i18n.md`,
+  `docs/troubleshooting.md`.
+
 ## [0.3.0] — 2026-06-07
 
 ### Added

@@ -7,7 +7,13 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
+from parcel_tracker import __version__
 from parcel_tracker.db.models import ShipmentStatus
+
+# Tile servers ask for an identifying User-Agent; it follows the package version.
+DEFAULT_MAP_USER_AGENT = (
+    f"parcel-tracker-bot/{__version__} (+https://github.com/bernalli/parcel-tracker-bot)"
+)
 
 
 class ConfigError(ValueError):
@@ -64,7 +70,7 @@ class Config:
     # be set via OSM_TILE_URL (set MAP_TILE_SIZE=256 for standard-DPI servers).
     osm_tile_url: str = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
     map_tile_size: int = 512
-    map_user_agent: str = "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
+    map_user_agent: str = DEFAULT_MAP_USER_AGENT
 
     # Warn when an active shipment has no carrier update for this many days (0 = off).
     stall_alert_days: int = 7
@@ -152,9 +158,7 @@ class Config:
                 "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
             ),
             map_tile_size=_int_env("MAP_TILE_SIZE", 512, minimum=64, maximum=1024),
-            map_user_agent=os.getenv(
-                "MAP_USER_AGENT", "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
-            ),
+            map_user_agent=os.getenv("MAP_USER_AGENT", DEFAULT_MAP_USER_AGENT),
             stall_alert_days=_int_env("STALL_ALERT_DAYS", 7, minimum=0, maximum=365),
             web_enabled=_bool_env("WEB_ENABLED", False),
             web_bind_host=os.getenv("WEB_BIND_HOST", "127.0.0.1").strip() or "127.0.0.1",
