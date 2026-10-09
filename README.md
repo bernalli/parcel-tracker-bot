@@ -29,7 +29,10 @@ ones that need you, and a tracking page for each customer.
   analytics, offline geocoding, English and Italian.
 
 <p align="center">
-  <img src="docs/img/dashboard.png" alt="Web dashboard: KPIs, shipments that need attention, weekly chart, carriers" width="820">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/dashboard-dark.png">
+    <img src="docs/img/dashboard.png" alt="Web dashboard: KPIs, shipments that need attention, weekly chart, carriers" width="820">
+  </picture>
 </p>
 
 ## Quick start
@@ -79,11 +82,12 @@ Each parcel card has **Update now**, **Events**, **Map**, **Rename**,
 tracking link) and **Remove**. Notifications can be muted per status in
 **Settings → Notifications**.
 
-<p align="center">
-  <img src="docs/img/route-air.png" alt="A status notification with the parcel's route drawn on a map" width="640">
-  <br>
-  <em>Status updates come with a map of the route, rendered by the bot itself.</em>
-</p>
+| Intercontinental route | Out for delivery |
+|---|---|
+| ![Route map of an air shipment, drawn by the bot](docs/img/route-air.png) | ![Map of a parcel out for delivery in Milan](docs/img/out-for-delivery.png) |
+
+Status updates come with a map of the route, rendered by the bot itself from
+OpenStreetMap data.
 
 ## For online sellers
 
@@ -102,6 +106,12 @@ The full workflow is in the [sellers guide](docs/sellers.md).
 
 <p align="center">
   <img src="docs/img/shipments.png" alt="Shipment list with status, customer, carrier and last news" width="820">
+</p>
+
+<p align="center">
+  <img src="docs/img/public-page.png" alt="Customer tracking page under the shop's name, with progress and history" width="620">
+  <br>
+  <em>The tracking page your customer sees: your shop name, the carrier's data, nothing else.</em>
 </p>
 
 ## Tracking sources
