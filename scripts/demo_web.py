@@ -206,7 +206,7 @@ async def seed(db: str, *, shipments: int = 32, seed_value: int = 7) -> None:
                     (sql_ts(created + timedelta(days=delivered_after)), code),
                 )
             await conn.commit()
-        if i == 0:
+        if i == 2:
             await repo.set_share_token(code, user_id=OWNER, token="demo-share-link")
 
 
