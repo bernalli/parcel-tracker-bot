@@ -93,6 +93,25 @@ class HealthManager:
             await self.repo.reset_consecutive(tracker_id, "")
         await self._record_failure_at(tracker_id, "", self.aggregate_thresholds)
 
+    async def record_not_found(self, tracker_id: str, tracking_id: str) -> None:
+        """The carrier does not know this code (yet): back off this code only.
+
+        An unscanned label is not an outage, so it never feeds the tracker-wide
+        circuit (a seller adding a dozen fresh labels must not quarantine the
+        carrier for everyone), and its own back-off is capped at the first tier so
+        the first real scan is picked up within ``level1_hours``.
+        """
+        t = self.thresholds
+        capped = QuarantineThresholds(
+            level1_failures=t.level1_failures,
+            level1_hours=t.level1_hours,
+            level2_failures=t.level2_failures,
+            level2_hours=t.level1_hours,
+            level3_failures=t.level3_failures,
+            level3_hours=t.level1_hours,
+        )
+        await self._record_failure_at(tracker_id, tracking_id, capped)
+
     async def is_tracker_quarantined(self, tracker_id: str) -> bool:
         """True when the tracker-wide circuit is open (all shipments skipped)."""
         return await self.repo.is_quarantined(tracker_id, "")

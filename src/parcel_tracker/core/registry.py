@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import importlib.util
+import inspect
 import logging
-from collections.abc import Iterator
+import sys
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 
 from parcel_tracker.core.tracker_base import AbstractTracker
@@ -37,8 +39,15 @@ class TrackerRegistry:
     def iter_all(self) -> Iterator[AbstractTracker]:
         yield from self._trackers.values()
 
-    def load_from_directory(self, directory: Path) -> int:
-        """Scan a directory for plugin .py files and register each Tracker class."""
+    def load_from_directory(
+        self, directory: Path, *, inject: Mapping[str, object] | None = None
+    ) -> int:
+        """Scan a directory for plugin .py files and register each Tracker class.
+
+        ``inject`` holds shared dependencies (``http_client``, ``track17``) passed to
+        a plugin's constructor when it declares a parameter of that name, so a
+        17track-backed plugin gets the configured 17track client.
+        """
         if not directory.exists() or not directory.is_dir():
             return 0
 
@@ -55,9 +64,13 @@ class TrackerRegistry:
                 continue
 
             module = importlib.util.module_from_spec(spec)
+            # Registered before execution, as a normal import would be: dataclasses
+            # and typing.get_type_hints resolve annotations through sys.modules.
+            sys.modules[module_name] = module
             try:
                 spec.loader.exec_module(module)
             except Exception:  # noqa: BLE001 — one broken plugin must not stop the bot
+                sys.modules.pop(module_name, None)
                 logger.exception("Failed to import plugin %s", py_file)
                 continue
 
@@ -73,7 +86,7 @@ class TrackerRegistry:
                 continue
 
             try:
-                self.register(tracker_cls())
+                self.register(tracker_cls(**_accepted_kwargs(tracker_cls, inject or {})))
                 loaded += 1
             except ValueError as exc:
                 logger.warning("Skipping duplicate plugin %s: %s", py_file, exc)
@@ -82,3 +95,12 @@ class TrackerRegistry:
 
         logger.info("Loaded %d plugins from %s", loaded, directory)
         return loaded
+
+
+def _accepted_kwargs(cls: type, inject: Mapping[str, object]) -> dict[str, object]:
+    """The subset of ``inject`` that ``cls.__init__`` accepts by name."""
+    try:
+        params = inspect.signature(cls).parameters
+    except (TypeError, ValueError):
+        return {}
+    return {name: value for name, value in inject.items() if name in params}

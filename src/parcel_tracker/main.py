@@ -118,10 +118,13 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
     )
 
     registry = TrackerRegistry()
-    register_builtins(registry, config)
+    http_client = register_builtins(registry, config)
     plugins_dir = _resolve_plugin_dir(config)
     if plugins_dir.exists():
-        registry.load_from_directory(plugins_dir)
+        registry.load_from_directory(
+            plugins_dir,
+            inject={"http_client": http_client, "track17": registry.get_by_name("track17")},
+        )
     detector = CourierDetector(registry)
 
     rate_limiter = RateLimiter(default_rate_per_min=config.rate_limit_default_per_min)
@@ -165,6 +168,7 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         "prefs": prefs,
         "geocoder": geocoder,
         "map_renderer": map_renderer,
+        "http_client": http_client,
         "settings": SettingsRepository(config.database_path),
         "web_repo": WebRepository(config.database_path),
         # NOTE: notifier added in main() after Application.builder().build()
@@ -262,6 +266,16 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
     await _heal_delivered_backlog(application)
 
 
+async def _post_shutdown(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Release network resources on a clean shutdown."""
+    client = application.bot_data.get("http_client")
+    if client is not None:
+        try:
+            await client.close()
+        except Exception:  # noqa: BLE001 — shutdown must complete
+            logger.warning("closing the HTTP client failed", exc_info=True)
+
+
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Global error handler: log the exception and, if possible, notify the user."""
     logger.error("Unhandled exception while processing update", exc_info=context.error)
@@ -294,7 +308,11 @@ def main() -> None:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
     application = (
-        Application.builder().token(config.telegram_bot_token).post_init(_post_init).build()
+        Application.builder()
+        .token(config.telegram_bot_token)
+        .post_init(_post_init)
+        .post_shutdown(_post_shutdown)
+        .build()
     )
 
     user_repo = bot_data["user_repo"]

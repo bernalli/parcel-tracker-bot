@@ -234,9 +234,11 @@ class TelegramNotifier:
     ) -> None:
         from parcel_tracker.bot.keyboards import delivery_confirm_keyboard  # noqa: PLC0415
 
-        text = messages.delivery_confirm_prompt(parcel_name, tracking_number)
+        text = messages.delivery_confirm_prompt(
+            _clip(parcel_name, _MAX_NAME_CHARS) if parcel_name else None, tracking_number
+        )
         if location:
-            text += f"\n📍 {messages.esc(location)}"
+            text += f"\n📍 {messages.esc(_clip(location, _MAX_LOCATION_CHARS))}"
         try:
             await self._bot.send_message(
                 chat_id=chat_id,

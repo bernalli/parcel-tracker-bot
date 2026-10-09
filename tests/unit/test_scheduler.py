@@ -49,6 +49,11 @@ def _make_context(
 
     parcel_repo = MagicMock()
     parcel_repo.list_active_for_user = AsyncMock(return_value=parcels)
+    parcel_repo.get_for_user = AsyncMock(
+        side_effect=lambda tn, _listed=parcel_repo.list_active_for_user.return_value, **_kw: next(
+            (p for p in _listed if p.tracking_number == tn), None
+        )
+    )
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.touch_change = AsyncMock()
@@ -66,6 +71,7 @@ def _make_context(
     health.is_quarantined = AsyncMock(return_value=is_quarantined)
     health.record_success = AsyncMock()
     health.record_failure = AsyncMock()
+    health.record_not_found = AsyncMock()
 
     notifier = MagicMock()
     notifier.send_status_update = AsyncMock()
@@ -242,14 +248,15 @@ async def test_check_updates_tracker_fetch_exception() -> None:
 
 @pytest.mark.asyncio
 async def test_check_updates_result_not_found() -> None:
-    """When result.found is False, failure is recorded and no update sent."""
+    """A carrier "not found" backs off that code only (no tracker failure), no update."""
     parcel = _make_parcel()
     result = TrackingResult(tracking_number="FAKE123", found=False)
     ctx = _make_context(parcels=[parcel], tracker_result=result)
 
     await check_updates(ctx)
 
-    ctx.bot_data["health"].record_failure.assert_called_once()
+    ctx.bot_data["health"].record_not_found.assert_called_once()
+    ctx.bot_data["health"].record_failure.assert_not_called()
     ctx.bot_data["parcel_repo"].update_status.assert_not_called()
 
 
@@ -457,6 +464,11 @@ async def test_check_updates_skips_send_when_prefs_disallow() -> None:
     ev = TrackingEvent(time="2026-05-09T11:00:00Z", description="Out for delivery", location="Hub")
     parcel_repo = MagicMock()
     parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
+    parcel_repo.get_for_user = AsyncMock(
+        side_effect=lambda tn, _listed=parcel_repo.list_active_for_user.return_value, **_kw: next(
+            (p for p in _listed if p.tracking_number == tn), None
+        )
+    )
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.touch_change = AsyncMock()
@@ -535,6 +547,11 @@ async def test_check_updates_notifies_event_when_status_enabled() -> None:
     ev = TrackingEvent(time="2026-05-09T11:00:00Z", description="Departed", location="Hub")
     parcel_repo = MagicMock()
     parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
+    parcel_repo.get_for_user = AsyncMock(
+        side_effect=lambda tn, _listed=parcel_repo.list_active_for_user.return_value, **_kw: next(
+            (p for p in _listed if p.tracking_number == tn), None
+        )
+    )
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
     parcel_repo.touch_change = AsyncMock()

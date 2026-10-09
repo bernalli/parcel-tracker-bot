@@ -195,6 +195,15 @@ class ParcelRepository:
                     "destination = COALESCE(?, destination), notes = COALESCE(?, notes), "
                     "tags = COALESCE(?, tags), "
                     "delivered_at = NULL, delivery_disputed = 0, stall_alerted_at = NULL, "
+                    # A terminal status has a zero polling interval: keeping it would
+                    # mean the re-added parcel is never fetched again.
+                    "status = CASE WHEN status IN ('Delivered', 'Expired') "
+                    "THEN 'NotFound' ELSE status END, "
+                    "last_event = CASE WHEN status IN ('Delivered', 'Expired') "
+                    "THEN NULL ELSE last_event END, "
+                    "last_event_time = CASE WHEN status IN ('Delivered', 'Expired') "
+                    "THEN NULL ELSE last_event_time END, "
+                    "last_check_at = NULL, "
                     "last_change_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP "
                     "WHERE user_id = ? AND tracking_number = ? AND is_active = 0",
                     (
@@ -297,14 +306,26 @@ class ParcelRepository:
     async def get_history(
         self, tracking_number: str, *, limit: int = 100, user_id: int | None = None
     ) -> list[TrackingEvent]:
+        """Newest-first event history, ordered by the carrier's event time.
+
+        Insertion order is not chronological (carriers back-fill older scans and
+        list events oldest- or newest-first), so rows are sorted by parsed event
+        time, with the insertion id as tie-break and for unparseable times.
+        """
+        from parcel_tracker.maps.route import parse_event_dt  # noqa: PLC0415
+
         async with get_connection(self._db_path) as conn:
             cursor = await conn.execute(
-                "SELECT event_time, event_description, location, carrier "
-                "FROM tracking_history WHERE tracking_number = ? AND (user_id = ? OR ? IS NULL) "
-                "ORDER BY recorded_at DESC LIMIT ?",
-                (tracking_number, *_owner_params(user_id), limit),
+                "SELECT id, event_time, event_description, location, carrier "
+                "FROM tracking_history WHERE tracking_number = ? AND (user_id = ? OR ? IS NULL)",
+                (tracking_number, *_owner_params(user_id)),
             )
             rows = await cursor.fetchall()
+        ordered = sorted(
+            rows,
+            key=lambda r: (parse_event_dt(r["event_time"]) or datetime.min, r["id"]),
+            reverse=True,
+        )
         return [
             TrackingEvent(
                 time=row["event_time"] or "",
@@ -312,7 +333,7 @@ class ParcelRepository:
                 location=row["location"],
                 carrier=row["carrier"],
             )
-            for row in rows
+            for row in ordered[: max(0, limit)]
         ]
 
     async def add_events_dedup(

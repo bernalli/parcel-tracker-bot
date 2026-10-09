@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from parcel_tracker.config import Config
+from parcel_tracker.core.http_client import HttpClient
 from parcel_tracker.core.registry import TrackerRegistry
 from parcel_tracker.trackers.amazon_logistics import AmazonLogisticsTracker
 from parcel_tracker.trackers.aramex import AramexTracker
@@ -31,41 +32,57 @@ from parcel_tracker.trackers.ups import UpsTracker
 from parcel_tracker.trackers.usps import UspsTracker
 from parcel_tracker.trackers.yodel import YodelTracker
 
+_SCRAPERS = (
+    UpsTracker,
+    UspsTracker,
+    RoyalMailTracker,
+    LaPosteTracker,
+    DeutschePostTracker,
+    AramexTracker,
+    AustraliaPostTracker,
+    BpostTracker,
+    CanadaPostTracker,
+    CorreiosTracker,
+    CorreosTracker,
+    DhlTracker,
+    DpdTracker,
+    EvriTracker,
+    FedexTracker,
+    GlsEuropeTracker,
+    OesterreichischePostTracker,
+    PostnlTracker,
+    SwissPostTracker,
+    YodelTracker,
+)
+_TRACK17_BACKED = (
+    AmazonLogisticsTracker,
+    ChinaPostTracker,
+    EmsTracker,
+    SingaporePostTracker,
+    JapanPostTracker,
+)
 
-def register_builtins(registry: TrackerRegistry, config: Config) -> None:
-    """Register all built-in trackers into the registry."""
-    registry.register(UpsTracker())
-    registry.register(UspsTracker())
-    registry.register(RoyalMailTracker())
-    registry.register(LaPosteTracker())
-    registry.register(DeutschePostTracker())
-    registry.register(AramexTracker())
-    registry.register(AustraliaPostTracker())
-    registry.register(BpostTracker())
-    registry.register(CanadaPostTracker())
-    registry.register(CorreiosTracker())
-    registry.register(CorreosTracker())
-    registry.register(DhlTracker())
-    registry.register(DpdTracker())
-    registry.register(EvriTracker())
-    registry.register(FedexTracker())
-    registry.register(GlsEuropeTracker())
-    registry.register(OesterreichischePostTracker())
-    registry.register(PostnlTracker())
-    registry.register(SwissPostTracker())
-    registry.register(YodelTracker())
+
+def register_builtins(registry: TrackerRegistry, config: Config) -> HttpClient:
+    """Register all built-in trackers and return the HTTP client they share.
+
+    One client means one connection pool and one ``REQUEST_TIMEOUT`` for every
+    carrier; the caller closes it on shutdown.
+    """
+    client = HttpClient(timeout=float(config.request_timeout))
+    for scraper in _SCRAPERS:
+        registry.register(scraper(http_client=client))
 
     track17_instance: Track17Tracker | None = None
     if config.track17_api_key:
-        track17_instance = Track17Tracker(api_key=config.track17_api_key)
+        track17_instance = Track17Tracker(api_key=config.track17_api_key, http_client=client)
         registry.register(track17_instance)
 
-    # Tier D — registered with optional track17 delegate (None if track17 not configured)
-    registry.register(AmazonLogisticsTracker(track17=track17_instance))
-    registry.register(ChinaPostTracker(track17=track17_instance))
-    registry.register(EmsTracker(track17=track17_instance))
-    registry.register(SingaporePostTracker(track17=track17_instance))
-    registry.register(JapanPostTracker(track17=track17_instance))
+    # Detection-only trackers that delegate to 17track; without a key they report
+    # "track17 not configured" and the parcel is not tracked.
+    for backed in _TRACK17_BACKED:
+        registry.register(backed(track17=track17_instance))
+    return client
 
 
 __all__ = ["register_builtins"]

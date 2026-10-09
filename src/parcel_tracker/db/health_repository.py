@@ -167,12 +167,29 @@ class HealthRepository:
         """Number of distinct trackers currently in (non-expired) quarantine."""
         async with get_connection(self._db_path) as conn:
             cursor = await conn.execute(
+                # Only the tracker-wide row (tracking_id = ''): one quarantined
+                # shipment code does not make its whole tracker unavailable.
                 "SELECT COUNT(DISTINCT tracker_id) AS n FROM tracker_health "
-                "WHERE quarantine_until IS NOT NULL AND quarantine_until > ?",
+                "WHERE tracking_id = '' AND quarantine_until IS NOT NULL "
+                "AND quarantine_until > ?",
                 (datetime.now(UTC).isoformat(),),
             )
             row = await cursor.fetchone()
         return int(row["n"]) if row else 0
+
+    async def prune_orphans(self) -> int:
+        """Delete per-shipment rows whose code no active parcel tracks any more.
+
+        Per-shipment rows store raw tracking codes; without this they outlived the
+        parcel (and /forgetme) forever. Tracker-wide rows (tracking_id = '') stay.
+        """
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "DELETE FROM tracker_health WHERE tracking_id != '' AND tracking_id NOT IN "
+                "(SELECT tracking_number FROM parcels WHERE is_active = 1)"
+            )
+            await conn.commit()
+            return int(cursor.rowcount or 0)
 
 
 def _parse_ts(raw: str | None) -> datetime | None:

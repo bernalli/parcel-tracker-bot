@@ -57,7 +57,7 @@ def test_minimal_valid_config(monkeypatch: pytest.MonkeyPatch, env_clean: None) 
     assert cfg.telegram_bot_token == "fake_token"
     assert cfg.owner_id == 12345
     assert cfg.allowed_user_ids == []
-    assert cfg.check_interval_minutes == 30  # default
+    assert cfg.check_interval_minutes == 5  # default
     assert cfg.database_path == "/app/data/bot.db"  # default
     assert cfg.track17_api_key is None  # optional
 
