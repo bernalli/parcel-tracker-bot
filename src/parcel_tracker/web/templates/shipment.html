@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pill, when, title, csrf_field with context %}
+{% block title %}{{ title(p) }}{% endblock %}
+{% block content %}
+<p><a href="/shipments">← {{ _("All shipments") }}</a></p>
+<div class="page-head">
+  <div>
+    <h1>{{ title(p) }}</h1>
+    <p><span class="mono">{{ p.tracking_number }}</span>
+      <button class="btn btn-ghost btn-small" type="button" data-copy="{{ p.tracking_number }}" data-copied="{{ _('Copied') }}">{{ _("Copy") }}</button></p>
+  </div>
+  <div class="actions">
+    {% if p.is_active %}
+    <form class="inline" method="post" action="/shipments/{{ p.id }}/refresh">{{ csrf_field() }}<button class="btn btn-primary" type="submit">{{ _("Check now") }}</button></form>
+    <form class="inline" method="post" action="/shipments/{{ p.id }}/archive">{{ csrf_field() }}<button class="btn" type="submit">{{ _("Archive") }}</button></form>
+    {% else %}
+    <form class="inline" method="post" action="/shipments/{{ p.id }}/restore">{{ csrf_field() }}<button class="btn" type="submit">{{ _("Track again") }}</button></form>
+    {% endif %}
+    <form class="inline" method="post" action="/shipments/{{ p.id }}/delete" data-confirm="{{ _('Delete this shipment and its whole history? This cannot be undone.') }}">{{ csrf_field() }}<button class="btn btn-danger" type="submit">{{ _("Delete") }}</button></form>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <div class="stack">
+    <section class="card">
+      <div>{{ pill(p.status, stalled, p.is_active) }}</div>
+      {% set step = progress_index(p.status) %}
+      <ol class="progress {% if status_class(p.status) == 'attention' %}problem{% endif %}">
+        {% for s in progress_steps %}
+        <li class="{% if loop.index0 <= step %}done{% endif %} {% if loop.index0 == step %}current{% endif %}">{{ status_label(s) }}</li>
+        {% endfor %}
+      </ol>
+      {% if p.last_event %}<p class="secondary"><strong>{{ p.last_event }}</strong>{% if p.last_location %} — {{ p.last_location }}{% endif %}</p>{% endif %}
+      {% if stalled %}<div class="flash warn">{{ _("No carrier update for %(d)d days. The parcel may be stuck: consider contacting the carrier.", d=(p.last_change_at|days) or 0) }}</div>{% endif %}
+      <dl class="facts">
+        <div><dt>{{ _("Carrier") }}</dt><dd>{{ p.carrier_name or p.carrier_code or _("detecting…") }}</dd></div>
+        <div><dt>{{ _("Added") }}</dt><dd>{{ when(p.created_at, "date") }}</dd></div>
+        <div><dt>{{ _("Delivered") }}</dt><dd>{{ when(p.delivered_at) }}</dd></div>
+        <div><dt>{{ _("Time to delivery") }}</dt><dd>{% if transit_days is not none %}{{ _("%(d)s days", d="%.1f"|format(transit_days)) }}{% else %}—{% endif %}</dd></div>
+        <div><dt>{{ _("Last carrier news") }}</dt><dd>{{ when(p.last_change_at, "relative") }}</dd></div>
+        <div><dt>{{ _("Last check") }}</dt><dd>{{ when(p.last_check_at, "relative") }}</dd></div>
+      </dl>
+    </section>
+
+    {% if maps_enabled %}
+    <section class="card" data-map>
+      <h2>{{ _("Route") }}</h2>
+      <img class="map" src="/shipments/{{ p.id }}/map.png" alt="{{ _('Map of the route reported by the carrier') }}" loading="lazy" width="600" height="400" data-optional>
+      <p class="hint">{{ _("Map tiles © OpenStreetMap contributors, © CARTO") }}</p>
+    </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>{{ _("Carrier history") }} <small>{{ ngettext("%(num)d event", "%(num)d events", events|length) }}</small></h2>
+      {% if events %}
+      <ol class="timeline">
+        {% for ev in events %}
+        <li><div class="when">{{ fmt_event_time(ev.time) }}</div><div class="what">{{ ev.description }}</div>{% if ev.location %}<div class="where">📍 {{ ev.location }}</div>{% endif %}</li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="muted">{{ _("No carrier events yet. Fresh labels often take a day to show their first scan.") }}</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card">
+      <h2>{{ _("Customer tracking link") }}</h2>
+      {% if share_url %}
+        <p class="secondary">{{ _("Anyone with this link sees the carrier status and history, never your notes or customer details.") }}</p>
+        <div class="token-box"><code>{{ share_url }}</code></div>
+        <div class="actions" >
+          <button class="btn btn-small" type="button" data-copy="{{ share_url }}" data-copied="{{ _('Copied') }}">{{ _("Copy link") }}</button>
+          <a class="btn btn-small" href="{{ share_url }}" target="_blank" rel="noopener">{{ _("Open") }}</a>
+          <form class="inline" method="post" action="/shipments/{{ p.id }}/share">{{ csrf_field() }}<button class="btn btn-small" type="submit">{{ _("New link") }}</button></form>
+          <form class="inline" method="post" action="/shipments/{{ p.id }}/unshare">{{ csrf_field() }}<button class="btn btn-small btn-danger" type="submit">{{ _("Revoke") }}</button></form>
+        </div>
+      {% else %}
+        <p class="secondary">{{ _("Create a public page your customer can open to follow the parcel. Your notes and customer details stay private.") }}</p>
+        <form method="post" action="/shipments/{{ p.id }}/share">{{ csrf_field() }}<button class="btn btn-primary" type="submit">{{ _("Create link") }}</button></form>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>{{ _("Details") }}</h2>
+      <form method="post" action="/shipments/{{ p.id }}">
+        {{ csrf_field() }}
+        <div class="field"><label for="name">{{ _("Name") }}</label><input id="name" type="text" name="name" maxlength="64" value="{{ p.name or '' }}"></div>
+        <div class="field"><label for="order_ref">{{ _("Order reference") }}</label><input id="order_ref" type="text" name="order_ref" maxlength="64" value="{{ p.order_ref or '' }}"></div>
+        <div class="field"><label for="recipient">{{ _("Customer") }}</label><input id="recipient" type="text" name="recipient" maxlength="100" value="{{ p.recipient or '' }}"></div>
+        <div class="field"><label for="destination">{{ _("Destination") }}</label><input id="destination" type="text" name="destination" maxlength="100" value="{{ p.destination or '' }}"></div>
+        <div class="field"><label for="tags">{{ _("Tags") }}</label><input id="tags" type="text" name="tags" value="{{ p.tags|join(', ') }}"><div class="hint">{{ _("Comma-separated, e.g. express, gift") }}</div></div>
+        <div class="field"><label for="notes">{{ _("Notes") }}</label><textarea id="notes" name="notes" maxlength="1000">{{ p.notes or '' }}</textarea></div>
+        <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}

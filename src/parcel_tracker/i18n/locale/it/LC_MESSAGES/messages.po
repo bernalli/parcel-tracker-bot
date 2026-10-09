@@ -24,6 +24,59 @@ msgstr ""
 msgid " — quarantined until {until}"
 msgstr " — in quarantena fino alle {until}"
 
+#: src/parcel_tracker/web/templates/shipment.html:39
+#, python-format
+msgid "%(d)s days"
+msgstr "%(d)s giorni"
+
+#: src/parcel_tracker/web/templates/dashboard.html:99
+#, python-format
+msgid "%(d)s days on the way"
+msgstr "%(d)s giorni di viaggio"
+
+#: src/parcel_tracker/web/templates/dashboard.html:28
+#, python-format
+msgid "%(n)d in transit"
+msgstr "%(n)d in transito"
+
+#: src/parcel_tracker/web/templates/dashboard.html:31
+#, python-format
+msgid "%(n)d shipped"
+msgstr "%(n)d spediti"
+
+#: src/parcel_tracker/web/templates/dashboard.html:30
+#, python-format
+msgid "%(n)d without updates"
+msgstr "%(n)d senza aggiornamenti"
+
+#: src/parcel_tracker/web/templates/shipment.html:54
+#, python-format
+msgid "%(num)d event"
+msgid_plural "%(num)d events"
+msgstr[0] "%(num)d evento"
+msgstr[1] "%(num)d eventi"
+
+#: src/parcel_tracker/web/templates/_macros.html:32
+#, python-format
+msgid "%(num)d line skipped (duplicate or invalid)."
+msgid_plural "%(num)d lines skipped (duplicate or invalid)."
+msgstr[0] "%(num)d riga saltata (duplicata o non valida)."
+msgstr[1] "%(num)d righe saltate (duplicate o non valide)."
+
+#: src/parcel_tracker/web/templates/_macros.html:32
+#, python-format
+msgid "%(num)d shipment added."
+msgid_plural "%(num)d shipments added."
+msgstr[0] "%(num)d spedizione aggiunta."
+msgstr[1] "%(num)d spedizioni aggiunte."
+
+#: src/parcel_tracker/web/templates/shipments.html:8
+#, python-format
+msgid "%(num)d shipment matches."
+msgid_plural "%(num)d shipments match."
+msgstr[0] "%(num)d spedizione trovata."
+msgstr[1] "%(num)d spedizioni trovate."
+
 #: src/parcel_tracker/bot/messages.py:268
 msgid "(no delivered parcels)"
 msgstr "(nessun pacco consegnato)"
@@ -35,6 +88,11 @@ msgstr "(nessun pacco)"
 #: src/parcel_tracker/bot/messages.py:264
 msgid "(no users)"
 msgstr "(nessun utente)"
+
+#: src/parcel_tracker/web/templates/dashboard.html:32
+#, python-format
+msgid "9 in 10 within %(d)s days"
+msgstr "9 su 10 entro %(d)s giorni"
 
 #: src/parcel_tracker/bot/messages.py:272
 #, python-brace-format
@@ -68,9 +126,86 @@ msgstr ""
 msgid "<b>📦 Delivered (archived)</b>"
 msgstr "<b>📦 Consegnati (archiviati)</b>"
 
+#: src/parcel_tracker/web/templates/settings.html:43
+msgid "API reference"
+msgstr "Riferimento API"
+
+#: src/parcel_tracker/web/templates/_macros.html:33
+msgid "API token revoked."
+msgstr "Token API revocato."
+
+#: src/parcel_tracker/web/templates/settings.html:23
+msgid "API tokens"
+msgstr "Token API"
+
+#: src/parcel_tracker/web/templates/shipments.html:16
+msgid "Active"
+msgstr "Attive"
+
+#: src/parcel_tracker/web/templates/dashboard.html:28
+msgid "Active shipments"
+msgstr "Spedizioni attive"
+
+#: src/parcel_tracker/web/templates/dashboard.html:19
+msgid ""
+"Add a tracking number here, import a CSV from your shop, or simply paste codes into the Telegram "
+"chat."
+msgstr ""
+"Aggiungi un codice di tracciamento qui, importa un CSV dal tuo negozio o incolla semplicemente i "
+"codici nella chat Telegram."
+
+#: src/parcel_tracker/web/templates/new.html:34
+msgid "Add all"
+msgstr "Aggiungi tutte"
+
+#: src/parcel_tracker/web/templates/dashboard.html:12
+#: src/parcel_tracker/web/templates/dashboard.html:21 src/parcel_tracker/web/templates/new.html:3
+#: src/parcel_tracker/web/templates/new.html:6 src/parcel_tracker/web/templates/new.html:25
+#: src/parcel_tracker/web/templates/shipments.html:12
+msgid "Add shipment"
+msgstr "Aggiungi spedizione"
+
+#: src/parcel_tracker/web/templates/import.html:14 src/parcel_tracker/web/templates/shipment.html:37
+msgid "Added"
+msgstr "Aggiunta"
+
 #: src/parcel_tracker/bot/formatting.py:48
 msgid "Alert"
 msgstr "Allerta"
+
+#: src/parcel_tracker/web/templates/shipments.html:16
+msgid "All"
+msgstr "Tutte"
+
+#: src/parcel_tracker/web/templates/shipments.html:30
+msgid "All carriers"
+msgstr "Tutti i corrieri"
+
+#: src/parcel_tracker/web/templates/new.html:5 src/parcel_tracker/web/templates/shipment.html:5
+msgid "All shipments"
+msgstr "Tutte le spedizioni"
+
+#: src/parcel_tracker/web/templates/shipments.html:37
+msgid "All tags"
+msgstr "Tutte le etichette"
+
+#: src/parcel_tracker/web/templates/import.html:15
+msgid "Already tracked"
+msgstr "Già tracciate"
+
+#: src/parcel_tracker/web/templates/shipment.html:71
+msgid "Anyone with this link sees the carrier status and history, never your notes or customer details."
+msgstr ""
+"Chi ha questo link vede lo stato e la cronologia del corriere, mai le tue note o i dati del "
+"cliente."
+
+#: src/parcel_tracker/web/templates/shipment.html:15
+msgid "Archive"
+msgstr "Archivia"
+
+#: src/parcel_tracker/web/templates/_macros.html:4 src/parcel_tracker/web/templates/shipments.html:16
+msgid "Archived"
+msgstr "Archiviata"
 
 #: src/parcel_tracker/bot/messages.py:445
 msgid "Archived automatically — see /history."
@@ -81,9 +216,106 @@ msgstr "Archiviato automaticamente — vedi /history."
 msgid "Authorised users: <b>{count}</b>"
 msgstr "Utenti autorizzati: <b>{count}</b>"
 
-#: src/parcel_tracker/bot/messages.py:282
+#: src/parcel_tracker/web/templates/error.html:9
+msgid "Back to the dashboard"
+msgstr "Torna alla dashboard"
+
+#: src/parcel_tracker/web/templates/settings.html:43
+msgid "Base URL:"
+msgstr "URL di base:"
+
+#: src/parcel_tracker/web/templates/import.html:35
+msgid "CSV file"
+msgstr "File CSV"
+
+#: src/parcel_tracker/bot/messages.py:282 src/parcel_tracker/web/templates/dashboard.html:79
+#: src/parcel_tracker/web/templates/shipment.html:36 src/parcel_tracker/web/templates/shipments.html:28
+#: src/parcel_tracker/web/templates/shipments.html:51
 msgid "Carrier"
 msgstr "Corriere"
+
+#: src/parcel_tracker/web/templates/shipment.html:54
+msgid "Carrier history"
+msgstr "Cronologia del corriere"
+
+#: src/parcel_tracker/web/templates/dashboard.html:77
+msgid "Carriers"
+msgstr "Corrieri"
+
+#: src/parcel_tracker/web/templates/_macros.html:22
+msgid "Changes saved."
+msgstr "Modifiche salvate."
+
+#: src/parcel_tracker/web/templates/shipment.html:14
+msgid "Check now"
+msgstr "Controlla ora"
+
+#: src/parcel_tracker/web/templates/_macros.html:23
+msgid "Checked with the carrier just now."
+msgstr "Controllato ora con il corriere."
+
+#: src/parcel_tracker/web/templates/import.html:8
+msgid "Choose a CSV file first."
+msgstr "Scegli prima un file CSV."
+
+#: src/parcel_tracker/web/templates/import.html:43
+msgid ""
+"Comma, semicolon or tab separated; headers in English or Italian (codice, ordine, cliente…) are "
+"understood. A file with just one code per line works too."
+msgstr ""
+"Separato da virgola, punto e virgola o tabulazione; le intestazioni in inglese o italiano "
+"(codice, ordine, cliente…) vengono riconosciute. Va bene anche un file con un codice per riga."
+
+#: src/parcel_tracker/web/templates/shipment.html:93
+msgid "Comma-separated, e.g. express, gift"
+msgstr "Separate da virgola, es. express, regalo"
+
+#: src/parcel_tracker/web/templates/settings.html:24
+msgid "Connect your shop or scripts to the JSON API. Each token acts as you; keep it secret."
+msgstr ""
+"Collega il tuo negozio o i tuoi script all'API JSON. Ogni token agisce a tuo nome: tienilo "
+"segreto."
+
+#: src/parcel_tracker/web/templates/login.html:12
+msgid "Continue to the dashboard"
+msgstr "Continua alla dashboard"
+
+#: src/parcel_tracker/web/templates/settings.html:28 src/parcel_tracker/web/templates/shipment.html:10
+#: src/parcel_tracker/web/templates/shipment.html:74
+msgid "Copied"
+msgstr "Copiato"
+
+#: src/parcel_tracker/web/templates/settings.html:28 src/parcel_tracker/web/templates/shipment.html:10
+msgid "Copy"
+msgstr "Copia"
+
+#: src/parcel_tracker/web/templates/shipment.html:74
+msgid "Copy link"
+msgstr "Copia link"
+
+#: src/parcel_tracker/web/templates/settings.html:26
+msgid "Copy your new token now. It will not be shown again."
+msgstr "Copia ora il nuovo token: non verrà mostrato di nuovo."
+
+#: src/parcel_tracker/web/templates/_macros.html:24
+msgid "Couldn't reach the carrier. Showing the last known data."
+msgstr "Impossibile contattare il corriere. Mostro gli ultimi dati noti."
+
+#: src/parcel_tracker/web/templates/shipment.html:80
+msgid ""
+"Create a public page your customer can open to follow the parcel. Your notes and customer details"
+" stay private."
+msgstr ""
+"Crea una pagina pubblica che il cliente può aprire per seguire il pacco. Le tue note e i dati del"
+" cliente restano privati."
+
+#: src/parcel_tracker/web/templates/shipment.html:81
+msgid "Create link"
+msgstr "Crea link"
+
+#: src/parcel_tracker/web/templates/settings.html:41
+msgid "Create token"
+msgstr "Crea token"
 
 #: src/parcel_tracker/bot/messages.py:184
 #, python-brace-format
@@ -94,7 +326,40 @@ msgstr ""
 "Lingua attuale: <code>{current}</code>\n"
 "Disponibili: {available}"
 
-#: src/parcel_tracker/bot/formatting.py:43
+#: src/parcel_tracker/web/templates/new.html:20 src/parcel_tracker/web/templates/shipment.html:91
+#: src/parcel_tracker/web/templates/shipments.html:50
+msgid "Customer"
+msgstr "Cliente"
+
+#: src/parcel_tracker/web/templates/shipment.html:69
+msgid "Customer tracking link"
+msgstr "Link di tracciamento per il cliente"
+
+#: src/parcel_tracker/web/templates/base.html:21 src/parcel_tracker/web/templates/dashboard.html:3
+#: src/parcel_tracker/web/templates/dashboard.html:7
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: src/parcel_tracker/web/templates/shipment.html:19
+msgid "Delete"
+msgstr "Elimina"
+
+#: src/parcel_tracker/web/templates/settings.html:59
+msgid "Delete all my data"
+msgstr "Elimina tutti i miei dati"
+
+#: src/parcel_tracker/web/templates/settings.html:56
+msgid "Delete all your data? This cannot be undone."
+msgstr "Eliminare tutti i tuoi dati? L'operazione non si può annullare."
+
+#: src/parcel_tracker/web/templates/shipment.html:19
+msgid "Delete this shipment and its whole history? This cannot be undone."
+msgstr "Eliminare questa spedizione e tutta la sua cronologia? L'operazione non si può annullare."
+
+#: src/parcel_tracker/bot/formatting.py:43 src/parcel_tracker/web/render.py:138
+#: src/parcel_tracker/web/templates/dashboard.html:62
+#: src/parcel_tracker/web/templates/dashboard.html:68 src/parcel_tracker/web/templates/shipment.html:38
+#: src/parcel_tracker/web/templates/shipments.html:16
 msgid "Delivered"
 msgstr "Consegnato"
 
@@ -107,6 +372,32 @@ msgstr "Consegnato a <b>{recipient}</b>."
 msgid "Delivered to the recipient."
 msgstr "Consegnato al destinatario."
 
+#: src/parcel_tracker/web/templates/dashboard.html:31
+msgid "Delivered, last 30 days"
+msgstr "Consegnate, ultimi 30 giorni"
+
+#: src/parcel_tracker/web/templates/dashboard.html:33
+msgid "Delivery success"
+msgstr "Consegne riuscite"
+
+#: src/parcel_tracker/web/templates/new.html:21 src/parcel_tracker/web/templates/shipment.html:92
+msgid "Destination"
+msgstr "Destinazione"
+
+#: src/parcel_tracker/web/templates/shipment.html:86
+msgid "Details"
+msgstr "Dettagli"
+
+#: src/parcel_tracker/web/templates/import.html:44
+msgid "Download a template"
+msgstr "Scarica un modello"
+
+#: src/parcel_tracker/web/templates/settings.html:54
+msgid "Download everything as CSV, or delete all your shipments, history, settings and tokens."
+msgstr ""
+"Scarica tutto in CSV, oppure elimina tutte le spedizioni, la cronologia, le impostazioni e i "
+"token."
+
 #: src/parcel_tracker/bot/formatting.py:45
 msgid "Exception"
 msgstr "Anomalia"
@@ -114,6 +405,51 @@ msgstr "Anomalia"
 #: src/parcel_tracker/bot/formatting.py:47
 msgid "Expired"
 msgstr "Scaduto"
+
+#: src/parcel_tracker/web/templates/dashboard.html:11 src/parcel_tracker/web/templates/settings.html:55
+msgid "Export CSV"
+msgstr "Esporta CSV"
+
+#: src/parcel_tracker/web/templates/import.html:6
+msgid "Export all as CSV"
+msgstr "Esporta tutto in CSV"
+
+#: src/parcel_tracker/web/templates/shipments.html:11
+msgid "Export these"
+msgstr "Esporta queste"
+
+#: src/parcel_tracker/web/templates/shipments.html:41
+msgid "Filter"
+msgstr "Filtra"
+
+#: src/parcel_tracker/web/templates/import.html:40
+msgid "Format"
+msgstr "Formato"
+
+#: src/parcel_tracker/web/templates/public.html:29
+msgid "History"
+msgstr "Cronologia"
+
+#: src/parcel_tracker/web/templates/settings.html:58
+msgid "I understand this deletes everything and cannot be undone."
+msgstr "Ho capito che questo elimina tutto e non si può annullare."
+
+#: src/parcel_tracker/web/templates/base.html:23 src/parcel_tracker/web/templates/import.html:3
+#: src/parcel_tracker/web/templates/import.html:36
+msgid "Import"
+msgstr "Importa"
+
+#: src/parcel_tracker/web/templates/dashboard.html:22
+msgid "Import CSV"
+msgstr "Importa CSV"
+
+#: src/parcel_tracker/web/templates/import.html:12
+msgid "Import finished"
+msgstr "Importazione completata"
+
+#: src/parcel_tracker/web/templates/import.html:5
+msgid "Import shipments"
+msgstr "Importa spedizioni"
 
 #: src/parcel_tracker/bot/formatting.py:42
 msgid "In customs"
@@ -127,6 +463,18 @@ msgstr "In transito"
 msgid "Info received"
 msgstr "Dati ricevuti"
 
+#: src/parcel_tracker/web/templates/import.html:16
+msgid "Invalid lines"
+msgstr "Righe non valide"
+
+#: src/parcel_tracker/web/templates/dashboard.html:79
+msgid "Issues"
+msgstr "Problemi"
+
+#: src/parcel_tracker/web/templates/settings.html:16
+msgid "Language"
+msgstr "Lingua"
+
 #: src/parcel_tracker/bot/messages.py:194
 #, python-brace-format
 msgid "Language <code>{requested}</code> is not available. Try: {available}"
@@ -137,13 +485,105 @@ msgstr "La lingua <code>{requested}</code> non è disponibile. Prova: {available
 msgid "Language switched to <code>{new}</code>."
 msgstr "Lingua impostata su <code>{new}</code>."
 
-#: src/parcel_tracker/bot/messages.py:416
+#: src/parcel_tracker/web/templates/shipment.html:40
+msgid "Last carrier news"
+msgstr "Ultima notizia dal corriere"
+
+#: src/parcel_tracker/bot/messages.py:416 src/parcel_tracker/web/templates/shipment.html:41
 msgid "Last check"
 msgstr "Ultimo controllo"
+
+#: src/parcel_tracker/web/templates/public.html:20
+msgid "Last checked"
+msgstr "Ultimo controllo"
+
+#: src/parcel_tracker/web/templates/dashboard.html:42
+#: src/parcel_tracker/web/templates/shipments.html:52
+msgid "Last news"
+msgstr "Ultima notizia"
+
+#: src/parcel_tracker/web/templates/settings.html:32
+msgid "Last used"
+msgstr "Ultimo utilizzo"
+
+#: src/parcel_tracker/web/templates/import.html:22
+msgid "Line"
+msgstr "Riga"
+
+#: src/parcel_tracker/web/templates/import.html:21
+msgid "Lines not imported"
+msgstr "Righe non importate"
+
+#: src/parcel_tracker/web/templates/base.html:28
+msgid "Log out"
+msgstr "Esci"
+
+#: src/parcel_tracker/web/templates/settings.html:49
+msgid "Log out everywhere"
+msgstr "Esci da tutti i dispositivi"
+
+#: src/parcel_tracker/web/templates/base.html:19
+msgid "Main"
+msgstr "Principale"
 
 #: src/parcel_tracker/bot/messages.py:200
 msgid "Main menu:"
 msgstr "Menu principale:"
+
+#: src/parcel_tracker/web/templates/public.html:24 src/parcel_tracker/web/templates/shipment.html:48
+msgid "Map of the route reported by the carrier"
+msgstr "Mappa del percorso comunicato dal corriere"
+
+#: src/parcel_tracker/web/templates/public.html:25 src/parcel_tracker/web/templates/shipment.html:49
+msgid "Map tiles © OpenStreetMap contributors, © CARTO"
+msgstr "Mappe © contributori OpenStreetMap, © CARTO"
+
+#: src/parcel_tracker/web/templates/dashboard.html:79
+msgid "Median days"
+msgstr "Giorni (mediana)"
+
+#: src/parcel_tracker/web/templates/dashboard.html:32
+msgid "Median delivery time"
+msgstr "Tempo di consegna mediano"
+
+#: src/parcel_tracker/web/templates/new.html:18 src/parcel_tracker/web/templates/settings.html:32
+#: src/parcel_tracker/web/templates/shipment.html:89
+msgid "Name"
+msgstr "Nome"
+
+#: src/parcel_tracker/web/templates/dashboard.html:30
+#: src/parcel_tracker/web/templates/shipments.html:16
+msgid "Need attention"
+msgstr "Da controllare"
+
+#: src/parcel_tracker/web/templates/new.html:35
+msgid "Need order numbers and customers too? Use the CSV import."
+msgstr "Ti servono anche numeri d'ordine e clienti? Usa l'importazione CSV."
+
+#: src/parcel_tracker/web/templates/dashboard.html:39
+msgid "Needs attention"
+msgstr "Da controllare"
+
+#: src/parcel_tracker/web/templates/shipment.html:76
+msgid "New link"
+msgstr "Nuovo link"
+
+#: src/parcel_tracker/web/templates/shipments.html:75
+msgid "Next"
+msgstr "Successiva"
+
+#: src/parcel_tracker/web/templates/shipment.html:62
+msgid "No carrier events yet. Fresh labels often take a day to show their first scan."
+msgstr ""
+"Ancora nessun evento dal corriere. Le etichette appena create spesso impiegano un giorno a "
+"mostrare la prima scansione."
+
+#: src/parcel_tracker/web/templates/shipment.html:34
+#, python-format
+msgid "No carrier update for %(d)d days. The parcel may be stuck: consider contacting the carrier."
+msgstr ""
+"Nessun aggiornamento dal corriere da %(d)d giorni. Il pacco potrebbe essere bloccato: valuta di "
+"contattare il corriere."
 
 #: src/parcel_tracker/bot/messages.py:453
 #, python-brace-format
@@ -158,35 +598,330 @@ msgstr ""
 msgid "No delivered parcels in your history yet."
 msgstr "Ancora nessun pacco consegnato nello storico."
 
+#: src/parcel_tracker/web/templates/dashboard.html:103
+msgid "No deliveries yet."
+msgstr "Ancora nessuna consegna."
+
 #: src/parcel_tracker/bot/messages.py:104
 #, python-brace-format
 msgid "No events for <code>{tracking_number}</code>."
 msgstr "Nessun evento per <code>{tracking_number}</code>."
 
-#: src/parcel_tracker/bot/formatting.py:37
+#: src/parcel_tracker/web/templates/shipments.html:82
+msgid "No shipment matches this view and these filters."
+msgstr "Nessuna spedizione corrisponde a questa vista e a questi filtri."
+
+#: src/parcel_tracker/web/templates/dashboard.html:18
+msgid "No shipments yet"
+msgstr "Ancora nessuna spedizione"
+
+#: src/parcel_tracker/web/templates/_macros.html:3
+msgid "No updates"
+msgstr "Ferma"
+
+#: src/parcel_tracker/web/templates/error.html:7
+msgid "Not allowed"
+msgstr "Non consentito"
+
+#: src/parcel_tracker/bot/formatting.py:37 src/parcel_tracker/web/templates/error.html:7
 msgid "Not found"
 msgstr "Non trovato"
 
-#: src/parcel_tracker/bot/formatting.py:41
+#: src/parcel_tracker/web/templates/new.html:24 src/parcel_tracker/web/templates/shipment.html:94
+msgid "Notes"
+msgstr "Note"
+
+#: src/parcel_tracker/web/templates/shipments.html:81
+msgid "Nothing here"
+msgstr "Niente qui"
+
+#: src/parcel_tracker/web/templates/dashboard.html:54
+msgid "Nothing to chase: every active shipment is moving."
+msgstr "Niente da sollecitare: tutte le spedizioni attive si stanno muovendo."
+
+#: src/parcel_tracker/web/templates/new.html:13
+msgid "One shipment"
+msgstr "Una spedizione"
+
+#: src/parcel_tracker/web/templates/new.html:32
+msgid "One tracking number per line, optionally followed by a name"
+msgstr "Un codice di tracciamento per riga, seguito facoltativamente da un nome"
+
+#: src/parcel_tracker/web/templates/import.html:19
+msgid "Only the first 2,000 rows were read."
+msgstr "Sono state lette solo le prime 2.000 righe."
+
+#: src/parcel_tracker/web/templates/import.html:41
+msgid "Only the tracking number column is required. Recognised columns:"
+msgstr "È obbligatoria solo la colonna del codice di tracciamento. Colonne riconosciute:"
+
+#: src/parcel_tracker/web/templates/shipment.html:75
+msgid "Open"
+msgstr "Apri"
+
+#: src/parcel_tracker/web/templates/new.html:19 src/parcel_tracker/web/templates/shipment.html:90
+msgid "Order reference"
+msgstr "Riferimento ordine"
+
+#: src/parcel_tracker/bot/formatting.py:41 src/parcel_tracker/web/templates/dashboard.html:29
 msgid "Out for delivery"
 msgstr "In consegna"
+
+#: src/parcel_tracker/web/templates/import.html:17
+msgid "Over the limit"
+msgstr "Oltre il limite"
+
+#: src/parcel_tracker/web/templates/shipments.html:72
+#, python-format
+msgid "Page %(page)d of %(pages)d"
+msgstr "Pagina %(page)d di %(pages)d"
 
 #: src/parcel_tracker/bot/formatting.py:39
 msgid "Picked up"
 msgstr "Ritirato"
 
+#: src/parcel_tracker/web/templates/_macros.html:25
+#, python-format
+msgid "Please wait %(n)d seconds before checking again."
+msgstr "Attendi %(n)d secondi prima di controllare di nuovo."
+
+#: src/parcel_tracker/web/templates/shipments.html:74
+msgid "Previous"
+msgstr "Precedente"
+
+#: src/parcel_tracker/web/templates/settings.html:8
+msgid "Profile"
+msgstr "Profilo"
+
+#: src/parcel_tracker/web/templates/_macros.html:30
+msgid "Public link revoked. The old address no longer works."
+msgstr "Link pubblico revocato. Il vecchio indirizzo non funziona più."
+
+#: src/parcel_tracker/web/templates/_macros.html:29
+msgid "Public tracking link created. Copy it and send it to your customer."
+msgstr "Link di tracciamento pubblico creato. Copialo e invialo al cliente."
+
+#: src/parcel_tracker/web/templates/import.html:22
+msgid "Reason"
+msgstr "Motivo"
+
+#: src/parcel_tracker/web/templates/dashboard.html:94
+msgid "Recently delivered"
+msgstr "Consegnate di recente"
+
 #: src/parcel_tracker/bot/formatting.py:46
 msgid "Returned"
 msgstr "Reso al mittente"
 
-#: src/parcel_tracker/bot/messages.py:415
+#: src/parcel_tracker/web/templates/settings.html:34 src/parcel_tracker/web/templates/shipment.html:77
+msgid "Revoke"
+msgstr "Revoca"
+
+#: src/parcel_tracker/web/templates/settings.html:34
+msgid "Revoke this token? Integrations using it stop working."
+msgstr "Revocare questo token? Le integrazioni che lo usano smetteranno di funzionare."
+
+#: src/parcel_tracker/web/templates/shipment.html:47
+msgid "Route"
+msgstr "Percorso"
+
+#: src/parcel_tracker/web/templates/settings.html:18 src/parcel_tracker/web/templates/shipment.html:95
+msgid "Save"
+msgstr "Salva"
+
+#: src/parcel_tracker/web/templates/shipments.html:25
+msgid "Search"
+msgstr "Cerca"
+
+#: src/parcel_tracker/web/templates/shipments.html:26
+msgid "Search code, name, order, customer…"
+msgstr "Cerca codice, nome, ordine, cliente…"
+
+#: src/parcel_tracker/web/templates/dashboard.html:39
+#, python-format
+msgid "See all %(n)d"
+msgstr "Vedi tutte (%(n)d)"
+
+#: src/parcel_tracker/web/templates/import.html:26
+msgid "See shipments"
+msgstr "Vedi le spedizioni"
+
+#: src/parcel_tracker/web/templates/settings.html:13
+msgid "Seller mode"
+msgstr "Modalità venditore"
+
+#: src/parcel_tracker/web/templates/settings.html:47
+msgid "Sessions"
+msgstr "Sessioni"
+
+#: src/parcel_tracker/web/templates/base.html:24 src/parcel_tracker/web/templates/settings.html:3
+#: src/parcel_tracker/web/templates/settings.html:5
+msgid "Settings"
+msgstr "Impostazioni"
+
+#: src/parcel_tracker/web/templates/new.html:29
+msgid "Several at once"
+msgstr "Più spedizioni insieme"
+
+#: src/parcel_tracker/web/templates/dashboard.html:42
+#: src/parcel_tracker/web/templates/shipments.html:48
+msgid "Shipment"
+msgstr "Spedizione"
+
+#: src/parcel_tracker/web/templates/_macros.html:21
+msgid "Shipment added. The first check runs within a few minutes."
+msgstr "Spedizione aggiunta. Il primo controllo avviene entro pochi minuti."
+
+#: src/parcel_tracker/web/templates/_macros.html:26
+msgid "Shipment archived. It is no longer checked."
+msgstr "Spedizione archiviata. Non viene più controllata."
+
+#: src/parcel_tracker/web/templates/_macros.html:28
+msgid "Shipment deleted together with its history."
+msgstr "Spedizione eliminata insieme alla sua cronologia."
+
+#: src/parcel_tracker/web/templates/_macros.html:27
+msgid "Shipment restored. Tracking resumes on the next check."
+msgstr "Spedizione ripristinata. Il tracciamento riprende al prossimo controllo."
+
+#: src/parcel_tracker/web/templates/public.html:3
+msgid "Shipment tracking"
+msgstr "Tracciamento spedizione"
+
+#: src/parcel_tracker/web/templates/base.html:22 src/parcel_tracker/web/templates/dashboard.html:79
+#: src/parcel_tracker/web/templates/shipments.html:3 src/parcel_tracker/web/templates/shipments.html:7
+msgid "Shipments"
+msgstr "Spedizioni"
+
+#: src/parcel_tracker/web/templates/dashboard.html:59
+msgid "Shipments per week"
+msgstr "Spedizioni per settimana"
+
+#: src/parcel_tracker/web/render.py:140
+msgid "Shipments shipped and delivered per week"
+msgstr "Spedizioni spedite e consegnate per settimana"
+
+#: src/parcel_tracker/web/render.py:137 src/parcel_tracker/web/templates/dashboard.html:61
+#: src/parcel_tracker/web/templates/dashboard.html:68
+msgid "Shipped"
+msgstr "Spedite"
+
+#: src/parcel_tracker/web/templates/settings.html:15
+msgid "Shop name"
+msgstr "Nome del negozio"
+
+#: src/parcel_tracker/web/templates/dashboard.html:66
+msgid "Show as table"
+msgstr "Mostra come tabella"
+
+#: src/parcel_tracker/web/templates/settings.html:15
+msgid "Shown on the tracking pages you share with customers."
+msgstr "Mostrato nelle pagine di tracciamento che condividi con i clienti."
+
+#: src/parcel_tracker/web/templates/login.html:2
+msgid "Sign in"
+msgstr "Accedi"
+
+#: src/parcel_tracker/web/templates/settings.html:48
+msgid "Signed in on a shared computer? End every dashboard session at once."
+msgstr ""
+"Hai fatto l'accesso da un computer condiviso? Chiudi tutte le sessioni della dashboard in un "
+"colpo."
+
+#: src/parcel_tracker/web/templates/error.html:7
+msgid "Something went wrong"
+msgstr "Qualcosa è andato storto"
+
+#: src/parcel_tracker/web/templates/new.html:16
+msgid "Spaces and dashes are fine."
+msgstr "Spazi e trattini vanno bene."
+
+#: src/parcel_tracker/bot/messages.py:415 src/parcel_tracker/web/templates/dashboard.html:42
+#: src/parcel_tracker/web/templates/shipments.html:49
 msgid "Status"
 msgstr "Stato"
+
+#: src/parcel_tracker/web/templates/dashboard.html:27
+msgid "Summary"
+msgstr "Riepilogo"
+
+#: src/parcel_tracker/web/templates/base.html:27
+msgid "Switch light/dark theme"
+msgstr "Cambia tema chiaro/scuro"
+
+#: src/parcel_tracker/web/templates/shipments.html:35
+msgid "Tag"
+msgstr "Etichetta"
+
+#: src/parcel_tracker/web/templates/new.html:23 src/parcel_tracker/web/templates/shipment.html:93
+msgid "Tags"
+msgstr "Etichette"
+
+#: src/parcel_tracker/web/templates/new.html:7
+msgid "That doesn't look like a tracking number: use 5–40 letters and digits."
+msgstr "Non sembra un codice di tracciamento: usa da 5 a 40 lettere e cifre."
+
+#: src/parcel_tracker/web/templates/login.html:21
+msgid "The bot replies with a personal link that signs you in here. No password needed."
+msgstr "Il bot risponde con un link personale che ti fa accedere qui. Nessuna password."
+
+#: src/parcel_tracker/web/templates/public.html:37
+msgid "The carrier has not reported any movement yet."
+msgstr "Il corriere non ha ancora segnalato movimenti."
+
+#: src/parcel_tracker/web/templates/new.html:6
+msgid "The carrier is detected from the tracking number."
+msgstr "Il corriere viene riconosciuto dal codice di tracciamento."
+
+#: src/parcel_tracker/web/templates/import.html:8
+#, python-format
+msgid "The file could not be read: %(reason)s."
+msgstr "Impossibile leggere il file: %(reason)s."
+
+#: src/parcel_tracker/web/templates/login.html:14
+msgid "The link works once and expires after 15 minutes."
+msgstr "Il link funziona una sola volta e scade dopo 15 minuti."
+
+#: src/parcel_tracker/web/templates/settings.html:5
+msgid "These settings apply to the bot in Telegram as well."
+msgstr "Queste impostazioni valgono anche per il bot su Telegram."
+
+#: src/parcel_tracker/web/templates/login.html:17
+msgid "This sign-in link is invalid, already used or expired."
+msgstr "Questo link di accesso non è valido, è già stato usato o è scaduto."
+
+#: src/parcel_tracker/web/templates/_macros.html:35
+msgid "Tick the confirmation box to delete your data."
+msgstr "Spunta la casella di conferma per eliminare i tuoi dati."
+
+#: src/parcel_tracker/web/templates/shipment.html:39
+msgid "Time to delivery"
+msgstr "Tempo di consegna"
 
 #: src/parcel_tracker/bot/messages.py:278
 #, python-brace-format
 msgid "To add, use: <code>/add {text}</code>"
 msgstr "Per aggiungere usa: <code>/add {text}</code>"
+
+#: src/parcel_tracker/web/templates/login.html:19
+msgid "To sign in, open the bot in Telegram and send:"
+msgstr "Per accedere, apri il bot su Telegram e invia:"
+
+#: src/parcel_tracker/web/templates/settings.html:39
+msgid "Token name"
+msgstr "Nome del token"
+
+#: src/parcel_tracker/web/templates/shipment.html:17
+msgid "Track again"
+msgstr "Traccia di nuovo"
+
+#: src/parcel_tracker/web/templates/new.html:16
+msgid "Tracking number"
+msgstr "Codice di tracciamento"
+
+#: src/parcel_tracker/web/templates/public.html:41
+msgid "Tracking page powered by"
+msgstr "Pagina di tracciamento realizzata con"
 
 #: src/parcel_tracker/bot/formatting.py:44
 msgid "Undelivered"
@@ -195,6 +930,14 @@ msgstr "Non consegnato"
 #: src/parcel_tracker/notifier/telegram.py:139
 msgid "Updates:"
 msgstr "Aggiornamenti:"
+
+#: src/parcel_tracker/web/templates/import.html:32
+msgid "Upload"
+msgstr "Carica"
+
+#: src/parcel_tracker/web/templates/import.html:5
+msgid "Upload a CSV exported from your shop or spreadsheet."
+msgstr "Carica un CSV esportato dal tuo negozio o da un foglio di calcolo."
 
 #: src/parcel_tracker/bot/health_commands.py:85
 msgid "Usage: /health <tracker_name>"
@@ -236,9 +979,56 @@ msgstr "Uso: <code>/status CODICE</code>"
 msgid "Use /health &lt;name&gt; for details."
 msgstr "Usa /health &lt;nome&gt; per i dettagli."
 
+#: src/parcel_tracker/web/templates/shipments.html:17
+msgid "Views"
+msgstr "Viste"
+
+#: src/parcel_tracker/web/render.py:128
+#, python-brace-format
+msgid "Week of {date}: {shipped} shipped, {delivered} delivered"
+msgstr "Settimana del {date}: {shipped} spedite, {delivered} consegnate"
+
+#: src/parcel_tracker/web/templates/dashboard.html:68
+msgid "Week starting"
+msgstr "Settimana dal"
+
+#: src/parcel_tracker/web/templates/dashboard.html:8
+msgid "Where your shipments are, and which ones need you."
+msgstr "Dove sono le tue spedizioni e quali hanno bisogno di te."
+
+#: src/parcel_tracker/web/templates/_macros.html:34
+msgid "You already have the maximum number of API tokens."
+msgstr "Hai già il numero massimo di token API."
+
+#: src/parcel_tracker/web/templates/new.html:8
+msgid "You already track this shipment."
+msgstr "Stai già tracciando questa spedizione."
+
 #: src/parcel_tracker/bot/messages.py:100
 msgid "You have no active parcels. Add one with <code>/add</code>."
 msgstr "Non hai pacchi attivi. Aggiungine uno con <code>/add</code>."
+
+#: src/parcel_tracker/web/templates/login.html:9
+msgid "You opened a sign-in link from Telegram."
+msgstr "Hai aperto un link di accesso da Telegram."
+
+#: src/parcel_tracker/web/templates/_macros.html:31
+#, python-format
+msgid "You reached the limit of %(n)d active shipments."
+msgstr "Hai raggiunto il limite di %(n)d spedizioni attive."
+
+#: src/parcel_tracker/web/templates/new.html:9
+#, python-format
+msgid "You reached the limit of %(n)d active shipments. Archive one first."
+msgstr "Hai raggiunto il limite di %(n)d spedizioni attive. Archiviane prima una."
+
+#: src/parcel_tracker/web/templates/settings.html:13
+msgid ""
+"You ship parcels to customers: delivered shipments are archived automatically and you get a short"
+" notice instead of a “did you receive it?” question."
+msgstr ""
+"Spedisci pacchi ai clienti: le spedizioni consegnate vengono archiviate automaticamente e ricevi "
+"un breve avviso invece della domanda «l'hai ricevuto?»."
 
 #: src/parcel_tracker/bot/messages.py:471
 #, python-brace-format
@@ -257,6 +1047,47 @@ msgid ""
 msgstr ""
 "Il tuo ID: <code>{user_id}</code>\n"
 "Username: @{username}"
+
+#: src/parcel_tracker/web/templates/settings.html:53
+msgid "Your data"
+msgstr "I tuoi dati"
+
+#: src/parcel_tracker/web/templates/dashboard.html:29
+msgid "arriving today"
+msgstr "in arrivo oggi"
+
+#: src/parcel_tracker/web/templates/settings.html:33
+#, python-format
+msgid "created %(date)s"
+msgstr "creato il %(date)s"
+
+#: src/parcel_tracker/web/templates/dashboard.html:32
+msgid "days"
+msgstr "giorni"
+
+#: src/parcel_tracker/web/templates/dashboard.html:33
+msgid "delivered vs. returned or failed"
+msgstr "consegnate rispetto a rese o fallite"
+
+#: src/parcel_tracker/web/templates/shipment.html:36
+msgid "detecting…"
+msgstr "rilevamento…"
+
+#: src/parcel_tracker/web/templates/settings.html:40
+msgid "e.g. WooCommerce"
+msgstr "es. WooCommerce"
+
+#: src/parcel_tracker/web/templates/dashboard.html:32
+msgid "from added to delivered"
+msgstr "dall'aggiunta alla consegna"
+
+#: src/parcel_tracker/web/templates/settings.html:33
+msgid "never"
+msgstr "mai"
+
+#: src/parcel_tracker/web/templates/base.html:36
+msgid "self-hosted, open source"
+msgstr "self-hosted, open source"
 
 #: src/parcel_tracker/bot/health_commands.py:65
 #, python-brace-format

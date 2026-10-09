@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pill, when, title with context %}
+{% block title %}{{ _("Dashboard") }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _("Dashboard") }}</h1>
+    <p>{{ _("Where your shipments are, and which ones need you.") }}</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/export.csv">{{ _("Export CSV") }}</a>
+    <a class="btn btn-primary" href="/shipments/new">{{ _("Add shipment") }}</a>
+  </div>
+</div>
+
+{% if not has_parcels %}
+<div class="card empty">
+  <h2>{{ _("No shipments yet") }}</h2>
+  <p>{{ _("Add a tracking number here, import a CSV from your shop, or simply paste codes into the Telegram chat.") }}</p>
+  <div class="actions">
+    <a class="btn btn-primary" href="/shipments/new">{{ _("Add shipment") }}</a>
+    <a class="btn" href="/import">{{ _("Import CSV") }}</a>
+  </div>
+</div>
+{% else %}
+{% set g = stats.by_group %}
+<section class="kpis" aria-label="{{ _('Summary') }}">
+  <div class="kpi"><a href="/shipments?view=active"><div class="label">{{ _("Active shipments") }}</div><div class="value">{{ stats.active }}</div><div class="sub">{{ _("%(n)d in transit", n=g.get(groups.TRANSIT, 0)) }}</div></a></div>
+  <div class="kpi"><div class="label">{{ _("Out for delivery") }}</div><div class="value">{{ g.get(groups.OUT_FOR_DELIVERY, 0) }}</div><div class="sub">{{ _("arriving today") }}</div></div>
+  <div class="kpi {% if stats.attention %}alert{% endif %}"><a href="/shipments?view=attention"><div class="label">{{ _("Need attention") }}</div><div class="value">{{ stats.attention }}</div><div class="sub">{{ _("%(n)d without updates", n=stats.stalled) }}</div></a></div>
+  <div class="kpi"><div class="label">{{ _("Delivered, last 30 days") }}</div><div class="value">{{ stats.delivered_recent }}</div><div class="sub">{{ _("%(n)d shipped", n=stats.shipped_recent) }}</div></div>
+  <div class="kpi"><div class="label">{{ _("Median delivery time") }}</div><div class="value">{% if stats.median_delivery_days is not none %}{{ "%.1f"|format(stats.median_delivery_days) }}<small class="muted"> {{ _("days") }}</small>{% else %}—{% endif %}</div><div class="sub">{% if stats.p90_delivery_days is not none %}{{ _("9 in 10 within %(d)s days", d="%.1f"|format(stats.p90_delivery_days)) }}{% else %}{{ _("from added to delivered") }}{% endif %}</div></div>
+  <div class="kpi"><div class="label">{{ _("Delivery success") }}</div><div class="value">{% if stats.delivery_rate is not none %}{{ "%.0f"|format(stats.delivery_rate * 100) }}%{% else %}—{% endif %}</div><div class="sub">{{ _("delivered vs. returned or failed") }}</div></div>
+</section>
+
+<div class="grid grid-main">
+  <div class="stack">
+    <section class="card card-flush">
+      <h2>{{ _("Needs attention") }} <small>{% if attention_total > attention|length %}<a href="/shipments?view=attention">{{ _("See all %(n)d", n=attention_total) }}</a>{% endif %}</small></h2>
+      {% if attention %}
+      <div class="table-wrap"><table>
+        <thead><tr><th>{{ _("Shipment") }}</th><th>{{ _("Status") }}</th><th class="hide-sm">{{ _("Last news") }}</th></tr></thead>
+        <tbody>
+        {% for p in attention %}
+          <tr>
+            <td><a class="row-title" href="/shipments/{{ p.id }}">{{ title(p) }}</a><div class="row-sub mono">{{ p.tracking_number }}{% if p.recipient %} · {{ p.recipient }}{% endif %}</div></td>
+            <td>{{ pill(p.status, is_stalled_fn(p)) }}</td>
+            <td class="hide-sm">{{ when(p.last_change_at, "relative") }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}
+      <p class="empty">✓ {{ _("Nothing to chase: every active shipment is moving.") }}</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>{{ _("Shipments per week") }}</h2>
+      <div class="chart-legend" aria-hidden="true">
+        <span><i class="swatch s1"></i>{{ _("Shipped") }}</span>
+        <span><i class="swatch s2"></i>{{ _("Delivered") }}</span>
+      </div>
+      {{ weekly_chart(stats.weekly) }}
+      <details class="data-table">
+        <summary>{{ _("Show as table") }}</summary>
+        <div class="table-wrap"><table>
+          <thead><tr><th>{{ _("Week starting") }}</th><th class="num">{{ _("Shipped") }}</th><th class="num">{{ _("Delivered") }}</th></tr></thead>
+          <tbody>{% for w in stats.weekly %}<tr><td><time datetime="{{ w.week_start.isoformat() }}" data-format="date">{{ w.week_start.isoformat() }}</time></td><td class="num">{{ w.shipped }}</td><td class="num">{{ w.delivered }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+      </details>
+    </section>
+  </div>
+
+  <div class="stack">
+    <section class="card card-flush">
+      <h2>{{ _("Carriers") }}</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>{{ _("Carrier") }}</th><th class="num">{{ _("Shipments") }}</th><th class="num">{{ _("Median days") }}</th><th class="num">{{ _("Issues") }}</th></tr></thead>
+        <tbody>
+        {% for c in stats.carriers[:8] %}
+          <tr>
+            <td>{{ c.carrier }}</td>
+            <td class="num">{{ c.total }}</td>
+            <td class="num">{% if c.median_days is not none %}{{ "%.1f"|format(c.median_days) }}{% else %}—{% endif %}</td>
+            <td class="num">{{ c.issues }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+    </section>
+
+    <section class="card">
+      <h2>{{ _("Recently delivered") }}</h2>
+      {% if recent_delivered %}
+      <ul class="timeline">
+        {% for p in recent_delivered %}
+        <li><div class="what"><a href="/shipments/{{ p.id }}">{{ title(p) }}</a></div>
+          <div class="when">{{ when(p.delivered_at, "relative") }}{% set d = delivery_days(p) %}{% if d is not none %} · {{ _("%(d)s days on the way", d="%.1f"|format(d)) }}{% endif %}</div></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">{{ _("No deliveries yet.") }}</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

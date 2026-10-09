@@ -30,6 +30,8 @@ FIELD_LIMITS: dict[str, int] = {
     "destination": 100,
     "notes": 1000,
 }
+# Free-text seller fields editable from the dashboard (tags are handled apart).
+DETAIL_FIELDS_WEB: tuple[str, ...] = ("name", "order_ref", "recipient", "destination", "notes")
 MAX_TAGS = 10
 TAG_MAX_LEN = 24
 

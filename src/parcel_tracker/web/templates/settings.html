@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block title %}{{ _("Settings") }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _("Settings") }}</h1><p>{{ _("These settings apply to the bot in Telegram as well.") }}</p></div></div>
+<div class="grid grid-2">
+  <section class="card">
+    <h2>{{ _("Profile") }}</h2>
+    <form method="post" action="/settings">
+      {{ csrf_field() }}
+      <div class="field">
+        <label class="check"><input type="checkbox" name="seller_mode" {% if seller_mode %}checked{% endif %}>
+          <span><strong>{{ _("Seller mode") }}</strong><br><span class="hint">{{ _("You ship parcels to customers: delivered shipments are archived automatically and you get a short notice instead of a “did you receive it?” question.") }}</span></span></label>
+      </div>
+      <div class="field"><label for="shop_name">{{ _("Shop name") }}</label><input id="shop_name" type="text" name="shop_name" maxlength="60" value="{{ shop }}"><div class="hint">{{ _("Shown on the tracking pages you share with customers.") }}</div></div>
+      <div class="field"><label for="language">{{ _("Language") }}</label>
+        <select id="language" name="language">{% for code in languages %}<option value="{{ code }}" {% if code == language %}selected{% endif %}>{{ language_names.get(code, code) }}</option>{% endfor %}</select></div>
+      <button class="btn btn-primary" type="submit">{{ _("Save") }}</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{{ _("API tokens") }}</h2>
+    <p class="secondary">{{ _("Connect your shop or scripts to the JSON API. Each token acts as you; keep it secret.") }}</p>
+    {% if new_token %}
+    <div class="flash ok" role="status"><p><strong>{{ _("Copy your new token now. It will not be shown again.") }}</strong></p>
+      <div class="token-box"><code>{{ new_token }}</code></div>
+      <p><button class="btn btn-small" type="button" data-copy="{{ new_token }}" data-copied="{{ _('Copied') }}">{{ _("Copy") }}</button></p></div>
+    {% endif %}
+    {% if tokens %}
+    <div class="table-wrap"><table>
+      <thead><tr><th>{{ _("Name") }}</th><th class="hide-sm">{{ _("Last used") }}</th><th></th></tr></thead>
+      <tbody>{% for t in tokens %}<tr><td>{{ t.name }}<div class="row-sub">{{ _("created %(date)s", date=t.created_at[:10]) }}</div></td><td class="hide-sm">{{ t.last_used_at[:16] if t.last_used_at else _("never") }}</td>
+        <td><form class="inline" method="post" action="/settings/tokens/{{ t.id }}/revoke" data-confirm="{{ _('Revoke this token? Integrations using it stop working.') }}">{{ csrf_field() }}<button class="btn btn-small btn-danger" type="submit">{{ _("Revoke") }}</button></form></td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+    <form method="post" action="/settings/tokens" class="filters">
+      {{ csrf_field() }}
+      <label class="sr-only" for="token_name">{{ _("Token name") }}</label>
+      <input id="token_name" type="search" name="name" maxlength="40" placeholder="{{ _('e.g. WooCommerce') }}">
+      <button class="btn" type="submit">{{ _("Create token") }}</button>
+    </form>
+    <p class="hint">{{ _("Base URL:") }} <code>{{ api_base }}</code> · <a href="https://github.com/bernalli/parcel-tracker-bot/blob/main/docs/web.md#json-api">{{ _("API reference") }}</a></p>
+  </section>
+
+  <section class="card">
+    <h2>{{ _("Sessions") }}</h2>
+    <p class="secondary">{{ _("Signed in on a shared computer? End every dashboard session at once.") }}</p>
+    <form method="post" action="/settings/logout-all">{{ csrf_field() }}<button class="btn" type="submit">{{ _("Log out everywhere") }}</button></form>
+  </section>
+
+  <section class="card">
+    <h2>{{ _("Your data") }}</h2>
+    <p class="secondary">{{ _("Download everything as CSV, or delete all your shipments, history, settings and tokens.") }}</p>
+    <p><a class="btn" href="/export.csv">{{ _("Export CSV") }}</a></p>
+    <form method="post" action="/settings/erase" data-confirm="{{ _('Delete all your data? This cannot be undone.') }}">
+      {{ csrf_field() }}
+      <label class="check"><input type="checkbox" name="confirm"> <span>{{ _("I understand this deletes everything and cannot be undone.") }}</span></label>
+      <button class="btn btn-danger" type="submit">{{ _("Delete all my data") }}</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

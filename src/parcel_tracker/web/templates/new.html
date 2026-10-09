@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block title %}{{ _("Add shipment") }}{% endblock %}
+{% block content %}
+<p><a href="/shipments">← {{ _("All shipments") }}</a></p>
+<div class="page-head"><div><h1>{{ _("Add shipment") }}</h1><p>{{ _("The carrier is detected from the tracking number.") }}</p></div></div>
+{% if error == "invalid" %}<div class="flash err" role="alert">{{ _("That doesn't look like a tracking number: use 5–40 letters and digits.") }}</div>
+{% elif error == "duplicate" %}<div class="flash err" role="alert">{{ _("You already track this shipment.") }}</div>
+{% elif error == "limit" %}<div class="flash err" role="alert">{{ _("You reached the limit of %(n)d active shipments. Archive one first.", n=limit) }}</div>
+{% endif %}
+<div class="grid grid-2">
+  <section class="card">
+    <h2>{{ _("One shipment") }}</h2>
+    <form method="post" action="/shipments">
+      {{ csrf_field() }}
+      <div class="field"><label for="tracking_number">{{ _("Tracking number") }}</label><input id="tracking_number" type="text" name="tracking_number" required maxlength="60" autocomplete="off" autofocus value="{{ form.get('tracking_number', '') }}"><div class="hint">{{ _("Spaces and dashes are fine.") }}</div></div>
+      <div class="fields">
+        <div class="field"><label for="name">{{ _("Name") }}</label><input id="name" type="text" name="name" maxlength="64" value="{{ form.get('name', '') }}"></div>
+        <div class="field"><label for="order_ref">{{ _("Order reference") }}</label><input id="order_ref" type="text" name="order_ref" maxlength="64" value="{{ form.get('order_ref', '') }}"></div>
+        <div class="field"><label for="recipient">{{ _("Customer") }}</label><input id="recipient" type="text" name="recipient" maxlength="100" value="{{ form.get('recipient', '') }}"></div>
+        <div class="field"><label for="destination">{{ _("Destination") }}</label><input id="destination" type="text" name="destination" maxlength="100" value="{{ form.get('destination', '') }}"></div>
+      </div>
+      <div class="field"><label for="tags">{{ _("Tags") }}</label><input id="tags" type="text" name="tags" value="{{ form.get('tags', '') }}"></div>
+      <div class="field"><label for="notes">{{ _("Notes") }}</label><textarea id="notes" name="notes" maxlength="1000">{{ form.get('notes', '') }}</textarea></div>
+      <button class="btn btn-primary" type="submit">{{ _("Add shipment") }}</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2>{{ _("Several at once") }}</h2>
+    <form method="post" action="/shipments">
+      {{ csrf_field() }}
+      <div class="field"><label for="codes">{{ _("One tracking number per line, optionally followed by a name") }}</label>
+        <textarea id="codes" name="codes" rows="10" placeholder="RR123456785IT  Blue mug&#10;1Z999AA10123456784"></textarea></div>
+      <button class="btn" type="submit">{{ _("Add all") }}</button>
+      <p class="hint">{{ _("Need order numbers and customers too? Use the CSV import.") }}</p>
+    </form>
+  </section>
+</div>
+{% endblock %}

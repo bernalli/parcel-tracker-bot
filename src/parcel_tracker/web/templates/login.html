@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Sign in") }}{% endblock %}
+{% block layout %}
+<div class="center-wrap">
+  <div class="card login-card">
+    <img class="logo" src="{{ static('logo.svg') }}" alt="" width="72" height="72">
+    <h1>parcel-tracker-bot</h1>
+    {% if token %}
+      <p class="secondary">{{ _("You opened a sign-in link from Telegram.") }}</p>
+      <form method="post" action="/login">
+        <input type="hidden" name="t" value="{{ token }}">
+        <button class="btn btn-primary" type="submit">{{ _("Continue to the dashboard") }}</button>
+      </form>
+      <p class="hint">{{ _("The link works once and expires after 15 minutes.") }}</p>
+    {% else %}
+      {% if error == "expired" %}
+        <div class="flash err" role="alert">{{ _("This sign-in link is invalid, already used or expired.") }}</div>
+      {% endif %}
+      <p class="secondary">{{ _("To sign in, open the bot in Telegram and send:") }}</p>
+      <p><code>/web</code></p>
+      <p class="hint">{{ _("The bot replies with a personal link that signs you in here. No password needed.") }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

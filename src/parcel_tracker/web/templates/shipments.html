@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pill, when, title with context %}
+{% block title %}{{ _("Shipments") }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ _("Shipments") }}</h1>
+    <p>{{ ngettext("%(num)d shipment matches.", "%(num)d shipments match.", total) }}</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/export.csv?{{ query_base }}">{{ _("Export these") }}</a>
+    <a class="btn btn-primary" href="/shipments/new">{{ _("Add shipment") }}</a>
+  </div>
+</div>
+
+{% set view_names = {"active": _("Active"), "attention": _("Need attention"), "delivered": _("Delivered"), "archived": _("Archived"), "all": _("All")} %}
+<nav class="tabs" aria-label="{{ _('Views') }}">
+  {% for v in views %}
+  <a href="/shipments?view={{ v }}" {% if params.view == v %}aria-current="page"{% endif %}>{{ view_names[v] }}<span class="count">{{ counts[v] }}</span></a>
+  {% endfor %}
+</nav>
+
+<form class="filters" method="get" action="/shipments" role="search">
+  <input type="hidden" name="view" value="{{ params.view }}">
+  <label class="sr-only" for="q">{{ _("Search") }}</label>
+  <input id="q" type="search" name="q" value="{{ params.q }}" placeholder="{{ _('Search code, name, order, customer…') }}">
+  {% if carriers|length > 1 %}
+  <label class="sr-only" for="carrier">{{ _("Carrier") }}</label>
+  <select id="carrier" name="carrier" data-autosubmit>
+    <option value="">{{ _("All carriers") }}</option>
+    {% for c in carriers %}<option value="{{ c }}" {% if params.carrier == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  {% if tags %}
+  <label class="sr-only" for="tag">{{ _("Tag") }}</label>
+  <select id="tag" name="tag" data-autosubmit>
+    <option value="">{{ _("All tags") }}</option>
+    {% for t in tags %}<option value="{{ t }}" {% if params.tag == t %}selected{% endif %}>#{{ t }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <button class="btn" type="submit">{{ _("Filter") }}</button>
+</form>
+
+<section class="card card-flush">
+  {% if rows %}
+  <div class="table-wrap"><table>
+    <thead><tr>
+      <th>{{ _("Shipment") }}</th>
+      <th>{{ _("Status") }}</th>
+      <th class="hide-sm">{{ _("Customer") }}</th>
+      <th class="hide-sm">{{ _("Carrier") }}</th>
+      <th class="hide-sm">{{ _("Last news") }}</th>
+    </tr></thead>
+    <tbody>
+    {% for p in rows %}
+      <tr>
+        <td>
+          <a class="row-title" href="/shipments/{{ p.id }}">{{ title(p) }}</a>
+          <div class="row-sub"><span class="mono">{{ p.tracking_number }}</span>{% if p.order_ref %} · {{ p.order_ref }}{% endif %}</div>
+          {% if p.tags %}<div>{% for t in p.tags %}<span class="tag">#{{ t }}</span>{% endfor %}</div>{% endif %}
+        </td>
+        <td>{{ pill(p.status, is_stalled(p), p.is_active) }}{% if p.last_location %}<div class="row-sub">📍 {{ p.last_location }}</div>{% endif %}</td>
+        <td class="hide-sm">{{ p.recipient or "" }}{% if p.destination %}<div class="row-sub">{{ p.destination }}</div>{% endif %}</td>
+        <td class="hide-sm">{{ p.carrier_name or p.carrier_code or "—" }}</td>
+        <td class="hide-sm nowrap">{{ when(p.last_change_at, "relative") }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% if pages > 1 %}
+  <div class="pager">
+    <span>{{ _("Page %(page)d of %(pages)d", page=page_no, pages=pages) }}</span>
+    <span class="actions">
+      {% if page_no > 1 %}<a class="btn btn-small" href="{{ page_url(page_no - 1) }}">← {{ _("Previous") }}</a>{% endif %}
+      {% if page_no < pages %}<a class="btn btn-small" href="{{ page_url(page_no + 1) }}">{{ _("Next") }} →</a>{% endif %}
+    </span>
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty">
+    <h2>{{ _("Nothing here") }}</h2>
+    <p>{{ _("No shipment matches this view and these filters.") }}</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

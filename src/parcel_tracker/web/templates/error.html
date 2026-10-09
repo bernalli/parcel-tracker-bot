@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ status }}{% endblock %}
+{% block layout %}
+<div class="center-wrap">
+  <div class="card login-card">
+    <img class="logo" src="{{ static('logo.svg') }}" alt="" width="72" height="72">
+    <h1>{% if status == 404 %}{{ _("Not found") }}{% elif status == 403 %}{{ _("Not allowed") }}{% else %}{{ _("Something went wrong") }}{% endif %}</h1>
+    <p class="secondary">{{ message }}</p>
+    <p><a class="btn" href="/">{{ _("Back to the dashboard") }}</a></p>
+  </div>
+</div>
+{% endblock %}

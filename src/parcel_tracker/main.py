@@ -274,10 +274,38 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
 
     # One-shot: heal DELIVERED parcels that predate the delivery-confirmation lifecycle.
     await _heal_delivered_backlog(application)
+    await _start_web(application)
+
+
+async def _start_web(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Start the web dashboard in the bot's event loop when WEB_ENABLED is set."""
+    config = application.bot_data.get("config")
+    if config is None or not getattr(config, "web_enabled", False):
+        return
+    from parcel_tracker.web import WebServer  # noqa: PLC0415
+
+    server = WebServer(application.bot_data, host=config.web_bind_host, port=config.web_port)
+    try:
+        await server.start()
+    except OSError:
+        logger.exception(
+            "web dashboard could not listen on %s:%s; the bot keeps running without it",
+            config.web_bind_host,
+            config.web_port,
+        )
+        return
+    application.bot_data["web_server"] = server
+    logger.info("web dashboard available at %s", config.web_public_url)
 
 
 async def _post_shutdown(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
     """Release network resources on a clean shutdown."""
+    server = application.bot_data.get("web_server")
+    if server is not None:
+        try:
+            await server.stop()
+        except Exception:  # noqa: BLE001 — shutdown must complete
+            logger.warning("stopping the web dashboard failed", exc_info=True)
     client = application.bot_data.get("http_client")
     if client is not None:
         try:

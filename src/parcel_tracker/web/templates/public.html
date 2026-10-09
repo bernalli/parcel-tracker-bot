@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import when with context %}
+{% block title %}{{ _("Shipment tracking") }}{% endblock %}
+{% block body_class %}public{% endblock %}
+{% block layout %}
+<main class="container">
+  <header class="public-head">
+    {% if shop %}<div class="shop">{{ shop }}</div>{% endif %}
+    <div class="public-status pill-free {{ status_class(p.status) }}">{{ status_icon(p.status) }}{{ status_label(p.status) }}</div>
+    <p class="secondary"><span class="mono">{{ p.tracking_number }}</span>{% if p.carrier_name %} · {{ p.carrier_name }}{% endif %}</p>
+  </header>
+  <section class="card">
+    {% set step = progress_index(p.status) %}
+    <ol class="progress {% if status_class(p.status) == 'attention' %}problem{% endif %}">
+      {% for s in progress_steps %}
+      <li class="{% if loop.index0 <= step %}done{% endif %} {% if loop.index0 == step %}current{% endif %}">{{ status_label(s) }}</li>
+      {% endfor %}
+    </ol>
+    {% if p.last_event %}<p><strong>{{ p.last_event }}</strong>{% if p.last_location %} — {{ p.last_location }}{% endif %}</p>{% endif %}
+    <p class="hint">{{ _("Last checked") }} {{ when(p.last_check_at, "relative") }}</p>
+  </section>
+  {% if maps_enabled %}
+  <section class="card" data-map>
+    <img class="map" src="/t/{{ token }}/map.png" alt="{{ _('Map of the route reported by the carrier') }}" loading="lazy" width="600" height="400" data-optional>
+    <p class="hint">{{ _("Map tiles © OpenStreetMap contributors, © CARTO") }}</p>
+  </section>
+  {% endif %}
+  <section class="card">
+    <h2>{{ _("History") }}</h2>
+    {% if events %}
+    <ol class="timeline">
+      {% for ev in events %}
+      <li><div class="when">{{ fmt_event_time(ev.time) }}</div><div class="what">{{ ev.description }}</div>{% if ev.location %}<div class="where">📍 {{ ev.location }}</div>{% endif %}</li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="muted">{{ _("The carrier has not reported any movement yet.") }}</p>
+    {% endif %}
+  </section>
+</main>
+<footer class="site">{{ _("Tracking page powered by") }} <a href="https://github.com/bernalli/parcel-tracker-bot">parcel-tracker-bot</a></footer>
+{% endblock %}
