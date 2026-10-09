@@ -7,7 +7,7 @@ from parcel_tracker import main
 
 def test_public_command_list_is_minimal() -> None:
     names = [c for c, _ in main.COMMANDS_PUBLIC_EN]
-    assert names == ["menu", "list", "help"]
+    assert names == ["menu", "list", "web", "help"]
 
 
 def test_no_admin_extra_command_scope_constant() -> None:

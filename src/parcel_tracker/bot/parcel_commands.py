@@ -355,6 +355,11 @@ async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, t
     if action in ("adduser", "revoke"):
         await _consume_user_id(action, text, reply_to, context, user.id)
         return True
+    if action == "detail":
+        from parcel_tracker.bot.seller_commands import consume_detail  # noqa: PLC0415
+
+        await consume_detail(pending, text, reply_to, context, user.id)
+        return True
     return False
 
 

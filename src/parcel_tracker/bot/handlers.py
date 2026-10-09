@@ -50,6 +50,7 @@ from parcel_tracker.bot.parcel_commands import (
     handle_message,
 )
 from parcel_tracker.bot.privacy_commands import cmd_forgetme
+from parcel_tracker.bot.seller_commands import cmd_export, cmd_web, handle_csv_document
 
 if TYPE_CHECKING:
     from telegram.ext import Application
@@ -113,6 +114,8 @@ def register_handlers(
         ("cleanall", cmd_cleanall),
         ("stats", cmd_stats),
         ("forgetme", cmd_forgetme),
+        ("web", cmd_web),
+        ("export", cmd_export),
     ]
     for cmd, fn in parcel_nav_cmds:
         app.add_handler(CommandHandler(cmd, fn, filters=NEW_MESSAGES))
@@ -134,12 +137,19 @@ def register_handlers(
             handle_message,
         )
     )
+    # A CSV file sent in a private chat is imported as shipments.
+    app.add_handler(
+        MessageHandler(
+            filters.Document.FileExtension("csv") & filters.ChatType.PRIVATE & NEW_MESSAGES,
+            handle_csv_document,
+        )
+    )
     # Pattern-restricted catch-all: only handle the four prefixes we own.
     # Other prefix-specific handlers (notify:*) are registered later in main.py
     # and must not be shadowed by an unrestricted CallbackQueryHandler.
     app.add_handler(
         CallbackQueryHandler(
-            handle_callback, pattern=r"^(nav|action|prompt|parcel|confirm|setlang):"
+            handle_callback, pattern=r"^(nav|action|prompt|parcel|confirm|setlang|detail):"
         )
     )
 

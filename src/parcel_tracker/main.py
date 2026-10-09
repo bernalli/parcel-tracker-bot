@@ -192,11 +192,13 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
 COMMANDS_PUBLIC_EN: list[tuple[str, str]] = [
     ("menu", "📋 Open the menu"),
     ("list", "📦 My parcels"),
+    ("web", "🌐 Web dashboard"),
     ("help", "ℹ️ Help"),
 ]
 COMMANDS_PUBLIC_IT: list[tuple[str, str]] = [
     ("menu", "📋 Apri il menu"),
     ("list", "📦 I miei pacchi"),
+    ("web", "🌐 Dashboard web"),
     ("help", "ℹ️ Aiuto"),
 ]
 COMMANDS_ADMIN_EXTRA_EN: list[tuple[str, str]] = []
