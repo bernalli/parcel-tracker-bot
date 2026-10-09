@@ -65,8 +65,8 @@ Everything is reachable from `/menu` with buttons. You can also just type:
 
 | You send | The bot |
 |---|---|
-| A tracking number (spaces and dashes are fine) | Starts tracking it and asks for a name |
-| Several codes, one per line | Adds them all |
+| A tracking number, also with spaces, after a label or inside a carrier link | Starts tracking it and asks for a name |
+| Several codes, one per line, as a list or separated by commas | Adds them all |
 | A `.csv` file | Imports the shipments it contains |
 | `/list` | Shows your active parcels |
 | `/web` | Sends a one-time sign-in link for the dashboard |

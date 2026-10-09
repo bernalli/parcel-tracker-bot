@@ -25,6 +25,7 @@ from parcel_tracker.core.shipments import (
     extract_code_and_name,
     is_stalled,
     needs_attention,
+    strip_list_marker,
 )
 from parcel_tracker.core.stats import carrier_label, compute_stats, delivery_days
 from parcel_tracker.db.models import Parcel, ShipmentStatus
@@ -328,8 +329,9 @@ async def create_shipment(request: web.Request) -> web.StreamResponse:
 async def _create_bulk(request: web.Request, uid: int, text: str) -> web.StreamResponse:
     detector = bot_data(request).get("detector")
     counts = dict.fromkeys(AddOutcome, 0)
-    for line in text.splitlines()[:500]:
-        if not line.strip():
+    for raw in text.splitlines()[:500]:
+        line = strip_list_marker(raw)
+        if not line:
             continue
         code, name = extract_code_and_name(line, detector)
         outcome, _parcel = await add_shipment(

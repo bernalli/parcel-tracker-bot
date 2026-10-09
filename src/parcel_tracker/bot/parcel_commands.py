@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from parcel_tracker.bot import messages
 from parcel_tracker.bot.pending import pop_pending, set_pending
 from parcel_tracker.core.shipments import (
-    CODE_MAX_LEN,
     FIELD_LIMITS,
     AddOutcome,
     ShipmentInput,
@@ -17,9 +16,9 @@ from parcel_tracker.core.shipments import (
     extract_code_and_name,
     is_known_code_format,
     is_valid_tracking_number,
-    looks_like_tracking,
     normalize_tracking_number,
     parse_bulk_codes,
+    pick_single_code,
     s10_operator,
 )
 from parcel_tracker.db.models import Parcel
@@ -31,7 +30,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _NAME_MAX_LEN = FIELD_LIMITS["name"]
-_CODE_MAX_LEN = CODE_MAX_LEN
 # Echoed user text is clipped so a pasted wall of text cannot exceed Telegram's
 # message limit (the reply would fail and the user would only see an error).
 _ECHO_MAX_LEN = 40
@@ -397,8 +395,9 @@ async def _bulk_add(
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Plain text → if it looks like a tracking number, auto-add it (no /add needed).
 
-    A code printed with spaces ("1Z 999 AA1 …") is recognised as one code, and a
-    message with one code per line adds them all at once.
+    A code printed with spaces ("1Z 999 AA1 …") is recognised as one code, a code
+    inside a sentence or a carrier link is picked out, and a message with several
+    codes (one per line, a numbered list, or comma-separated) adds them all.
     """
     if update.message is None or update.effective_user is None:
         return
@@ -412,12 +411,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if bulk:
         await _bulk_add(update, context, bulk)
         return
-    candidate, name = extract_code_and_name(text, detector)
-
-    if len(candidate) > _CODE_MAX_LEN or not looks_like_tracking(candidate, detector):
+    picked = pick_single_code(text, detector)
+    if picked is None:
         first_word = text.split()[0]
         await update.message.reply_text(messages.to_add_use(_echo(first_word)), parse_mode="HTML")
         return
+    candidate, name = picked
 
     limit = await _active_limit_reached(context, update.effective_user.id)
     if limit is not None:

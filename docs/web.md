@@ -42,7 +42,7 @@ sessions.
 | Dashboard | Active shipments, out for delivery today, shipments that need attention, deliveries in the last 30 days, median delivery time, success rate, weekly volume, carrier performance, recent deliveries |
 | Shipments | Tabs (active, need attention, delivered, archived, all), search across code, name, order, customer, destination and notes, carrier and tag filters, CSV export of the current view |
 | Shipment | Progress, carrier history, route map, check now, archive / restore / delete, customer tracking link, editable details |
-| Add | One shipment with all fields, or many codes at once (one per line) |
+| Add | One shipment with all fields, or many codes at once (one per line, list markers allowed) |
 | Import | CSV upload with a per-line report and a downloadable template |
 | Settings | Seller mode, shop name, language, API tokens, log out everywhere, delete all my data |
 

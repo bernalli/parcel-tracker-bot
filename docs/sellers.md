@@ -24,9 +24,10 @@ shop's name. Everything stays on your server.
 
 Pick whatever fits your day:
 
-- **Telegram:** paste a tracking number, or several, one per line. Spaces and
-  dashes copied from a label are fine. Add a name after the code:
-  `RR123456785IT blue mug`.
+- **Telegram:** paste a tracking number, or several: one per line, as a
+  numbered list, or separated by commas. Spaces and dashes copied from a label
+  are fine, and so is a line such as `Tracking: RR123456785IT` or the carrier's
+  tracking link. Add a name after the code: `RR123456785IT blue mug`.
 - **CSV:** export orders from your shop back-office and send the file to the
   bot, or upload it in **Import**. Columns such as order number, customer,
   destination, tags and notes are picked up automatically.

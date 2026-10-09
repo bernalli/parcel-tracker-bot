@@ -199,3 +199,18 @@ async def test_erase_requires_confirmation(env) -> None:
     assert resp.headers["Location"].startswith("/login")
     assert await env.bot_data["parcel_repo"].list_all_for_user(user_id=OWNER) == []
     assert (await env.client.get("/", allow_redirects=False)).status == 303
+
+
+async def test_bulk_add_accepts_a_numbered_list(env) -> None:
+    csrf = await login(env)
+    resp = await env.client.post(
+        "/shipments",
+        data={"csrf": csrf, "codes": "1. AB12345678CD vase\n2) EF98765432GH\n\n- not a code!"},
+        allow_redirects=False,
+    )
+    assert resp.status == 303
+    repo = env.bot_data["parcel_repo"]
+    vase = await repo.get_for_user("AB12345678CD", user_id=OWNER)
+    assert vase is not None and vase.name == "vase"
+    assert await repo.get_for_user("EF98765432GH", user_id=OWNER) is not None
+    assert "n=2" in resp.headers["Location"]

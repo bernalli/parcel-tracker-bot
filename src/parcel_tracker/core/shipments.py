@@ -170,24 +170,96 @@ def looks_like_tracking(code: str, detector: _DetectorLike | None = None) -> boo
     return sum(c.isdigit() for c in code) >= _FREE_TEXT_MIN_DIGITS
 
 
+# Punctuation people put between a code and its name: "RR…IT — blue mug".
+_NAME_LEAD = " \t-–—:|>·•"
+# A list marker at the start of a line: "1.", "2)", "-", "*", "•".
+_LIST_MARKER_RE = re.compile(r"^\s*(?:[-*•·]|\d{1,3}[.)])\s+")
+# Letters-and-digits runs inside free text or a URL; candidates for find_code_in_text.
+_WORD_RE = re.compile(r"[A-Za-z0-9]+")
+
+
+def strip_list_marker(line: str) -> str:
+    """``"2) RR123456785IT"`` → ``"RR123456785IT"``; other lines are returned stripped."""
+    return _LIST_MARKER_RE.sub("", line, count=1).strip()
+
+
+def _name_part(words: Sequence[str]) -> str | None:
+    return " ".join(words).strip(_NAME_LEAD) or None
+
+
 def extract_code_and_name(text: str, detector: _DetectorLike | None) -> tuple[str, str | None]:
     """Split a chat message into (normalised code, optional name).
 
     A code pasted with the spaces carriers print inside it (``"1Z 999 AA1 0123"``)
-    is recognised as one code when the whole message normalises to a valid code;
-    otherwise the first word is the code and the rest is the name.
+    is recognised as one code, with or without a name after it; otherwise the
+    first word is the code and the rest is the name.
     """
-    stripped = text.strip()
-    first, _, rest = stripped.partition(" ")
-    first_code = normalize_tracking_number(first)
-    if " " in stripped and not looks_like_tracking(first_code, detector):
-        whole = normalize_tracking_number(stripped)
-        if _is_spaced_code(stripped.split(), whole, detector):
-            return whole, None
-    return first_code, rest.strip() or None
+    words = text.split()
+    if not words:
+        return "", None
+    first_code = normalize_tracking_number(words[0].rstrip(":,;"))
+    if len(words) > 1 and not looks_like_tracking(first_code, detector):
+        spaced = _spaced_code_prefix(words, detector)
+        if spaced is not None:
+            code, used = spaced
+            return code, _name_part(words[used:])
+    return first_code, _name_part(words[1:])
+
+
+def pick_single_code(text: str, detector: _DetectorLike | None) -> tuple[str, str | None] | None:
+    """(code, name) for a message about one parcel, or None if it holds no code.
+
+    The code is normally the first word (or the first words, if printed in
+    groups); failing that, the one code inside a sentence or a link, without a
+    name.
+    """
+    code, name = extract_code_and_name(text, detector)
+    if looks_like_tracking(code, detector):
+        return code, name
+    found = find_code_in_text(text, detector)
+    return (found, None) if found is not None else None
 
 
 _SPACED_GROUP_MAX = 6
+
+
+def _spaced_code_prefix(words: list[str], detector: _DetectorLike | None) -> tuple[str, int] | None:
+    """The code printed in groups at the start of ``words``, and how many words it took.
+
+    A prefix followed by a name must be a known code format; the whole message
+    may also be a code that only passes the looser digit heuristic.
+    """
+    groups = 0
+    while groups < len(words) and len(words[groups]) <= _SPACED_GROUP_MAX:
+        groups += 1
+    for used in range(groups, 1, -1):
+        code = normalize_tracking_number("".join(words[:used]))
+        if is_known_code_format(code, detector):
+            return code, used
+    whole = normalize_tracking_number("".join(words))
+    if groups == len(words) and _is_spaced_code(words, whole, detector):
+        return whole, len(words)
+    return None
+
+
+def find_code_in_text(text: str, detector: _DetectorLike | None) -> str | None:
+    """The one tracking code inside a sentence or a link, if there is exactly one.
+
+    Only codes with both letters and digits in a known format count
+    ("Tracking: RR123456785IT", "…/tracking?id=JJD0001…"): a bare number in a
+    sentence is more likely a phone or order number than a parcel.
+    """
+    found: set[str] = set()
+    for word in _WORD_RE.findall(text):
+        code = word.upper()
+        if (
+            any(c.isalpha() for c in code)
+            and any(c.isdigit() for c in code)
+            and is_valid_tracking_number(code)
+            and is_known_code_format(code, detector)
+        ):
+            found.add(code)
+    return found.pop() if len(found) == 1 else None
 
 
 def _is_spaced_code(groups: list[str], whole: str, detector: _DetectorLike | None) -> bool:
@@ -200,16 +272,24 @@ def _is_spaced_code(groups: list[str], whole: str, detector: _DetectorLike | Non
 
 
 def parse_bulk_codes(text: str, detector: _DetectorLike | None) -> list[tuple[str, str | None]]:
-    """Codes from a multi-line message, one per line (``CODE [name]``).
+    """Codes from a message holding several: one per line (``CODE [name]``), as a
+    numbered or bulleted list, or separated by commas on one line.
 
-    Returns an empty list unless at least two lines hold a code, so a single code
+    Returns an empty list unless at least two codes are found, so a single code
     followed by a multi-line note is still handled by the single-add path.
     """
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    if len(lines) < 2:  # noqa: PLR2004
-        return []
+    lines = [strip_list_marker(line) for line in text.splitlines()]
+    lines = [line for line in lines if line]
     found: list[tuple[str, str | None]] = []
     seen: set[str] = set()
+    if len(lines) == 1:
+        # "RR123456785IT, LX987654321CN" or "RR… LX…": every item must be a known code,
+        # so "RR123456785IT gift 2024" stays one parcel with a name.
+        items = [normalize_tracking_number(i) for i in re.split(r"[,;\s]+", lines[0]) if i]
+        unique = list(dict.fromkeys(items))
+        if len(unique) < 2 or not all(is_known_code_format(i, detector) for i in unique):  # noqa: PLR2004
+            return []
+        return [(code, None) for code in unique]
     for line in lines:
         code, name = extract_code_and_name(line, detector)
         if looks_like_tracking(code, detector) and code not in seen:
