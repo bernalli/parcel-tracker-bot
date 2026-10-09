@@ -43,7 +43,7 @@ The plugin contract. A courier implementation declares:
 - `name: str` — unique lowercase identifier (e.g., `"dhl"`)
 - `priority: int` — higher wins when several trackers match the same ID
 - `tracking_id_patterns: list[re.Pattern]` — regex matches for auto-detection
-- `country_codes: list[str]` — informational, used by the future detection UI
+- `country_codes: list[str]` — informational only, not used for detection
 - `async def fetch(tracking_id: str) -> TrackingResult` — the only mandatory method
 
 ### `TrackerRegistry`

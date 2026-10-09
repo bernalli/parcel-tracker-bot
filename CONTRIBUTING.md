@@ -70,15 +70,16 @@ python scripts/make_docs_art.py           # regenerate logos, cover and screensh
 
 ## Adding a new courier
 
-A typical tracker plugin is ~150 lines. Read [docs/plugins.md](docs/plugins.md) for a
-walk-through and skeleton. Steps:
+A tracker for a JSON API is about 50 lines; an HTML scraper is usually longer.
+Read [docs/plugins.md](docs/plugins.md) for a walk-through and skeleton. Steps:
 
 1. Create `src/parcel_tracker/trackers/<name>.py` with `class <Name>Tracker(AbstractTracker)`.
-2. Add tests under `tests/unit/trackers/test_<name>.py` with fixtures in
+2. Add the class to `_SCRAPERS` (or `_TRACK17_BACKED`) in `src/parcel_tracker/trackers/__init__.py`.
+3. Add tests under `tests/unit/trackers/test_<name>.py` with fixtures in
    `tests/fixtures/trackers/<name>/`. Prefer fixtures captured from the real site
    (with personal data removed) over hand-written HTML.
-3. Register the priority in the docstring and update `docs/trackers.md`.
-4. Run the full suite locally before opening the PR.
+4. Explain the priority in the module docstring and update `docs/trackers.md`.
+5. Run the full suite locally before opening the PR.
 
 ## Adding a new language
 
