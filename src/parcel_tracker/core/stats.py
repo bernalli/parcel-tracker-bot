@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from parcel_tracker.core.shipments import (
+    FINAL_STATUSES,
     StatusGroup,
     is_stalled,
     needs_attention,
@@ -73,6 +74,22 @@ def _percentile(values: list[float], pct: float) -> float | None:
     return ordered[index]
 
 
+def delivery_outcome(parcel: Parcel) -> bool | None:
+    """True if delivered, False if it failed for good, None while still undecided.
+
+    A failed attempt or an exception on an active parcel is not an outcome yet: the
+    carrier often delivers the next day. It becomes one when the carrier returns
+    the parcel or gives up, or when the seller archives it in that state.
+    """
+    if parcel.status is ShipmentStatus.DELIVERED:
+        return True
+    if status_group(parcel.status) is StatusGroup.ATTENTION and (
+        parcel.status in FINAL_STATUSES or not parcel.is_active
+    ):
+        return False
+    return None
+
+
 def carrier_label(parcel: Parcel) -> str:
     return parcel.carrier_name or parcel.carrier_code or "?"
 
@@ -132,14 +149,9 @@ def compute_stats(
     stats.median_delivery_days = statistics.median(days) if days else None
     stats.p90_delivery_days = _percentile(days, 0.9)
 
-    finished = [
-        p
-        for p in items
-        if p.status is ShipmentStatus.DELIVERED or status_group(p.status) is StatusGroup.ATTENTION
-    ]
-    if finished:
-        ok = sum(1 for p in finished if p.status is ShipmentStatus.DELIVERED)
-        stats.delivery_rate = ok / len(finished)
+    outcomes = [o for p in items if (o := delivery_outcome(p)) is not None]
+    if outcomes:
+        stats.delivery_rate = sum(outcomes) / len(outcomes)
 
     stats.weekly = _weekly(items, now.date(), weeks)
     stats.carriers = _carrier_stats(items)

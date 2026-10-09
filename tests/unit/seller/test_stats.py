@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime, timedelta
 
 from parcel_tracker.core.shipments import StatusGroup
-from parcel_tracker.core.stats import compute_stats, delivery_days
+from parcel_tracker.core.stats import compute_stats, delivery_days, delivery_outcome
 from parcel_tracker.db.models import Parcel, ShipmentStatus
 
 NOW = datetime(2026, 10, 9, 12, 0, tzinfo=UTC)  # a Friday
@@ -58,7 +58,7 @@ def test_compute_stats() -> None:
     assert stats.delivered_recent == 2
     assert stats.median_delivery_days == 3.0
     assert stats.p90_delivery_days == 4.0
-    assert stats.delivery_rate == 2 / 3
+    assert stats.delivery_rate == 1.0  # D's exception is still open, so not a failure yet
     assert [w.week_start for w in stats.weekly] == [
         date(2026, 9, 14),
         date(2026, 9, 21),
@@ -81,3 +81,15 @@ def test_empty_and_negative_durations() -> None:
         tracking_number="Z", user_id=1, created_at=NOW, delivered_at=NOW - timedelta(days=1)
     )
     assert delivery_days(odd) is None
+
+
+def test_delivery_rate_counts_settled_outcomes_only() -> None:
+    parcels = [
+        _p("A", ShipmentStatus.DELIVERED, added_days_ago=4, delivered_after=2),
+        _p("B", ShipmentStatus.RETURNED, added_days_ago=9),
+        _p("C", ShipmentStatus.UNDELIVERED, added_days_ago=6, active=False),
+        _p("D", ShipmentStatus.UNDELIVERED, added_days_ago=2),
+        _p("E", ShipmentStatus.IN_TRANSIT, added_days_ago=30, active=False),
+    ]
+    assert [delivery_outcome(p) for p in parcels] == [True, False, False, None, None]
+    assert compute_stats(parcels, now=NOW, stall_days=5).delivery_rate == 1 / 3
