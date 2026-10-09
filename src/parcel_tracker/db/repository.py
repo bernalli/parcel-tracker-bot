@@ -22,14 +22,42 @@ def _owner_params(user_id: int | None) -> tuple[int | None, int | None]:
     return (user_id, user_id)
 
 
-# Tables holding per-user personal data, children before parents.
+# Tables holding per-user personal data, children before parents. Web sessions,
+# login links and API tokens are included so /forgetme and revocation also end
+# every dashboard and API session.
 _USER_DATA_TABLES: tuple[str, ...] = (
     "tracking_history",
     "notification_cooldown_log",
     "user_notification_prefs",
     "user_language",
+    "user_settings",
+    "web_login_tokens",
+    "web_sessions",
+    "api_tokens",
     "parcels",
 )
+
+# Seller fields editable through update_details(); the keys are column names.
+DETAIL_FIELDS: tuple[str, ...] = (
+    "name",
+    "order_ref",
+    "recipient",
+    "destination",
+    "notes",
+    "tags",
+)
+
+
+def sql_ts(when: datetime) -> str:
+    """Format a datetime the way SQLite's CURRENT_TIMESTAMP does (UTC, no offset).
+
+    Keeping one textual format means SQL-side comparisons such as
+    ``updated_at < datetime('now', '-30 days')`` stay correct for values the
+    application writes itself.
+    """
+    if when.tzinfo is not None:
+        when = when.astimezone(UTC)
+    return when.strftime("%Y-%m-%d %H:%M:%S")
 
 
 async def _delete_user_rows(conn: aiosqlite.Connection, user_id: int) -> None:
@@ -125,15 +153,21 @@ class ParcelRepository:
         self._db_path = db_path
 
     async def create(self, parcel: Parcel) -> Parcel | None:
-        """Insert a parcel. Returns the parcel, or None if the tracking_number already exists."""
+        """Insert a parcel and return it as stored (with its id).
+
+        Returns None if the user already tracks this code. A removed or archived
+        row for the same code is reactivated instead, keeping its history; the
+        seller fields given here replace the stored ones only where they are set.
+        """
         async with get_connection(self._db_path) as conn:
             try:
                 await conn.execute(
                     """
                     INSERT INTO parcels (
                         tracking_number, name, carrier_code, carrier_name,
-                        all_carriers, status, user_id, is_active
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        all_carriers, status, user_id, is_active,
+                        order_ref, recipient, destination, notes, tags, last_change_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     """,
                     (
                         parcel.tracking_number,
@@ -144,6 +178,11 @@ class ParcelRepository:
                         parcel.status.value,
                         parcel.user_id,
                         int(parcel.is_active),
+                        parcel.order_ref,
+                        parcel.recipient,
+                        parcel.destination,
+                        parcel.notes,
+                        _dump_tags(parcel.tags),
                     ),
                 )
                 await conn.commit()
@@ -152,15 +191,27 @@ class ParcelRepository:
                 # re-adding it reactivates that row instead of reporting a duplicate.
                 cursor = await conn.execute(
                     "UPDATE parcels SET is_active = 1, name = COALESCE(?, name), "
-                    "delivered_at = NULL, delivery_disputed = 0, "
-                    "updated_at = CURRENT_TIMESTAMP "
+                    "order_ref = COALESCE(?, order_ref), recipient = COALESCE(?, recipient), "
+                    "destination = COALESCE(?, destination), notes = COALESCE(?, notes), "
+                    "tags = COALESCE(?, tags), "
+                    "delivered_at = NULL, delivery_disputed = 0, stall_alerted_at = NULL, "
+                    "last_change_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP "
                     "WHERE user_id = ? AND tracking_number = ? AND is_active = 0",
-                    (parcel.name, parcel.user_id, parcel.tracking_number),
+                    (
+                        parcel.name,
+                        parcel.order_ref,
+                        parcel.recipient,
+                        parcel.destination,
+                        parcel.notes,
+                        _dump_tags(parcel.tags) if parcel.tags else None,
+                        parcel.user_id,
+                        parcel.tracking_number,
+                    ),
                 )
                 await conn.commit()
                 if not cursor.rowcount:
                     return None
-        return parcel
+        return await self.get_for_user(parcel.tracking_number, user_id=parcel.user_id) or parcel
 
     async def get_by_tracking_number(self, tracking_number: str) -> Parcel | None:
         """Look up a parcel by code WITHOUT owner scoping — test/maintenance only.
@@ -523,6 +574,132 @@ class ParcelRepository:
             row = await cursor.fetchone()
         return int(row["n"]) if row else 0
 
+    # --- seller features -------------------------------------------------------
+
+    async def get_by_id_for_user(self, parcel_id: int, *, user_id: int) -> Parcel | None:
+        """Fetch a parcel by primary key, only if it belongs to the given user."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT * FROM parcels WHERE id = ? AND user_id = ?",
+                (parcel_id, user_id),
+            )
+            row = await cursor.fetchone()
+        return _row_to_parcel(row) if row else None
+
+    async def list_all_for_user(self, *, user_id: int) -> list[Parcel]:
+        """Every parcel of a user (active, removed and archived), newest first."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT * FROM parcels WHERE user_id = ? ORDER BY created_at DESC, id DESC",
+                (user_id,),
+            )
+            rows = await cursor.fetchall()
+        return [_row_to_parcel(row) for row in rows]
+
+    async def update_details(
+        self, tracking_number: str, *, user_id: int, **fields: str | list[str] | None
+    ) -> bool:
+        """Update seller fields (see DETAIL_FIELDS); None clears a field.
+
+        Returns True if the parcel exists for this user. Unknown keys raise
+        ValueError so a typo can never reach the SQL.
+        """
+        unknown = set(fields) - set(DETAIL_FIELDS)
+        if unknown:
+            raise ValueError(f"not editable: {sorted(unknown)}")
+        if not fields:
+            return await self.get_for_user(tracking_number, user_id=user_id) is not None
+        assignments: list[str] = []
+        values: list[object] = []
+        for key in DETAIL_FIELDS:
+            if key not in fields:
+                continue
+            value = fields[key]
+            assignments.append(f"{key} = ?")
+            if key == "tags":
+                values.append(_dump_tags(value) if isinstance(value, list) else None)
+            else:
+                values.append(value)
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                # Column names come from the DETAIL_FIELDS whitelist above.
+                f"UPDATE parcels SET {', '.join(assignments)}, updated_at = CURRENT_TIMESTAMP "  # noqa: S608  # nosec B608
+                "WHERE tracking_number = ? AND user_id = ?",
+                (*values, tracking_number, user_id),
+            )
+            await conn.commit()
+            return bool(cursor.rowcount)
+
+    async def set_share_token(
+        self, tracking_number: str, *, user_id: int, token: str | None
+    ) -> bool:
+        """Set (or clear, with None) the public tracking-page token."""
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute(
+                "UPDATE parcels SET share_token = ? WHERE tracking_number = ? AND user_id = ?",
+                (token, tracking_number, user_id),
+            )
+            await conn.commit()
+            return bool(cursor.rowcount)
+
+    async def get_by_share_token(self, token: str) -> Parcel | None:
+        """Resolve a public tracking-page token to its parcel (any owner)."""
+        if not token:
+            return None
+        async with get_connection(self._db_path) as conn:
+            cursor = await conn.execute("SELECT * FROM parcels WHERE share_token = ?", (token,))
+            row = await cursor.fetchone()
+        return _row_to_parcel(row) if row else None
+
+    async def touch_change(self, tracking_number: str, when: datetime, *, user_id: int) -> None:
+        """Record that the carrier reported something new (resets the stall clock)."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET last_change_at = ? WHERE tracking_number = ? AND user_id = ?",
+                (sql_ts(when), tracking_number, user_id),
+            )
+            await conn.commit()
+
+    async def mark_stall_alerted(
+        self, tracking_number: str, when: datetime, *, user_id: int
+    ) -> None:
+        """Remember that the stalled-shipment alert went out for the current stall."""
+        async with get_connection(self._db_path) as conn:
+            await conn.execute(
+                "UPDATE parcels SET stall_alerted_at = ? WHERE tracking_number = ? AND user_id = ?",
+                (sql_ts(when), tracking_number, user_id),
+            )
+            await conn.commit()
+
+    async def delete_for_user(self, tracking_number: str, *, user_id: int) -> bool:
+        """Delete a parcel and its tracking history for good (not just archive it)."""
+        async with get_connection(self._db_path) as conn:
+            for table in ("tracking_history", "notification_cooldown_log"):
+                await conn.execute(
+                    f"DELETE FROM {table} WHERE tracking_number = ? AND user_id = ?",  # noqa: S608  # nosec B608 — fixed table names
+                    (tracking_number, user_id),
+                )
+            cursor = await conn.execute(
+                "DELETE FROM parcels WHERE tracking_number = ? AND user_id = ?",
+                (tracking_number, user_id),
+            )
+            await conn.commit()
+            return bool(cursor.rowcount)
+
+
+def _dump_tags(tags: list[str] | None) -> str | None:
+    return json.dumps(tags, ensure_ascii=False) if tags else None
+
+
+def _load_tags(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return []
+    return [str(t) for t in value] if isinstance(value, list) else []
+
 
 def _parse_ts(raw: str | None) -> datetime | None:
     if not raw:
@@ -538,25 +715,47 @@ def _parse_ts(raw: str | None) -> datetime | None:
 
 
 def _row_to_parcel(row: aiosqlite.Row) -> Parcel:
+    keys = set(row.keys())
+
+    def col(name: str) -> object:
+        return row[name] if name in keys else None
+
+    def text(name: str) -> str | None:
+        value = col(name)
+        return str(value) if value is not None else None
+
+    def ts(name: str) -> datetime | None:
+        value = col(name)
+        return _parse_ts(str(value)) if value is not None else None
+
     raw_all = row["all_carriers"]
     all_carriers: list[str] = json.loads(raw_all) if raw_all else []
-    keys = row.keys()
-    last_check_at = _parse_ts(row["last_check_at"]) if "last_check_at" in keys else None
-    delivered_at = _parse_ts(row["delivered_at"]) if "delivered_at" in keys else None
+    raw_id = col("id")
     return Parcel(
         tracking_number=row["tracking_number"],
         user_id=row["user_id"],
         name=row["name"],
+        id=int(str(raw_id)) if raw_id is not None else None,
+        order_ref=text("order_ref"),
+        recipient=text("recipient"),
+        destination=text("destination"),
+        notes=text("notes"),
+        tags=_load_tags(text("tags")),
+        share_token=text("share_token"),
+        last_change_at=ts("last_change_at"),
+        stall_alerted_at=ts("stall_alerted_at"),
         carrier_code=row["carrier_code"],
         carrier_name=row["carrier_name"],
         all_carriers=all_carriers,
         status=ShipmentStatus.from_str(row["status"]),
         last_event=row["last_event"],
         last_event_time=row["last_event_time"],
-        last_location=row["last_location"] if "last_location" in keys else None,
-        transport_mode=row["transport_mode"] if "transport_mode" in keys else None,
-        delivery_disputed=bool(row["delivery_disputed"]) if "delivery_disputed" in keys else False,
-        delivered_at=delivered_at,
-        last_check_at=last_check_at,
+        last_location=text("last_location"),
+        transport_mode=text("transport_mode"),
+        delivery_disputed=bool(col("delivery_disputed")),
+        created_at=ts("created_at"),
+        updated_at=ts("updated_at"),
+        delivered_at=ts("delivered_at"),
+        last_check_at=ts("last_check_at"),
         is_active=bool(row["is_active"]),
     )

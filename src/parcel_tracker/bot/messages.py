@@ -432,3 +432,25 @@ def parcel_detail_card(parcel: Parcel) -> str:
     if checked:
         lines.append(f"{last_check_word}: {checked}")
     return "\n".join(lines)
+
+
+def delivered_notice(title: str | None, tracking_number: str, recipient: str | None) -> str:
+    """Seller mode: the parcel reached the customer and was archived automatically."""
+    head = f"✅ <b>{esc(title)}</b>\n" if title else "✅ "
+    body = (
+        _("Delivered to the recipient.")
+        if not recipient
+        else _("Delivered to <b>{recipient}</b>.").format(recipient=esc(recipient))
+    )
+    archived = _("Archived automatically — see /history.")
+    return f"{head}<code>{esc(tracking_number)}</code>\n\n{body}\n<i>{archived}</i>"
+
+
+def stall_alert(title: str | None, tracking_number: str, *, days: int, status_text: str) -> str:
+    """A shipment saw no carrier update for ``days`` days."""
+    head = f"⏸ <b>{esc(title)}</b>\n" if title else "⏸ "
+    body = _(
+        "No carrier update for <b>{days} days</b> (last status: {status}). "
+        "The shipment may be stuck: consider contacting the carrier."
+    ).format(days=int(days), status=status_text)
+    return f"{head}<code>{esc(tracking_number)}</code>\n\n{body}"

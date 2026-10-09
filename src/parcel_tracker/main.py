@@ -36,6 +36,8 @@ from parcel_tracker.db.health_repository import HealthRepository
 from parcel_tracker.db.migrations import init_schema
 from parcel_tracker.db.notification_repository import NotificationRepository
 from parcel_tracker.db.repository import ParcelRepository, UserRepository
+from parcel_tracker.db.settings_repository import SettingsRepository
+from parcel_tracker.db.web_repository import WebRepository
 from parcel_tracker.i18n import Translator, set_default_translator
 from parcel_tracker.notifier.preferences import CooldownConfig, NotificationPreferences
 from parcel_tracker.notifier.telegram import TelegramNotifier
@@ -163,6 +165,8 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         "prefs": prefs,
         "geocoder": geocoder,
         "map_renderer": map_renderer,
+        "settings": SettingsRepository(config.database_path),
+        "web_repo": WebRepository(config.database_path),
         # NOTE: notifier added in main() after Application.builder().build()
     }
 

@@ -68,6 +68,16 @@ class Config:
     map_tile_size: int = 512
     map_user_agent: str = "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
 
+    # Warn when an active shipment has no carrier update for this many days (0 = off).
+    stall_alert_days: int = 7
+
+    # Web dashboard (opt-in). WEB_PUBLIC_URL is what /web links point to.
+    web_enabled: bool = False
+    web_bind_host: str = "127.0.0.1"
+    web_port: int = 8080
+    web_public_url: str = "http://localhost:8080"
+    web_session_days: int = 30
+
     @classmethod
     def from_env(cls, *, load_dotenv_file: bool = True) -> Config:  # noqa: C901
         """Build Config from environment variables (loads .env if present)."""
@@ -153,6 +163,12 @@ class Config:
             map_user_agent=os.getenv(
                 "MAP_USER_AGENT", "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
             ),
+            stall_alert_days=_int_env("STALL_ALERT_DAYS", 7),
+            web_enabled=_bool_env("WEB_ENABLED", False),
+            web_bind_host=os.getenv("WEB_BIND_HOST", "127.0.0.1").strip() or "127.0.0.1",
+            web_port=_int_env("WEB_PORT", 8080),
+            web_public_url=_public_url_env("WEB_PUBLIC_URL", "http://localhost:8080"),
+            web_session_days=_int_env("WEB_SESSION_DAYS", 30),
         )
 
 
@@ -175,6 +191,16 @@ def _bool_env(key: str, default: bool) -> bool:
     if raw in {"0", "false", "no", "off"}:
         return False
     raise ConfigError(f"{key} must be boolean (true/false), got: {raw!r}")
+
+
+def _public_url_env(key: str, default: str) -> str:
+    """An absolute http(s) base URL without a trailing slash."""
+    raw = os.getenv(key, "").strip().rstrip("/")
+    if not raw:
+        return default
+    if not raw.startswith(("http://", "https://")):
+        raise ConfigError(f"{key} must start with http:// or https://, got: {raw!r}")
+    return raw
 
 
 def _optional_env(key: str) -> str | None:

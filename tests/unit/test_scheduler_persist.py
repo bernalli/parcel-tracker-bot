@@ -30,6 +30,7 @@ def _ctx(parcel: Parcel, result: TrackingResult) -> MagicMock:
     repo = MagicMock()
     repo.list_active_for_user = AsyncMock(return_value=[parcel])
     repo.set_last_check_at = AsyncMock()
+    repo.touch_change = AsyncMock()
     repo.update_status = AsyncMock()
     repo.add_events_dedup = AsyncMock(return_value=result.events)
     repo.get_unnotified = AsyncMock(

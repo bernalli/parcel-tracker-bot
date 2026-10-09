@@ -52,6 +52,7 @@ def _make_context(
     parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
+    parcel_repo.touch_change = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
     parcel_repo.get_unnotified = AsyncMock(return_value=[])
     parcel_repo.mark_notified = AsyncMock()

@@ -14,6 +14,7 @@ from parcel_tracker.core.detector import CourierDetector
 from parcel_tracker.core.event_status import status_from_text
 from parcel_tracker.core.health import HealthManager
 from parcel_tracker.core.rate_limiter import RateLimiter
+from parcel_tracker.core.shipments import is_stalled
 from parcel_tracker.core.status_intervals import get_interval_minutes, is_due
 from parcel_tracker.core.tracker_base import AbstractTracker, FetchError, TrackingResult
 from parcel_tracker.db.models import Parcel, ShipmentStatus, TrackingEvent
@@ -136,6 +137,7 @@ async def check_user_now(bot_data: dict[str, Any], *, user_id: int) -> int:
                     geocoder=bot_data.get("geocoder"),
                     map_renderer=bot_data.get("map_renderer"),
                     now=bot_data.get("now", _now_default),
+                    settings=bot_data.get("settings"),
                 )
                 for (uid, p) in batch
             ],
@@ -158,15 +160,19 @@ async def reconcile_delivered_backlog(bot_data: dict[str, Any]) -> int:
     if parcel_repo is None or notifier is None:
         return 0
     now: Callable[[], datetime] = bot_data.get("now", _now_default)
+    settings = bot_data.get("settings")
     parcels = await parcel_repo.list_active_delivered_unstamped()
     healed = 0
     for parcel in parcels:
         try:
-            await notifier.send_delivery_confirmation(
-                chat_id=parcel.user_id,
-                tracking_number=parcel.tracking_number,
-                parcel_name=parcel.name,
+            await _announce_delivered(
+                parcel=parcel,
+                user_id=parcel.user_id,
+                parcel_repo=parcel_repo,
+                notifier=notifier,
                 location=parcel.last_location,
+                now=now,
+                settings=settings,
             )
         except Exception:  # noqa: BLE001 — one bad send must not abort the sweep
             # Leave delivered_at unset so the next startup retries this parcel; a
@@ -177,7 +183,6 @@ async def reconcile_delivered_backlog(bot_data: dict[str, Any]) -> int:
                 exc_info=True,
             )
             continue
-        await parcel_repo.set_delivered(parcel.tracking_number, now(), user_id=parcel.user_id)
         # The prompt supersedes the per-event update (as in the live transition), so
         # consume the pending events; otherwise a later poll would re-prompt for them.
         unnotified = await parcel_repo.get_unnotified(
@@ -214,6 +219,8 @@ async def _flush_stalled_notifications(  # noqa: PLR0913
     prefs: Any | None,
     geocoder: Any | None,
     map_renderer: Any | None,
+    settings: Any | None = None,
+    now: Callable[[], datetime] = _now_default,
 ) -> None:
     """Retry notifications for parcels that dropped out of the polling set.
 
@@ -229,11 +236,15 @@ async def _flush_stalled_notifications(  # noqa: PLR0913
             if not unnotified:
                 continue
             if parcel.status is ShipmentStatus.DELIVERED:
-                await notifier.send_delivery_confirmation(
-                    chat_id=user_id,
-                    tracking_number=parcel.tracking_number,
-                    parcel_name=parcel.name,
+                await _announce_delivered(
+                    parcel=parcel,
+                    user_id=user_id,
+                    parcel_repo=parcel_repo,
+                    notifier=notifier,
                     location=parcel.last_location,
+                    now=now,
+                    settings=settings,
+                    stamp=parcel.delivered_at is None,
                 )
                 await parcel_repo.mark_notified([row_id for row_id, _ev in unnotified])
             else:
@@ -298,14 +309,12 @@ async def _check_updates_impl(context: _JobContext) -> None:
     """
     parcel_repo: ParcelRepository = context.bot_data["parcel_repo"]
     user_repo = context.bot_data["user_repo"]
-    detector: CourierDetector = context.bot_data["detector"]
-    health: HealthManager = context.bot_data["health"]
     notifier: TelegramNotifier = context.bot_data["notifier"]
     config = context.bot_data["config"]
-    rate_limiter: RateLimiter = context.bot_data["rate_limiter"]
     prefs = context.bot_data.get("prefs")  # None until NotificationPreferences is wired in
     geocoder = context.bot_data.get("geocoder")
     map_renderer = context.bot_data.get("map_renderer")
+    settings = context.bot_data.get("settings")
     now: Callable[[], datetime] = context.bot_data.get("now", _now_default)
 
     await _apply_retention(parcel_repo, getattr(config, "data_retention_days", 0))
@@ -319,6 +328,8 @@ async def _check_updates_impl(context: _JobContext) -> None:
     if owner_id is not None:
         user_ids.add(owner_id)
     user_ids.update(getattr(config, "allowed_user_ids", ()) or ())
+    # Admins pass the authorisation gate and can add parcels, so poll theirs too.
+    user_ids.update(getattr(config, "admin_user_ids", ()) or ())
     if not user_ids:
         return
 
@@ -351,10 +362,39 @@ async def _check_updates_impl(context: _JobContext) -> None:
         prefs=prefs,
         geocoder=geocoder,
         map_renderer=map_renderer,
+        settings=settings,
+        now=now,
     )
 
-    if not all_due:
-        return
+    if all_due:
+        await _check_due(context.bot_data, all_due, now=now)
+
+    await _sweep_stall_alerts(
+        user_ids=user_ids,
+        parcel_repo=parcel_repo,
+        notifier=notifier,
+        now=now,
+        stall_days=int(getattr(config, "stall_alert_days", 0) or 0),
+    )
+
+
+async def _check_due(
+    bot_data: dict[str, Any],
+    all_due: list[tuple[int, Parcel]],
+    *,
+    now: Callable[[], datetime],
+) -> None:
+    """Check due parcels, most urgent first, in parallel batches of BATCH_SIZE."""
+    config = bot_data["config"]
+    parcel_repo: ParcelRepository = bot_data["parcel_repo"]
+    detector: CourierDetector = bot_data["detector"]
+    health: HealthManager = bot_data["health"]
+    notifier: TelegramNotifier = bot_data["notifier"]
+    rate_limiter: RateLimiter = bot_data["rate_limiter"]
+    prefs = bot_data.get("prefs")
+    geocoder = bot_data.get("geocoder")
+    map_renderer = bot_data.get("map_renderer")
+    settings = bot_data.get("settings")
 
     rank = {status: idx for idx, status in enumerate(PRIORITY_ORDER)}
     all_due.sort(key=lambda pair: rank.get(pair[1].status, 999))
@@ -375,12 +415,63 @@ async def _check_updates_impl(context: _JobContext) -> None:
                     geocoder=geocoder,
                     map_renderer=map_renderer,
                     now=now,
+                    settings=settings,
                 )
                 for (uid, p) in batch
             ],
             return_exceptions=True,
         )
         _log_batch_errors(batch, results)
+
+
+async def _sweep_stall_alerts(
+    *,
+    user_ids: set[int],
+    parcel_repo: ParcelRepository,
+    notifier: TelegramNotifier,
+    now: Callable[[], datetime],
+    stall_days: int,
+) -> None:
+    """Warn once per stall about active shipments with no carrier news for ``stall_days``.
+
+    Runs after the checks so a parcel that just got an event is not reported. The
+    alert is re-armed when the carrier reports something again (``last_change_at``
+    moves past ``stall_alerted_at``). A failed send is retried next tick.
+    """
+    if stall_days <= 0:
+        return
+    current = now()
+    for user_id in user_ids:
+        try:
+            parcels = await parcel_repo.list_active_for_user(user_id=user_id)
+        except Exception:  # noqa: BLE001 — never block polling on the alert sweep
+            logger.warning("stall sweep: listing failed for user %s", user_id, exc_info=True)
+            continue
+        for parcel in parcels:
+            if not is_stalled(parcel, current, stall_days):
+                continue
+            alerted = parcel.stall_alerted_at
+            changed = parcel.last_change_at or parcel.created_at
+            if alerted is not None and (changed is None or alerted >= changed):
+                continue
+            reference = changed or current
+            try:
+                await notifier.send_stall_alert(
+                    chat_id=user_id,
+                    tracking_number=parcel.tracking_number,
+                    parcel_name=parcel.name,
+                    status=parcel.status,
+                    days=max(stall_days, (current - reference).days),
+                    location=parcel.last_location,
+                )
+            except Exception:  # noqa: BLE001 — retried next tick
+                logger.warning(
+                    "stall alert failed for %s (will retry next tick)",
+                    parcel.tracking_number,
+                    exc_info=True,
+                )
+                continue
+            await parcel_repo.mark_stall_alerted(parcel.tracking_number, current, user_id=user_id)
 
 
 async def _persist_result(
@@ -447,7 +538,7 @@ async def _reconcile_status_and_carrier(
         )
 
 
-async def _handle_delivered_transition(
+async def _announce_delivered(  # noqa: PLR0913
     *,
     parcel: Parcel,
     user_id: int,
@@ -455,23 +546,65 @@ async def _handle_delivered_transition(
     notifier: TelegramNotifier,
     location: str | None,
     now: Callable[[], datetime],
+    settings: Any | None,
+    stamp: bool = True,
 ) -> None:
-    """On Delivered: stamp delivered_at and ask the user to confirm receipt (no auto-archive).
+    """Run the delivery lifecycle for one parcel.
 
-    The Yes/No confirmation prompt is a lifecycle action, not a routine notification:
-    it is ALWAYS sent regardless of the user's DELIVERED notification preference, so a
-    user who muted "Delivered" updates can still confirm/archive and the parcel does not
-    linger active forever.
+    By default the user receives the parcel, so they are asked to confirm receipt
+    (Yes/No) and the parcel stays active until they answer. In seller mode the
+    parcel went to a customer: the seller gets a delivered notice and the parcel
+    is archived at once. The message goes out first; if it raises, nothing is
+    stamped and the per-tick sweeps retry it.
     """
-    # Send first: if it raises, delivered_at stays unset and the per-tick
-    # reconcile_delivered_backlog sweep retries the prompt.
+    if settings is not None and await settings.seller_mode(user_id):
+        await notifier.send_delivered_notice(
+            chat_id=user_id,
+            tracking_number=parcel.tracking_number,
+            parcel_name=parcel.name,
+            recipient=parcel.recipient,
+            location=location,
+        )
+        if stamp:
+            await parcel_repo.set_delivered(parcel.tracking_number, now(), user_id=user_id)
+        await parcel_repo.deactivate(parcel.tracking_number, user_id=user_id)
+        return
     await notifier.send_delivery_confirmation(
         chat_id=user_id,
         tracking_number=parcel.tracking_number,
         parcel_name=parcel.name,
         location=location,
     )
-    await parcel_repo.set_delivered(parcel.tracking_number, now(), user_id=user_id)
+    if stamp:
+        await parcel_repo.set_delivered(parcel.tracking_number, now(), user_id=user_id)
+
+
+async def _handle_delivered_transition(  # noqa: PLR0913
+    *,
+    parcel: Parcel,
+    user_id: int,
+    parcel_repo: ParcelRepository,
+    notifier: TelegramNotifier,
+    location: str | None,
+    now: Callable[[], datetime],
+    settings: Any | None = None,
+) -> None:
+    """On Delivered: stamp delivered_at and run the delivery lifecycle (see above).
+
+    The confirmation prompt is a lifecycle action, not a routine notification: it is
+    ALWAYS sent regardless of the user's DELIVERED notification preference, so a
+    user who muted "Delivered" updates can still confirm/archive and the parcel does
+    not linger active forever.
+    """
+    await _announce_delivered(
+        parcel=parcel,
+        user_id=user_id,
+        parcel_repo=parcel_repo,
+        notifier=notifier,
+        location=location,
+        now=now,
+        settings=settings,
+    )
 
 
 async def _reprompt_delivered(  # noqa: PLR0913
@@ -483,18 +616,23 @@ async def _reprompt_delivered(  # noqa: PLR0913
     location: str | None,
     unnotified_ids: list[int],
     now: Callable[[], datetime],
+    settings: Any | None = None,
 ) -> None:
-    """Re-send the confirm/archive prompt for an already Delivered parcel."""
-    await notifier.send_delivery_confirmation(
-        chat_id=user_id,
-        tracking_number=parcel.tracking_number,
-        parcel_name=parcel.name,
+    """Re-send the confirm/archive prompt for an already Delivered parcel.
+
+    A transition whose prompt failed earlier has no delivered_at yet: it is stamped
+    now so the per-tick backlog sweep does not prompt a second time.
+    """
+    await _announce_delivered(
+        parcel=parcel,
+        user_id=user_id,
+        parcel_repo=parcel_repo,
+        notifier=notifier,
         location=location,
+        now=now,
+        settings=settings,
+        stamp=parcel.delivered_at is None,
     )
-    if parcel.delivered_at is None:
-        # A transition whose prompt failed earlier: stamp it now so the per-tick
-        # backlog sweep does not prompt a second time.
-        await parcel_repo.set_delivered(parcel.tracking_number, now(), user_id=user_id)
     await parcel_repo.mark_notified(unnotified_ids)
 
 
@@ -655,6 +793,7 @@ async def _check_one(  # noqa: PLR0913
     geocoder: Any | None = None,
     map_renderer: Any | None = None,
     notify_events: bool = True,
+    settings: Any | None = None,
 ) -> str:
     """Serialise checks of one (user, parcel) across every entrypoint.
 
@@ -682,6 +821,7 @@ async def _check_one(  # noqa: PLR0913
             geocoder=geocoder,
             map_renderer=map_renderer,
             notify_events=notify_events,
+            settings=settings,
         )
 
 
@@ -699,6 +839,7 @@ async def _check_one_unlocked(  # noqa: PLR0913, C901
     geocoder: Any | None = None,
     map_renderer: Any | None = None,
     notify_events: bool = True,
+    settings: Any | None = None,
 ) -> str:
     """Check a single parcel: iterate matches in priority order until one succeeds.
 
@@ -729,13 +870,18 @@ async def _check_one_unlocked(  # noqa: PLR0913, C901
 
     await _reconcile_status_and_carrier(parcel_repo, parcel, final_result)
 
-    await _persist_result(parcel_repo, parcel.tracking_number, final_result, user_id=user_id)
+    new_events = await _persist_result(
+        parcel_repo, parcel.tracking_number, final_result, user_id=user_id
+    )
 
     status_changed = final_result.status != parcel.status
     if status_changed:
         await parcel_repo.update_status(
             parcel.tracking_number, final_result.status, user_id=user_id
         )
+    if new_events or status_changed:
+        # The carrier reported something new: restart the stalled-shipment clock.
+        await parcel_repo.touch_change(parcel.tracking_number, now(), user_id=user_id)
 
     # Drive notification off persisted-but-unnotified events: events are
     # committed before the send, so if _notify raises (Telegram timeout/429) they
@@ -753,6 +899,7 @@ async def _check_one_unlocked(  # noqa: PLR0913, C901
             notifier=notifier,
             location=final_result.last_location,
             now=now,
+            settings=settings,
         )
         await parcel_repo.mark_notified(unnotified_ids)
         return "delivered"
@@ -770,6 +917,7 @@ async def _check_one_unlocked(  # noqa: PLR0913, C901
             location=final_result.last_location,
             unnotified_ids=unnotified_ids,
             now=now,
+            settings=settings,
         )
         return "delivered"
 
@@ -822,4 +970,5 @@ async def check_parcel_now(
         map_renderer=bot_data.get("map_renderer"),
         now=bot_data.get("now", _now_default),
         notify_events=False,
+        settings=bot_data.get("settings"),
     )
