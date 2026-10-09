@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import secrets
 from collections import OrderedDict
 from collections.abc import Iterable
 from datetime import UTC, datetime
@@ -25,6 +24,7 @@ from parcel_tracker.core.shipments import (
     extract_code_and_name,
     is_stalled,
     needs_attention,
+    share_token_for,
     strip_list_marker,
 )
 from parcel_tracker.core.stats import carrier_label, compute_stats, delivery_days
@@ -43,7 +43,6 @@ VIEWS = ("active", "attention", "delivered", "archived", "all")
 _MAP_CACHE_SIZE = 64
 _TOKEN_NAME_MAX = 40
 _SHOP_NAME_MAX = 60
-_SHARE_TOKEN_BYTES = 16
 
 
 def _repo(request: web.Request) -> ParcelRepository:
@@ -435,7 +434,7 @@ async def delete_shipment(request: web.Request) -> web.StreamResponse:
 
 async def share_shipment(request: web.Request) -> web.StreamResponse:
     parcel = await _parcel_or_404(request)
-    token = secrets.token_urlsafe(_SHARE_TOKEN_BYTES)
+    token = share_token_for(parcel)
     await _repo(request).set_share_token(
         parcel.tracking_number, user_id=parcel.user_id, token=token
     )

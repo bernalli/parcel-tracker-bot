@@ -214,3 +214,13 @@ async def test_bulk_add_accepts_a_numbered_list(env) -> None:
     assert vase is not None and vase.name == "vase"
     assert await repo.get_for_user("EF98765432GH", user_id=OWNER) is not None
     assert "n=2" in resp.headers["Location"]
+
+
+async def test_sharing_again_keeps_the_link_already_sent(env) -> None:
+    csrf = await login(env)
+    repo = env.bot_data["parcel_repo"]
+    pid = await _id(env, "RR123456785IT")
+    await env.client.post(f"/shipments/{pid}/share", data={"csrf": csrf})
+    first = (await repo.get_for_user("RR123456785IT", user_id=OWNER)).share_token
+    await env.client.post(f"/shipments/{pid}/share", data={"csrf": csrf})
+    assert (await repo.get_for_user("RR123456785IT", user_id=OWNER)).share_token == first

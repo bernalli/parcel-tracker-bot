@@ -8,6 +8,7 @@ treated exactly the same way.
 from __future__ import annotations
 
 import re
+import secrets
 import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -132,6 +133,15 @@ def s10_operator(code: str) -> str | None:
     if not is_upu_s10(code):
         return None
     return S10_OPERATORS.get(code[-2:])
+
+
+# 128 random bits: a share link cannot be guessed, and stays short enough to paste.
+SHARE_TOKEN_BYTES = 16
+
+
+def share_token_for(parcel: Parcel) -> str:
+    """The parcel's public link token, reusing the current one so links already sent keep working."""
+    return parcel.share_token or secrets.token_urlsafe(SHARE_TOKEN_BYTES)
 
 
 def is_valid_tracking_number(code: str) -> bool:

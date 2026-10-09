@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import io
 import logging
-import secrets
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -14,7 +13,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOpti
 from parcel_tracker.bot import messages
 from parcel_tracker.bot.pending import set_pending
 from parcel_tracker.core.csv_io import MAX_IMPORT_BYTES, CsvImportError, export_csv, import_csv
-from parcel_tracker.core.shipments import clean_tags, clip_field
+from parcel_tracker.core.shipments import clean_tags, clip_field, share_token_for
 from parcel_tracker.i18n import _
 
 if TYPE_CHECKING:
@@ -27,7 +26,6 @@ logger = logging.getLogger(__name__)
 DETAIL_FIELDS: tuple[str, ...] = ("order_ref", "recipient", "destination", "notes", "tags")
 _CLEAR = "-"
 _NO_PREVIEW = LinkPreviewOptions(is_disabled=True)
-_SHARE_TOKEN_BYTES = 16
 
 
 def _field_label(field: str) -> str:
@@ -146,7 +144,7 @@ async def share_parcel(
     if parcel is None:
         await message.reply_text(messages.parcel_not_found(tracking_number), parse_mode="HTML")
         return
-    token = parcel.share_token or secrets.token_urlsafe(_SHARE_TOKEN_BYTES)
+    token = share_token_for(parcel)
     if parcel.share_token is None:
         await repo.set_share_token(tracking_number, user_id=user.id, token=token)
     await message.reply_text(
