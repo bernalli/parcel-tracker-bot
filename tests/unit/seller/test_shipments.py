@@ -164,3 +164,26 @@ def test_groups_cover_every_status() -> None:
         assert -1 <= progress_index(status) <= 4
     assert status_group(ShipmentStatus.CUSTOMS) is StatusGroup.TRANSIT
     assert progress_index(ShipmentStatus.DELIVERED) == 4
+
+
+def test_upu_s10_validation_and_operator() -> None:
+    from parcel_tracker.core.shipments import is_upu_s10, s10_check_digit, s10_operator
+
+    assert s10_check_digit("12345678") == 5
+    assert is_upu_s10("RR123456785IT")
+    assert not is_upu_s10("RR123456789IT")  # wrong check digit
+    assert not is_upu_s10("RR12345678IT")
+    assert s10_operator("RR123456785IT") == "Poste Italiane"
+    assert s10_operator("RR123456785XX") is None
+    assert s10_operator("1Z999AA10123456784") is None
+    # Check-digit special cases: 10 → 0 and 11 → 5.
+    for serial in ("00000000", "11111111", "47312482", "99999999"):
+        digit = s10_check_digit(serial)
+        assert 0 <= digit <= 9
+        assert is_upu_s10(f"EE{serial}{digit}CN")
+
+
+def test_new_s10_parcel_knows_its_operator() -> None:
+    parcel = ShipmentInput("cp 123456785 de").to_parcel(1)
+    assert parcel.carrier_name == "Deutsche Post"
+    assert ShipmentInput("1Z999AA10123456784").to_parcel(1).carrier_name is None

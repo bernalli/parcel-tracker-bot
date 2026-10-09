@@ -20,6 +20,7 @@ from parcel_tracker.core.shipments import (
     looks_like_tracking,
     normalize_tracking_number,
     parse_bulk_codes,
+    s10_operator,
 )
 from parcel_tracker.db.models import Parcel
 
@@ -97,6 +98,7 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         tracking_number=tracking_number,
         user_id=user.id,
         name=name,
+        carrier_name=s10_operator(tracking_number),
     )
     created = await repo.create(parcel)
     if created is None:
@@ -426,7 +428,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     tn = candidate
     repo = context.bot_data["parcel_repo"]
     created = await repo.create(
-        Parcel(tracking_number=tn, user_id=update.effective_user.id, name=name)
+        Parcel(
+            tracking_number=tn,
+            user_id=update.effective_user.id,
+            name=name,
+            carrier_name=s10_operator(tn),
+        )
     )
     if created is None:
         await update.message.reply_text(messages.parcel_duplicate(tn), parse_mode="HTML")

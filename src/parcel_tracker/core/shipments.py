@@ -256,9 +256,11 @@ class ShipmentInput:
     tags: list[str] = field(default_factory=list)
 
     def to_parcel(self, user_id: int) -> Parcel:
+        code = normalize_tracking_number(self.tracking_number)
         return Parcel(
-            tracking_number=normalize_tracking_number(self.tracking_number),
+            tracking_number=code,
             user_id=user_id,
+            carrier_name=s10_operator(code),
             name=clip_field("name", self.name),
             order_ref=clip_field("order_ref", self.order_ref),
             recipient=clip_field("recipient", self.recipient),

@@ -16,7 +16,7 @@ from parcel_tracker.core.detector import CourierDetector
 from parcel_tracker.core.event_status import status_from_text
 from parcel_tracker.core.health import HealthManager
 from parcel_tracker.core.rate_limiter import RateLimiter
-from parcel_tracker.core.shipments import is_stalled
+from parcel_tracker.core.shipments import is_stalled, s10_operator
 from parcel_tracker.core.status_intervals import get_interval_minutes, is_due
 from parcel_tracker.core.tracker_base import AbstractTracker, FetchError, TrackingResult
 from parcel_tracker.db.models import Parcel, ShipmentStatus, TrackingEvent
@@ -642,6 +642,11 @@ async def _reconcile_status_and_carrier(
             # gate (which hard-suppresses the internal NOT_FOUND state) from
             # silently swallowing genuine intermediate updates.
             result.status = ShipmentStatus.IN_TRANSIT
+
+    if not result.carrier_name and not parcel.carrier_name:
+        # Sources such as 17track sometimes omit the carrier: an S10 code still
+        # says which postal operator issued it.
+        result.carrier_name = s10_operator(parcel.tracking_number)
 
     if (result.carrier_code or result.carrier_name) and (
         result.carrier_code != parcel.carrier_code or result.carrier_name != parcel.carrier_name
