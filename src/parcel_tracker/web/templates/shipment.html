@@ -73,7 +73,7 @@
         <div class="actions" >
           <button class="btn btn-small" type="button" data-copy="{{ share_url }}" data-copied="{{ _('Copied') }}">{{ _("Copy link") }}</button>
           <a class="btn btn-small" href="{{ share_url }}" target="_blank" rel="noopener">{{ _("Open") }}</a>
-          <form class="inline" method="post" action="/shipments/{{ p.id }}/share">{{ csrf_field() }}<button class="btn btn-small" type="submit">{{ _("New link") }}</button></form>
+          <form class="inline" method="post" action="/shipments/{{ p.id }}/share">{{ csrf_field() }}<input type="hidden" name="rotate" value="1"><button class="btn btn-small" type="submit" title="{{ _('Replace the link: the current address stops working') }}">{{ _("New link") }}</button></form>
           <form class="inline" method="post" action="/shipments/{{ p.id }}/unshare">{{ csrf_field() }}<button class="btn btn-small btn-danger" type="submit">{{ _("Revoke") }}</button></form>
         </div>
       {% else %}

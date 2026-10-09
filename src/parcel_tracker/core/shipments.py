@@ -139,9 +139,13 @@ def s10_operator(code: str) -> str | None:
 SHARE_TOKEN_BYTES = 16
 
 
+def new_share_token() -> str:
+    return secrets.token_urlsafe(SHARE_TOKEN_BYTES)
+
+
 def share_token_for(parcel: Parcel) -> str:
     """The parcel's public link token, reusing the current one so links already sent keep working."""
-    return parcel.share_token or secrets.token_urlsafe(SHARE_TOKEN_BYTES)
+    return parcel.share_token or new_share_token()
 
 
 def is_valid_tracking_number(code: str) -> bool:

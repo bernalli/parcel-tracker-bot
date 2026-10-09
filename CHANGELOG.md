@@ -76,6 +76,16 @@ long list of correctness, security and documentation fixes from a full audit.
 
 ### Fixed
 
+- `/web` and `/export` refuse to answer in group chats, where anyone could
+  open the sign-in link or read the customer list.
+- The dashboard's sign-in refuses forms posted from another site (login CSRF),
+  and a malformed CSRF value is a 403 instead of a server error.
+- CSV import reads files with Mac line endings and reports a malformed file
+  instead of failing with a server error.
+- Erasing a user's data no longer lets their language choice come back after a
+  restart, and no tracking history is written for a parcel erased during a
+  carrier check.
+- Out-of-range ids in dashboard URLs are a 404 instead of a server error.
 - Every scraper read "not delivered", "undelivered", "nicht zugestellt",
   "non livré"… as **Delivered**, prompting a false receipt and stopping
   polling. A shared multilingual negation check now runs first.

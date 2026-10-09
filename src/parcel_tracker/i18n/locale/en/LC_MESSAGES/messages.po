@@ -56,14 +56,14 @@ msgid_plural "%(num)d events"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/parcel_tracker/web/templates/_macros.html:32
+#: src/parcel_tracker/web/templates/_macros.html:33
 #, python-format
 msgid "%(num)d line skipped (duplicate or invalid)."
 msgid_plural "%(num)d lines skipped (duplicate or invalid)."
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/parcel_tracker/web/templates/_macros.html:32
+#: src/parcel_tracker/web/templates/_macros.html:33
 #, python-format
 msgid "%(num)d shipment added."
 msgid_plural "%(num)d shipments added."
@@ -123,7 +123,7 @@ msgstr "<b>📦 Delivered (archived)</b>"
 msgid "API reference"
 msgstr ""
 
-#: src/parcel_tracker/web/templates/_macros.html:33
+#: src/parcel_tracker/web/templates/_macros.html:34
 msgid "API token revoked."
 msgstr ""
 
@@ -160,7 +160,7 @@ msgstr ""
 msgid "Added"
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:577
+#: src/parcel_tracker/bot/messages.py:584
 #, python-brace-format
 msgid "Added: {added} · already tracked: {dup} · invalid: {invalid} · over the limit: {over}"
 msgstr ""
@@ -314,7 +314,7 @@ msgstr ""
 "Current language: <code>{current}</code>\n"
 "Available: {available}"
 
-#: src/parcel_tracker/bot/messages.py:450 src/parcel_tracker/bot/seller_commands.py:36
+#: src/parcel_tracker/bot/messages.py:450 src/parcel_tracker/bot/seller_commands.py:35
 #: src/parcel_tracker/web/templates/new.html:20 src/parcel_tracker/web/templates/shipment.html:91
 #: src/parcel_tracker/web/templates/shipments.html:50
 msgid "Customer"
@@ -369,7 +369,7 @@ msgstr ""
 msgid "Delivery success"
 msgstr ""
 
-#: src/parcel_tracker/bot/seller_commands.py:37 src/parcel_tracker/web/templates/new.html:21
+#: src/parcel_tracker/bot/seller_commands.py:36 src/parcel_tracker/web/templates/new.html:21
 #: src/parcel_tracker/web/templates/shipment.html:92
 msgid "Destination"
 msgstr ""
@@ -498,7 +498,7 @@ msgstr ""
 msgid "Line"
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:581
+#: src/parcel_tracker/bot/messages.py:588
 #, python-brace-format
 msgid "Line {line}: {reason}"
 msgstr ""
@@ -561,6 +561,10 @@ msgstr ""
 msgid "New link"
 msgstr ""
 
+#: src/parcel_tracker/web/templates/_macros.html:31
+msgid "New public link created. The old address no longer works."
+msgstr ""
+
 #: src/parcel_tracker/web/templates/shipments.html:75
 msgid "Next"
 msgstr ""
@@ -614,7 +618,7 @@ msgstr ""
 msgid "Not found"
 msgstr ""
 
-#: src/parcel_tracker/bot/seller_commands.py:38 src/parcel_tracker/web/templates/new.html:24
+#: src/parcel_tracker/bot/seller_commands.py:37 src/parcel_tracker/web/templates/new.html:24
 #: src/parcel_tracker/web/templates/shipment.html:94
 msgid "Notes"
 msgstr ""
@@ -651,7 +655,7 @@ msgstr ""
 msgid "Order"
 msgstr ""
 
-#: src/parcel_tracker/bot/seller_commands.py:35 src/parcel_tracker/web/templates/new.html:19
+#: src/parcel_tracker/bot/seller_commands.py:34 src/parcel_tracker/web/templates/new.html:19
 #: src/parcel_tracker/web/templates/shipment.html:90
 msgid "Order reference"
 msgstr ""
@@ -700,6 +704,10 @@ msgstr ""
 
 #: src/parcel_tracker/web/templates/dashboard.html:94
 msgid "Recently delivered"
+msgstr ""
+
+#: src/parcel_tracker/web/templates/shipment.html:76
+msgid "Replace the link: the current address stops working"
 msgstr ""
 
 #: src/parcel_tracker/bot/formatting.py:46
@@ -844,7 +852,7 @@ msgstr ""
 msgid "Tag"
 msgstr ""
 
-#: src/parcel_tracker/bot/seller_commands.py:39 src/parcel_tracker/web/templates/new.html:23
+#: src/parcel_tracker/bot/seller_commands.py:38 src/parcel_tracker/web/templates/new.html:23
 #: src/parcel_tracker/web/templates/shipment.html:93
 msgid "Tags"
 msgstr ""
@@ -882,7 +890,7 @@ msgstr ""
 msgid "This sign-in link is invalid, already used or expired."
 msgstr ""
 
-#: src/parcel_tracker/web/templates/_macros.html:35
+#: src/parcel_tracker/web/templates/_macros.html:36
 msgid "Tick the confirmation box to delete your data."
 msgstr ""
 
@@ -988,7 +996,7 @@ msgstr ""
 msgid "Where your shipments are, and which ones need you."
 msgstr ""
 
-#: src/parcel_tracker/web/templates/_macros.html:34
+#: src/parcel_tracker/web/templates/_macros.html:35
 msgid "You already have the maximum number of API tokens."
 msgstr ""
 
@@ -1004,7 +1012,7 @@ msgstr "You have no active parcels. Add one with <code>/add</code>."
 msgid "You opened a sign-in link from Telegram."
 msgstr ""
 
-#: src/parcel_tracker/web/templates/_macros.html:31
+#: src/parcel_tracker/web/templates/_macros.html:32
 #, python-format
 msgid "You reached the limit of %(n)d active shipments."
 msgstr ""
@@ -1162,7 +1170,7 @@ msgstr ""
 msgid "⚠️ Couldn't reach the carrier. Showing last known data."
 msgstr "⚠️ Couldn't reach the carrier. Showing last known data."
 
-#: src/parcel_tracker/bot/messages.py:563
+#: src/parcel_tracker/bot/messages.py:570
 msgid "⚠️ I couldn't read that file as CSV."
 msgstr ""
 
@@ -1183,7 +1191,7 @@ msgstr ""
 msgid "⚠️ Something went wrong. Please try again in a moment."
 msgstr "⚠️ Something went wrong. Please try again in a moment."
 
-#: src/parcel_tracker/bot/messages.py:559
+#: src/parcel_tracker/bot/messages.py:566
 msgid "⚠️ The file is too large (1 MB max)."
 msgstr ""
 
@@ -1300,7 +1308,7 @@ msgstr "✅ User <code>{user_id}</code> added."
 msgid "✅ Yes, received"
 msgstr "✅ Yes, received"
 
-#: src/parcel_tracker/bot/messages.py:598
+#: src/parcel_tracker/bot/messages.py:605
 #, python-brace-format
 msgid "✅ {label} saved."
 msgstr ""
@@ -1395,7 +1403,7 @@ msgstr ""
 #: src/parcel_tracker/bot/callbacks.py:78 src/parcel_tracker/bot/callbacks.py:135
 #: src/parcel_tracker/bot/keyboards.py:16 src/parcel_tracker/bot/keyboards.py:80
 #: src/parcel_tracker/bot/keyboards.py:108 src/parcel_tracker/bot/keyboards.py:129
-#: src/parcel_tracker/bot/keyboards.py:201 src/parcel_tracker/bot/seller_commands.py:167
+#: src/parcel_tracker/bot/keyboards.py:201 src/parcel_tracker/bot/seller_commands.py:182
 msgid "⬅️ Back"
 msgstr "⬅️ Back"
 
@@ -1407,7 +1415,7 @@ msgstr ""
 msgid "🌍 Language"
 msgstr "🌍 Language"
 
-#: src/parcel_tracker/bot/messages.py:540
+#: src/parcel_tracker/bot/messages.py:547
 #, python-brace-format
 msgid ""
 "🌐 <b>Web dashboard</b>\n"
@@ -1417,7 +1425,7 @@ msgid ""
 "The link signs you in once and expires in 15 minutes. Don't share it."
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:532
+#: src/parcel_tracker/bot/messages.py:539
 msgid ""
 "🌐 The web dashboard is not enabled on this bot.\n"
 "The admin can turn it on with <code>WEB_ENABLED=true</code> and <code>WEB_PUBLIC_URL</code> in "
@@ -1428,7 +1436,7 @@ msgstr ""
 msgid "🌐 Web dashboard"
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:604
+#: src/parcel_tracker/bot/messages.py:611
 msgid ""
 "🏪 <b>Seller mode on.</b> Delivered parcels are archived automatically and you get a short notice "
 "instead of the \"did you receive it?\" question."
@@ -1459,7 +1467,7 @@ msgstr "👮 Admin"
 msgid "📄 Export CSV"
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:555
+#: src/parcel_tracker/bot/messages.py:562
 #, python-brace-format
 msgid "📄 {n} shipment exported."
 msgid_plural "📄 {n} shipments exported."
@@ -1524,7 +1532,7 @@ msgstr "📋 Parcel list"
 msgid "📛 What name do you want to give this parcel? Send it now (e.g. «iPhone 15»)."
 msgstr "📛 What name do you want to give this parcel? Send it now (e.g. «iPhone 15»)."
 
-#: src/parcel_tracker/bot/messages.py:586
+#: src/parcel_tracker/bot/messages.py:593
 #, python-brace-format
 msgid ""
 "📝 <b>Details</b> of <code>{tn}</code>\n"
@@ -1535,12 +1543,12 @@ msgstr ""
 msgid "📝 Details"
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:593
+#: src/parcel_tracker/bot/messages.py:600
 #, python-brace-format
 msgid "📝 Send the new <b>{label}</b> for <code>{tn}</code> (send <code>-</code> to clear it):"
 msgstr ""
 
-#: src/parcel_tracker/bot/messages.py:575
+#: src/parcel_tracker/bot/messages.py:582
 msgid "📥 <b>Import finished</b>"
 msgstr ""
 
@@ -1579,7 +1587,7 @@ msgstr ""
 msgid "📦 <b>Parcels</b>"
 msgstr "📦 <b>Parcels</b>"
 
-#: src/parcel_tracker/bot/messages.py:607
+#: src/parcel_tracker/bot/messages.py:614
 msgid "📦 <b>Seller mode off.</b> I'll ask you to confirm each delivery again."
 msgstr ""
 
@@ -1639,6 +1647,12 @@ msgstr ""
 "\n"
 "Tip: use 📋 Parcel list to see all your codes."
 
+#: src/parcel_tracker/bot/messages.py:532
+msgid ""
+"🔒 For your privacy this works only in a private chat with me: in a group, anyone could open it. "
+"Send the command to me directly."
+msgstr ""
+
 #: src/parcel_tracker/bot/notify_commands.py:28
 msgid ""
 "🔔 <b>Notification preferences</b>\n"
@@ -1660,7 +1674,7 @@ msgstr ""
 msgid "🔔 Notifications"
 msgstr "🔔 Notifications"
 
-#: src/parcel_tracker/bot/messages.py:548
+#: src/parcel_tracker/bot/messages.py:555
 #, python-brace-format
 msgid ""
 "🔗 <b>Customer tracking link</b>\n"

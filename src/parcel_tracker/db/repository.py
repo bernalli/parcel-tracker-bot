@@ -66,6 +66,9 @@ async def _delete_user_rows(conn: aiosqlite.Connection, user_id: int) -> None:
             f"DELETE FROM {table} WHERE user_id = ?",  # noqa: S608  # nosec B608 — fixed table names
             (user_id,),
         )
+    # The pre-0.3 language column: older versions wrote it, and the startup
+    # migration copies it into user_language, which would bring the choice back.
+    await conn.execute("UPDATE allowed_users SET language = 'en' WHERE user_id = ?", (user_id,))
 
 
 class UserRepository:
@@ -141,10 +144,6 @@ class UserRepository:
                 "INSERT INTO user_language (user_id, language) VALUES (?, ?) "
                 "ON CONFLICT(user_id) DO UPDATE SET language = excluded.language",
                 (user_id, language),
-            )
-            await conn.execute(
-                "UPDATE allowed_users SET language = ? WHERE user_id = ?",
-                (language, user_id),
             )
             await conn.commit()
 
@@ -363,14 +362,31 @@ class ParcelRepository:
                 if key in seen:
                     continue
                 seen.add(key)
-                await conn.execute(
+                # Insert only while the parcel exists: a /forgetme or a removal that
+                # lands during a carrier check must not leave orphan history behind.
+                cursor = await conn.execute(
                     """
                     INSERT INTO tracking_history
                       (tracking_number, user_id, event_time, event_description, location, carrier)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    SELECT ?, ?, ?, ?, ?, ?
+                    WHERE EXISTS (
+                      SELECT 1 FROM parcels
+                      WHERE tracking_number = ? AND (user_id = ? OR ? IS NULL)
+                    )
                     """,
-                    (tracking_number, user_id, ev.time, ev.description, ev.location, ev.carrier),
+                    (
+                        tracking_number,
+                        user_id,
+                        ev.time,
+                        ev.description,
+                        ev.location,
+                        ev.carrier,
+                        tracking_number,
+                        *_owner_params(user_id),
+                    ),
                 )
+                if cursor.rowcount != 1:
+                    break
                 new_events.append(ev)
             await conn.commit()
         return new_events

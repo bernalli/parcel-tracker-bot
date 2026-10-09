@@ -18,6 +18,7 @@ from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlsplit
 
 from aiohttp import web
 
@@ -153,7 +154,10 @@ async def session_middleware(request: web.Request, handler: Handler) -> web.Stre
 async def check_csrf(request: web.Request, current: WebSession) -> None:
     form = await request.post()
     sent = form.get("csrf")
-    if not isinstance(sent, str) or not hmac.compare_digest(sent, current.csrf_token):
+    # Compare bytes: compare_digest raises TypeError on non-ASCII str input.
+    if not isinstance(sent, str) or not hmac.compare_digest(
+        sent.encode(), current.csrf_token.encode()
+    ):
         logger.info("rejected POST %s without a valid CSRF token", request.path)
         raise web.HTTPForbidden(text="Invalid or missing CSRF token. Reload the page and retry.")
 
@@ -193,9 +197,36 @@ async def login_page(request: web.Request) -> web.StreamResponse:
     return await page(request, "login.html", {"token": token, "error": None}, public=True)
 
 
+# Sec-Fetch-Site values of a form posted from the dashboard's own sign-in page.
+_OWN_SITE_FETCH = frozenset({"same-origin", "none"})
+
+
+def _posted_from_another_site(request: web.Request) -> bool:
+    """True when the browser reports that the sign-in form came from another site.
+
+    Without this, a hostile page could post its owner's own sign-in token and
+    log the visitor into the attacker's account (login CSRF): whatever the victim
+    then added would land there. Sec-Fetch-Site is sent by every current browser.
+    Origin is only a fallback, because under ``Referrer-Policy: no-referrer``
+    browsers send ``Origin: null`` even for same-origin posts.
+    """
+    fetch_site = request.headers.get("Sec-Fetch-Site")
+    if fetch_site is not None:
+        return fetch_site.lower() not in _OWN_SITE_FETCH
+    origin = request.headers.get("Origin", "null")
+    if origin == "null":
+        return False
+    public_url = str(getattr(bot_data(request)["config"], "web_public_url", "") or "")
+    own_hosts = {request.host.lower(), urlsplit(public_url).netloc.lower()}
+    return urlsplit(origin).netloc.lower() not in own_hosts
+
+
 async def login_submit(request: web.Request) -> web.StreamResponse:
     from parcel_tracker.web.views import page  # noqa: PLC0415
 
+    if _posted_from_another_site(request):
+        logger.warning("rejected a sign-in posted from another site")
+        raise web.HTTPForbidden(text="Open the sign-in link from Telegram directly.")
     form = await request.post()
     token = form.get("t")
     uid = await web_repo(request).consume_login_token(token) if isinstance(token, str) else None

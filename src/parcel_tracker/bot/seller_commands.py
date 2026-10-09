@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions
+from telegram.constants import ChatType
 
 from parcel_tracker.bot import messages
 from parcel_tracker.bot.pending import set_pending
@@ -43,6 +44,22 @@ def _web_config(context: ContextTypes.DEFAULT_TYPE) -> Any | None:
     return config if getattr(config, "web_enabled", False) else None
 
 
+async def _in_private_chat(update: Update) -> bool:
+    """A sign-in link or a customer export must never land in a group chat.
+
+    Anyone in the group could open the link first and get the whole dashboard,
+    or read the customers in the file. Outside a private chat the user is told
+    to ask again in private.
+    """
+    chat = update.effective_chat
+    if chat is None or chat.type == ChatType.PRIVATE:
+        return True
+    message = update.effective_message
+    if message is not None:
+        await message.reply_text(messages.private_chat_only(), parse_mode="HTML")
+    return False
+
+
 # --- /web --------------------------------------------------------------------
 
 
@@ -50,7 +67,7 @@ async def cmd_web(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a one-time sign-in link for the web dashboard."""
     user = update.effective_user
     reply_to = update.effective_message
-    if user is None or reply_to is None:
+    if user is None or reply_to is None or not await _in_private_chat(update):
         return
     config = _web_config(context)
     web_repo = context.bot_data.get("web_repo")
@@ -73,7 +90,7 @@ async def cmd_export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     """Send all the user's shipments as a CSV file."""
     user = update.effective_user
     reply_to = update.effective_message
-    if user is None or reply_to is None:
+    if user is None or reply_to is None or not await _in_private_chat(update):
         return
     parcels = await context.bot_data["parcel_repo"].list_all_for_user(user_id=user.id)
     if not parcels:

@@ -28,6 +28,7 @@
   "deleted": ("ok", _("Shipment deleted together with its history.")),
   "shared": ("ok", _("Public tracking link created. Copy it and send it to your customer.")),
   "unshared": ("ok", _("Public link revoked. The old address no longer works.")),
+  "rotated": ("ok", _("New public link created. The old address no longer works.")),
   "limit": ("err", _("You reached the limit of %(n)d active shipments.", n=n)),
   "bulk": ("ok", ngettext("%(num)d shipment added.", "%(num)d shipments added.", n) ~ ((" " ~ ngettext("%(num)d line skipped (duplicate or invalid).", "%(num)d lines skipped (duplicate or invalid).", m)) if m else "")),
   "token_revoked": ("ok", _("API token revoked.")),

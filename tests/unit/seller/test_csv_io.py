@@ -70,6 +70,28 @@ def test_import_keeps_apostrophes_that_are_not_escapes() -> None:
     assert row.name == "'Tis a mug"
 
 
+def test_parse_mac_line_endings() -> None:
+    # "CSV (Macintosh)" from Excel for Mac ends lines with a bare CR.
+    rows = parse_csv(b"tracking_number,name\rRR123456785IT,mug\rLX987654321CN,lamp\r").rows
+    assert [(r.tracking_number, r.name) for _line, r in rows] == [
+        ("RR123456785IT", "mug"),
+        ("LX987654321CN", "lamp"),
+    ]
+
+
+def test_quoted_cell_with_line_break() -> None:
+    [(_line, row)] = parse_csv(
+        b'tracking_number,notes\nRR123456785IT,"fragile\nhandle with care"\n'
+    ).rows
+    assert row.notes == "fragile\nhandle with care"
+
+
+def test_malformed_csv_is_an_import_error_not_a_crash() -> None:
+    data = b'tracking_number,name\nRR123456785IT,"never closed\n' + b"x" * 140_000
+    with pytest.raises(CsvImportError, match="malformed"):
+        parse_csv(data)
+
+
 def test_parse_semicolon_italian_header_with_bom() -> None:
     data = "﻿Codice;Ordine;Cliente;Destinazione;Note;Tag\nrr 123456785 it;#5;Ada;Roma;fragile;vip, express\n"
     parsed = parse_csv(data.encode("utf-8"))

@@ -41,3 +41,20 @@ async def test_create_returns_none_on_duplicate(tmp_db_path) -> None:
     repo = await _repo(tmp_db_path)  # already created TN1
     dup = await repo.create(Parcel(tracking_number="TN1", user_id=1))
     assert dup is None
+
+
+@pytest.mark.asyncio
+async def test_no_history_is_written_for_an_erased_parcel(tmp_db_path) -> None:
+    # A /forgetme that lands while the carrier is being checked: the events the
+    # check then stores must not outlive the parcel.
+    repo = await _repo(tmp_db_path)
+    await repo.delete_for_user("TN1", user_id=1)
+    ev = TrackingEvent(time="2026-06-01T10:00:00Z", description="Picked up", location="Milano")
+    assert await repo.add_events_dedup("TN1", [ev], user_id=1) == []
+    assert await repo.get_history("TN1", user_id=1) == []
+    # Another user's parcel with the same code does not count as "still there".
+    await repo.create(Parcel(tracking_number="TN1", user_id=2))
+    assert await repo.add_events_dedup("TN1", [ev], user_id=1) == []
+    assert [e.description for e in await repo.add_events_dedup("TN1", [ev], user_id=2)] == [
+        "Picked up"
+    ]

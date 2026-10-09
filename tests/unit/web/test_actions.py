@@ -224,3 +224,50 @@ async def test_sharing_again_keeps_the_link_already_sent(env) -> None:
     first = (await repo.get_for_user("RR123456785IT", user_id=OWNER)).share_token
     await env.client.post(f"/shipments/{pid}/share", data={"csrf": csrf})
     assert (await repo.get_for_user("RR123456785IT", user_id=OWNER)).share_token == first
+
+
+async def test_import_reports_a_malformed_file(env) -> None:
+    csrf = await login(env)
+    form = FormData()
+    form.add_field("csrf", csrf)
+    form.add_field(
+        "file",
+        io.BytesIO(b'tracking_number\n"RR123456785IT' + b"x" * 140_000),
+        filename="broken.csv",
+        content_type="text/csv",
+    )
+    resp = await env.client.post("/import", data=form)
+    assert resp.status == 400
+    assert "could not be read" in await resp.text()
+
+
+async def test_new_link_replaces_the_old_one(env) -> None:
+    csrf = await login(env)
+    repo = env.bot_data["parcel_repo"]
+    pid = await _id(env, "RR123456785IT")
+    await env.client.post(f"/shipments/{pid}/share", data={"csrf": csrf})
+    old = (await repo.get_for_user("RR123456785IT", user_id=OWNER)).share_token
+    resp = await env.client.post(
+        f"/shipments/{pid}/share", data={"csrf": csrf, "rotate": "1"}, allow_redirects=False
+    )
+    assert resp.headers["Location"].endswith("msg=rotated")
+    new = (await repo.get_for_user("RR123456785IT", user_id=OWNER)).share_token
+    assert new and new != old
+    assert (await env.client.get(f"/t/{old}")).status == 404
+    assert (await env.client.get(f"/t/{new}")).status == 200
+    page = await (await env.client.get(f"/shipments/{pid}?msg=rotated")).text()
+    assert "New public link created" in page
+    assert 'name="rotate" value="1"' in page
+
+
+async def test_out_of_range_ids_are_not_found(env) -> None:
+    csrf = await login(env)
+    huge = "9" * 20
+    assert (await env.client.get(f"/shipments/{huge}")).status == 404
+    resp = await env.client.post(f"/shipments/{huge}/delete", data={"csrf": csrf})
+    assert resp.status == 404
+    resp = await env.client.post(
+        f"/settings/tokens/{huge}/revoke", data={"csrf": csrf}, allow_redirects=False
+    )
+    assert resp.status == 303
+    assert (await env.client.get(f"/shipments?page={huge}")).status == 200

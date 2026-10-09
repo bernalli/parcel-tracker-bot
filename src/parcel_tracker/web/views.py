@@ -24,6 +24,7 @@ from parcel_tracker.core.shipments import (
     extract_code_and_name,
     is_stalled,
     needs_attention,
+    new_share_token,
     share_token_for,
     strip_list_marker,
 )
@@ -104,11 +105,17 @@ async def page(
     return render(request, template, base, language=language, status=status)
 
 
+# SQLite integers are signed 64-bit; a larger id in a URL would raise OverflowError.
+_SQLITE_INT_MAX = 2**63 - 1
+
+
 def _int(raw: str | None, default: int) -> int:
+    """An integer from a URL or query string; ``default`` if missing, malformed or out of range."""
     try:
-        return int(raw) if raw is not None else default
+        value = int(raw) if raw is not None else default
     except ValueError:
         return default
+    return value if -_SQLITE_INT_MAX <= value <= _SQLITE_INT_MAX else default
 
 
 async def _parcel_or_404(request: web.Request) -> Parcel:
@@ -433,12 +440,14 @@ async def delete_shipment(request: web.Request) -> web.StreamResponse:
 
 
 async def share_shipment(request: web.Request) -> web.StreamResponse:
+    """Create the customer link, or keep the current one; ``rotate=1`` replaces it."""
     parcel = await _parcel_or_404(request)
-    token = share_token_for(parcel)
+    rotate = (await request.post()).get("rotate") == "1"
+    token = new_share_token() if rotate else share_token_for(parcel)
     await _repo(request).set_share_token(
         parcel.tracking_number, user_id=parcel.user_id, token=token
     )
-    raise _redirect(f"/shipments/{parcel.id}", msg="shared")
+    raise _redirect(f"/shipments/{parcel.id}", msg="rotated" if rotate else "shared")
 
 
 async def unshare_shipment(request: web.Request) -> web.StreamResponse:

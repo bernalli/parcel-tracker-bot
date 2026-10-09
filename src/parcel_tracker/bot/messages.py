@@ -527,6 +527,13 @@ def bulk_added(*, added: int, duplicates: int, over_limit: int) -> str:
     return "\n".join(lines)
 
 
+def private_chat_only() -> str:
+    return _(
+        "🔒 For your privacy this works only in a private chat with me: "
+        "in a group, anyone could open it. Send the command to me directly."
+    )
+
+
 def web_disabled() -> str:
     return _(
         "🌐 The web dashboard is not enabled on this bot.\n"

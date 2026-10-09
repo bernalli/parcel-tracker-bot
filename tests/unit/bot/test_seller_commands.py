@@ -38,7 +38,10 @@ async def ctx(tmp_db_path):
 def _msg_update(user_id: int = 10) -> SimpleNamespace:
     message = SimpleNamespace(reply_text=AsyncMock(), reply_document=AsyncMock())
     return SimpleNamespace(
-        effective_user=SimpleNamespace(id=user_id), effective_message=message, message=message
+        effective_user=SimpleNamespace(id=user_id),
+        effective_chat=SimpleNamespace(id=user_id, type="private"),
+        effective_message=message,
+        message=message,
     )
 
 
@@ -53,6 +56,7 @@ def _cb_update(data: str, user_id: int = 10) -> SimpleNamespace:
     return SimpleNamespace(
         callback_query=query,
         effective_user=SimpleNamespace(id=user_id),
+        effective_chat=SimpleNamespace(id=user_id, type="private"),
         effective_message=message,
         message=None,
     )
@@ -230,3 +234,22 @@ def test_handlers_register_seller_commands() -> None:
         handler = call.args[0]
         commands |= set(getattr(handler, "commands", ()))
     assert {"web", "export"} <= commands
+
+
+@pytest.mark.parametrize("command", ["cmd_web", "cmd_export"])
+@pytest.mark.parametrize("chat_type", ["group", "supergroup", "channel"])
+async def test_login_link_and_export_never_go_to_a_group(ctx, command, chat_type) -> None:
+    update = _msg_update()
+    update.effective_chat = SimpleNamespace(id=-100123, type=chat_type)
+    await getattr(seller_commands, command)(update, ctx)  # type: ignore[arg-type]
+    update.message.reply_document.assert_not_awaited()
+    [call] = update.message.reply_text.await_args_list
+    assert "private chat" in call.args[0]
+    assert "login?t=" not in call.args[0]
+
+
+async def test_login_link_works_in_a_private_chat(ctx) -> None:
+    update = _msg_update()
+    update.effective_chat = SimpleNamespace(id=10, type="private")
+    await seller_commands.cmd_web(update, ctx)  # type: ignore[arg-type]
+    assert "login?t=" in update.message.reply_text.await_args.args[0]

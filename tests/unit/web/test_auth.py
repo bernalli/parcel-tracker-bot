@@ -91,3 +91,46 @@ async def test_html_404_page(env) -> None:
     resp = await env.client.get("/shipments/999999")
     assert resp.status == 404
     assert "Not found" in await resp.text()
+
+
+async def _post_login(env, headers: dict[str, str]) -> tuple[int, str]:
+    token = await env.bot_data["web_repo"].create_login_token(OWNER)
+    resp = await env.client.post(
+        "/login", data={"t": token}, headers=headers, allow_redirects=False
+    )
+    return resp.status, token
+
+
+async def test_sign_in_posted_from_another_site_is_refused(env) -> None:
+    for headers in (
+        {"Sec-Fetch-Site": "cross-site"},
+        {"Sec-Fetch-Site": "same-site"},
+        {"Origin": "https://evil.example"},
+    ):
+        status, token = await _post_login(env, headers)
+        assert status == 403, headers
+        assert "ptb_session" not in env.client.session.cookie_jar.filter_cookies(
+            env.client.make_url("/")
+        )
+        # The refused attempt did not burn the token.
+        assert await env.bot_data["web_repo"].consume_login_token(token) == OWNER
+
+
+async def test_sign_in_from_the_dashboard_itself_works(env) -> None:
+    for headers in (
+        {"Sec-Fetch-Site": "same-origin", "Origin": "null"},
+        {"Sec-Fetch-Site": "none"},
+        # Referrer-Policy: no-referrer makes browsers send Origin: null on same-origin posts.
+        {"Origin": "null"},
+        {"Origin": "http://testserver"},
+        {},
+    ):
+        env.client.session.cookie_jar.clear()
+        status, _token = await _post_login(env, headers)
+        assert status == 303, headers
+
+
+async def test_non_ascii_csrf_value_is_a_403_not_a_crash(env) -> None:
+    await login(env)
+    resp = await env.client.post("/settings", data={"csrf": "é", "shop_name": "Evil"})
+    assert resp.status == 403

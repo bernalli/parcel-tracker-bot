@@ -199,8 +199,13 @@ def _dialect(text: str) -> type[csv.Dialect] | csv.Dialect:
 def parse_csv(data: bytes) -> ParsedCsv:
     """Parse an uploaded CSV into shipment inputs plus per-line errors."""
     text = _decode(data)
-    reader = csv.reader(io.StringIO(text), _dialect(text))
-    rows = list(reader)
+    # newline="" lets the csv module see bare CR line ends ("CSV (Macintosh)" from
+    # Excel for Mac) and line breaks inside quoted cells.
+    reader = csv.reader(io.StringIO(text, newline=""), _dialect(text))
+    try:
+        rows = list(reader)
+    except csv.Error as exc:  # e.g. an unclosed quote swallowing the rest of the file
+        raise CsvImportError(f"malformed CSV: {exc}") from exc
     result = ParsedCsv()
     if not rows:
         return result
