@@ -21,7 +21,7 @@ _DOT_FORMATS = ("%d.%m.%Y %H.%M", "%d.%m.%Y %H:%M", "%d.%m.%Y")
 _MONTHS_MAX = 12
 
 
-def _parse_event_dt(raw: str | None) -> datetime | None:
+def parse_event_dt(raw: str | None) -> datetime | None:
     """Parse a carrier-provided time string to a naive datetime for ordering.
 
     Carrier `time` is free text in many formats (ISO from 17track, 'dd.mm.YYYY
@@ -59,7 +59,7 @@ def _parse_event_dt(raw: str | None) -> datetime | None:
 def order_events(events: list[TrackingEvent]) -> list[TrackingEvent]:
     """Return events oldest-first by parsed time. Events with an unparseable
     time keep their relative input order (stable sort) and sort first."""
-    return sorted(events, key=lambda e: _parse_event_dt(e.time) or datetime.min)
+    return sorted(events, key=lambda e: parse_event_dt(e.time) or datetime.min)
 
 
 def build_route_waypoints(

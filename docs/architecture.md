@@ -6,31 +6,34 @@ the source — every module has a top-of-file docstring summarising its responsi
 ## Layered design
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ bot/                                                            │
-│   handlers.py · auth_commands.py · parcel_commands.py · …       │
-│   (Telegram-facing layer; delegates to repositories + scheduler)│
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-                  ┌────────────┴────────────┐
-                  │                         │
-        ┌─────────▼────────┐      ┌─────────▼───────────┐
-        │ core/scheduler.py│      │ db/repository.py    │
-        │ + rate_limiter   │      │ db/health_repo      │
-        │ + core/health    │      │ db/notification_repo│
-        └─────────┬────────┘      └─────────────────────┘
-                  │
-       ┌──────────▼───────────────────────────┐
-       │ core/registry.py · core/detector.py  │
-       │   (resolves a tracking_id → Tracker) │
-       └──────────┬───────────────────────────┘
-                  │
-       ┌──────────▼───────────────────────────┐
-       │ trackers/<name>.py                   │
-       │   AbstractTracker subclasses         │
-       │   (one per courier, plugin-friendly) │
-       └──────────────────────────────────────┘
+┌──────────────────────────────┐   ┌────────────────────────────────────┐
+│ bot/  (Telegram)             │   │ web/  (aiohttp, optional)          │
+│ handlers · parcel_commands · │   │ dashboard · public tracking pages │
+│ seller_commands · callbacks  │   │ JSON API · auth (links, sessions)  │
+└──────────────┬───────────────┘   └─────────────────┬──────────────────┘
+               └──────────────┬─────────────────────┘
+                 ┌────────────▼─────────────┐
+                 │ core/shipments.py        │  one set of rules: normalise,
+                 │ core/csv_io · core/stats │  validate, status groups, stalls
+                 └────────────┬─────────────┘
+        ┌─────────────────────┼───────────────────────┐
+┌───────▼──────────┐ ┌────────▼─────────────┐ ┌───────▼───────────────────┐
+│ core/scheduler   │ │ db/ repositories     │ │ notifier/telegram.py      │
+│ + health, rate   │ │ parcels, users,      │ │ updates, delivery prompt, │
+│   limiter, retry │ │ settings, web, health│ │ stall alerts, maps        │
+└───────┬──────────┘ └──────────────────────┘ └───────────────────────────┘
+        │
+┌───────▼──────────────────────────────┐
+│ core/registry · core/detector        │  tracking code → matching sources
+└───────┬──────────────────────────────┘
+┌───────▼──────────────────────────────┐
+│ trackers/  APIs (17track, DHL),      │  one shared HttpClient
+│ web scrapers, detection-only, plugins│
+└──────────────────────────────────────┘
 ```
+
+Everything runs in one process and one asyncio event loop: python-telegram-bot's
+long polling, the scheduler job, and (when enabled) the aiohttp web server.
 
 ## Core concepts
 
@@ -40,7 +43,7 @@ The plugin contract. A courier implementation declares:
 - `name: str` — unique lowercase identifier (e.g., `"dhl"`)
 - `priority: int` — higher wins when several trackers match the same ID
 - `tracking_id_patterns: list[re.Pattern]` — regex matches for auto-detection
-- `country_codes: list[str]` — informational, used by the future detection UI
+- `country_codes: list[str]` — informational only, not used for detection
 - `async def fetch(tracking_id: str) -> TrackingResult` — the only mandatory method
 
 ### `TrackerRegistry`
@@ -58,31 +61,47 @@ to specify a carrier.
 ### `HealthManager`
 
 Tracks health at two levels. Per shipment, a `(tracker, tracking_id)` pair is quarantined
-for `1h / 6h / 24h` after `3 / 6 / 12` consecutive failures. Per tracker, every shipment's
-result also feeds an aggregate `(tracker, "")` circuit that trips after `12 / 24 / 48`
-consecutive failures across shipments (a gap of more than 30 minutes since the last failure
-starts the count again) and then blocks every code. `/health` and the
-`parceltracker_quarantine_active` gauge read the aggregate. The scheduler checks
-`is_quarantined()` before each call and skips quarantined trackers.
+for `1h / 6h / 24h` after `3 / 6 / 12` consecutive failures. Per tracker, every failure also
+feeds an aggregate `(tracker, "")` circuit that trips after `12 / 24 / 48` consecutive
+failures across shipments (a gap of more than 30 minutes since the last failure starts the
+count again) and then blocks every code. A "not found" answer is not a failure: it only
+backs off that one code, capped at the first tier, so a batch of unscanned labels cannot
+quarantine a carrier. `/health` and the `parceltracker_quarantine_active` gauge read the
+aggregate. Per-code rows of parcels no longer tracked are pruned every tick.
 
 ### `Scheduler`
 
-Runs every `STATUS_INTERVAL_*` minutes (per shipment status) in a single periodic Telegram job.
-Each tick:
-1. Pulls candidate parcels (`is_due()`).
-2. Runs them in parallel batches of `BATCH_SIZE` (default 10).
-3. Applies the per-tracker `RateLimiter` (token bucket).
-4. Calls the matching trackers in priority order, recording success/failure in
-   `HealthManager`.
-5. Persists new events (deduplicated), updates statuses, and sends Telegram notifications
-   gated by the user's per-status preferences. Events are marked notified only after a
-   successful send, so a failed send is retried on the next tick.
+A single repeating job wakes every `CHECK_INTERVAL_MINUTES` (default 5). Each tick:
+1. Applies data retention and prunes stale health rows.
+2. Lists active parcels of every authorised user (owner, admins, allow-list) and keeps the
+   ones due under their status interval (`STATUS_INTERVAL_*`). All checks in a tick are
+   stamped with the tick's start time, so intervals do not drift.
+3. Re-sends pending notifications for parcels that left the polling set.
+4. Checks due parcels, most urgent first, in parallel batches of `BATCH_SIZE`, each under a
+   per-parcel lock shared with manual refreshes.
+5. For each parcel: tries matching sources in priority order (rate-limited,
+   quarantine-aware), re-reads the parcel (it may have been removed meanwhile), stores new
+   events, guards against status regressions, and notifies. A status change without new
+   events is stored only once its notification went out.
+6. Sends stalled-shipment alerts (`STALL_ALERT_DAYS`), once per stall.
+
+The delivery lifecycle depends on the user's mode: by default the user is asked to
+confirm receipt; in seller mode they get a notice and the parcel is archived.
 
 ### `Notifier` + `NotificationPreferences`
 
 Per-user, per-status preferences; every status except the internal `NotFound` is on by
-default. There is no time-based cooldown in the notification path: event deduplication
-already prevents repeat messages. `NOTIFY_COOLDOWN_MINUTES` is parsed but currently unused.
+default. There is no time-based cooldown: event deduplication already prevents repeat
+messages. Messages are rendered in the recipient's language and split under Telegram's
+limits; users who blocked the bot are not retried.
+
+### Web layer
+
+`web/server.py` builds an aiohttp application started from the bot's `post_init` hook.
+Middlewares add security headers, authenticate API tokens, render HTML error pages, and
+attach the browser session (with CSRF checks on POST). Pages are server-rendered Jinja
+templates translated through the same gettext catalogs as the bot; charts are inline SVG.
+See [web](web.md).
 
 ### `Observability`
 
@@ -111,27 +130,33 @@ Next scheduler tick (or "Update now" / "Refresh all" in the menu)
 
 ## Persistence
 
-SQLite via `aiosqlite`. WAL mode enabled. Schema lives in `src/parcel_tracker/db/migrations.py`
-as a list of idempotent statements; each new schema change appends a statement guarded by
-`IF NOT EXISTS`. No alembic in v0.1.x — too heavyweight for a single SQLite file.
+SQLite via `aiosqlite`, WAL mode. The schema lives in `src/parcel_tracker/db/migrations.py`
+as idempotent statements and guarded `ALTER TABLE` steps, applied at every startup; an old
+database is upgraded in place.
 
-Tables: `allowed_users`, `parcels`, `tracking_history`, `tracker_health`,
-`user_notification_prefs`, `notification_cooldown_log` (the last one is currently unused).
+Tables: `parcels` (with the seller fields, share token and stall clock),
+`tracking_history`, `allowed_users`, `user_language`, `user_notification_prefs`,
+`user_settings`, `app_settings`, `tracker_health`, `web_sessions`, `web_login_tokens`,
+`api_tokens`, `notification_cooldown_log` (legacy). `/forgetme` and user removal delete
+every per-user row.
 
 ## Plugin discovery — built-in vs drop-in
 
-- **Built-in**: the trackers under `src/parcel_tracker/trackers/`, registered explicitly in
-  `register_builtins()` (17track and the trackers backed by it only when `TRACK17_API_KEY`
-  is set).
+- **Built-in**: the trackers under `src/parcel_tracker/trackers/`, registered in
+  `register_builtins()`. 17track is registered when `TRACK17_API_KEY` is set and the
+  official DHL tracker when `DHL_API_KEY` is set; the detection-only trackers are always
+  registered and report "track17 not configured" without a key. All of them share one
+  `HttpClient`, closed on shutdown.
 - **Drop-in**: every `*.py` under `plugins/` (or `$PARCEL_TRACKER_PLUGIN_DIR`) is imported
-  at startup. Subdirectories are walked. Put your own plugins in `plugins/<country>/`
-  (for example `plugins/it/` for Italian couriers such as BRT, GLS Italy, SDA, Poste
-  Italiane); they are not shipped with the public repo.
+  at startup, sub-directories included. A plugin that fails to import, construct or
+  register (duplicate name) is logged and skipped. Plugins that accept `http_client` or
+  `track17` in their constructor receive the shared instances. See [plugins](plugins.md).
 
 ## What is intentionally *not* here
 
-- No SaaS / multi-tenant features. One bot, one owner, an allowlist of users.
-- No web dashboard. Telegram is the only UI.
-- No PostgreSQL/MySQL adapter. SQLite is enough; we will reconsider if we ever hit limits.
+- No SaaS / multi-tenant features. One deployment, one owner, an allow-list of users.
+- No PostgreSQL/MySQL adapter. SQLite comfortably handles thousands of shipments.
 - No webhook mode for Telegram. Long polling is simpler and works behind NAT.
-- No PyPI package. The supported install path is `git clone` + Docker.
+- No JavaScript framework in the dashboard: server-rendered pages, a small script for
+  progressive enhancement, no third-party requests.
+- No PyPI package. The supported install path is Docker (or `pip install -e .`).

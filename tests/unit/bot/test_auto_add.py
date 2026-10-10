@@ -72,7 +72,11 @@ async def test_auto_add_without_name_sets_pending_and_asks() -> None:
         args=[], bot_data={"parcel_repo": repo, "detector": None}, user_data={}
     )
     await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
-    assert context.user_data["pending"] == {"action": "name", "tn": "1Z999AA10123456784"}
+    assert context.user_data["pending"] | {"at": None} == {
+        "at": None,
+        "action": "name",
+        "tn": "1Z999AA10123456784",
+    }
     markup = reply.await_args.kwargs["reply_markup"]
     flat = [b.callback_data for row in markup.inline_keyboard for b in row]
     assert "parcel:skipname:1Z999AA10123456784" in flat
@@ -98,3 +102,37 @@ async def test_auto_add_with_name_keeps_undo_only() -> None:
     markup = reply.await_args.kwargs["reply_markup"]
     flat = [b.callback_data for row in markup.inline_keyboard for b in row]
     assert flat == ["confirm:undo:1Z999AA10123456784"]
+
+
+@pytest.mark.asyncio
+async def test_auto_add_picks_the_code_out_of_a_sentence() -> None:
+    repo = AsyncMock()
+    repo.create.return_value = object()
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        message=SimpleNamespace(text="Tracking: RR123456785IT", reply_text=reply),
+    )
+    context = SimpleNamespace(
+        args=[], bot_data={"parcel_repo": repo, "detector": None}, user_data={}
+    )
+    await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
+    parcel = repo.create.await_args.args[0]
+    assert (parcel.tracking_number, parcel.name) == ("RR123456785IT", None)
+    assert parcel.carrier_name == "Poste Italiane"
+    assert context.user_data["pending"]["action"] == "name"
+
+
+@pytest.mark.asyncio
+async def test_numbered_list_is_added_in_bulk(monkeypatch: pytest.MonkeyPatch) -> None:
+    bulk = AsyncMock()
+    monkeypatch.setattr(parcel_commands, "_bulk_add", bulk)
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        message=SimpleNamespace(
+            text="1. RR123456785IT mug\n2. LX987654321CN", reply_text=AsyncMock()
+        ),
+    )
+    context = SimpleNamespace(args=[], bot_data={"detector": None}, user_data={})
+    await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
+    assert bulk.await_args.args[2] == [("RR123456785IT", "mug"), ("LX987654321CN", None)]

@@ -37,7 +37,11 @@ async def test_add_without_name_sets_pending_and_asks() -> None:
     reply = AsyncMock()
     ctx = _ctx(repo, ["TN12345678"])
     await parcel_commands.cmd_add(_update(reply), ctx)  # type: ignore[arg-type]
-    assert ctx.user_data["pending"] == {"action": "name", "tn": "TN12345678"}
+    assert ctx.user_data["pending"] | {"at": None} == {
+        "at": None,
+        "action": "name",
+        "tn": "TN12345678",
+    }
     kwargs = reply.await_args.kwargs
     assert kwargs.get("reply_markup") is not None  # Skip keyboard present
 

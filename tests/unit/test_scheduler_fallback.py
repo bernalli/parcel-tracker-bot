@@ -50,8 +50,14 @@ def _make_context(
 
     parcel_repo = MagicMock()
     parcel_repo.list_active_for_user = AsyncMock(return_value=[parcel])
+    parcel_repo.get_for_user = AsyncMock(
+        side_effect=lambda tn, _listed=parcel_repo.list_active_for_user.return_value, **_kw: next(
+            (p for p in _listed if p.tracking_number == tn), None
+        )
+    )
     parcel_repo.update_status = AsyncMock()
     parcel_repo.set_last_check_at = AsyncMock()
+    parcel_repo.touch_change = AsyncMock()
     parcel_repo.add_events_dedup = AsyncMock(return_value=[])
     parcel_repo.get_unnotified = AsyncMock(return_value=[])
     parcel_repo.mark_notified = AsyncMock()
@@ -71,6 +77,7 @@ def _make_context(
     health.is_tracker_quarantined = AsyncMock(return_value=False)
     health.record_success = AsyncMock()
     health.record_failure = AsyncMock()
+    health.record_not_found = AsyncMock()
 
     notifier = MagicMock()
     notifier.send_status_update = AsyncMock()
@@ -155,7 +162,8 @@ async def test_fallback_when_primary_returns_not_found() -> None:
         "FAKE123", ShipmentStatus.DELIVERED, user_id=42
     )
     ctx.bot_data["notifier"].send_delivery_confirmation.assert_awaited_once()
-    ctx.bot_data["health"].record_failure.assert_awaited_once_with("primary_fail", "FAKE123")
+    ctx.bot_data["health"].record_not_found.assert_awaited_once_with("primary_fail", "FAKE123")
+    ctx.bot_data["health"].record_failure.assert_not_awaited()
     ctx.bot_data["health"].record_success.assert_awaited_once_with("secondary_success", "FAKE123")
     ctx.bot_data["parcel_repo"].set_last_check_at.assert_awaited_once()
 
@@ -210,7 +218,7 @@ async def test_fallback_skips_quarantined_primary() -> None:
 
 @pytest.mark.asyncio
 async def test_all_matches_fail_records_each_failure_and_no_notification() -> None:
-    """When all matches fail, every one gets record_failure; no notification sent."""
+    """When no match knows the code, each records a not-found; no notification sent."""
     parcel = _make_parcel()
     primary = _make_tracker_mock(
         "primary_fail",
@@ -230,7 +238,7 @@ async def test_all_matches_fail_records_each_failure_and_no_notification() -> No
     ctx.bot_data["notifier"].send_events_update.assert_not_called()
     ctx.bot_data["parcel_repo"].update_status.assert_not_called()
 
-    failure_calls = ctx.bot_data["health"].record_failure.await_args_list
+    failure_calls = ctx.bot_data["health"].record_not_found.await_args_list
     failure_names = [call.args[0] for call in failure_calls]
     assert "primary_fail" in failure_names
     assert "secondary_fail" in failure_names

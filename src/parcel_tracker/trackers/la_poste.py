@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from bs4 import BeautifulSoup
 
+from parcel_tracker.core.event_status import is_negated_delivery
 from parcel_tracker.core.http_client import HttpClient
 from parcel_tracker.core.tracker_base import (
     AbstractTracker,
@@ -185,6 +186,8 @@ class LaPosteTracker(AbstractTracker):
     @staticmethod
     def _map_status(raw: str) -> ShipmentStatus:
         text = raw.lower()
+        if is_negated_delivery(text):
+            return ShipmentStatus.UNDELIVERED
         # Order matters: "out for delivery" / "en cours de livraison" must be checked
         # before "delivered" / "livré" to avoid the substring 'livré' matching DELIVERED
         # when the status is actually "en cours de livraison".

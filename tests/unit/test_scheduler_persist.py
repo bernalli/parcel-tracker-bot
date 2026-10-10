@@ -29,7 +29,13 @@ def _ctx(parcel: Parcel, result: TrackingResult) -> MagicMock:
     detector.detect.return_value = [_T(result)]
     repo = MagicMock()
     repo.list_active_for_user = AsyncMock(return_value=[parcel])
+    repo.get_for_user = AsyncMock(
+        side_effect=lambda tn, _listed=repo.list_active_for_user.return_value, **_kw: next(
+            (p for p in _listed if p.tracking_number == tn), None
+        )
+    )
     repo.set_last_check_at = AsyncMock()
+    repo.touch_change = AsyncMock()
     repo.update_status = AsyncMock()
     repo.add_events_dedup = AsyncMock(return_value=result.events)
     repo.get_unnotified = AsyncMock(
@@ -44,6 +50,7 @@ def _ctx(parcel: Parcel, result: TrackingResult) -> MagicMock:
     health.is_quarantined = AsyncMock(return_value=False)
     health.record_success = AsyncMock()
     health.record_failure = AsyncMock()
+    health.record_not_found = AsyncMock()
     notifier = MagicMock()
     notifier.send_status_update = AsyncMock()
     config = MagicMock()

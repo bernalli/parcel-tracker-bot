@@ -24,3 +24,18 @@ def is_admin(config: Any, user_id: int) -> bool:
         return user_id in admin_ids
     except TypeError:
         return False
+
+
+def is_config_authorized(config: Any, user_id: int) -> bool:
+    """True for users authorised by the configuration (owner, admins, ALLOWED_USER_IDS).
+
+    They cannot be revoked from inside the bot: the .env file is the source of truth.
+    """
+    if config is None:
+        return False
+    if is_admin(config, user_id):
+        return True
+    try:
+        return user_id in (getattr(config, "allowed_user_ids", None) or ())
+    except TypeError:
+        return False

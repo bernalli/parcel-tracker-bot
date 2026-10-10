@@ -39,13 +39,6 @@ TELEGRAM_ERRORS_TOTAL = Counter(
     labelnames=["error_class"],
 )
 
-DB_QUERY_DURATION_SECONDS = Histogram(
-    "parceltracker_db_query_duration_seconds",
-    "Database query duration by operation",
-    labelnames=["op"],
-    buckets=(0.001, 0.01, 0.05, 0.1, 0.5, 1.0),
-)
-
 SCHEDULER_TICK_DURATION_SECONDS = Histogram(
     "parceltracker_scheduler_tick_duration_seconds",
     "Duration of one scheduler tick (full pass over active parcels)",
@@ -54,7 +47,12 @@ SCHEDULER_TICK_DURATION_SECONDS = Histogram(
 
 ACTIVE_PARCELS = Gauge(
     "parceltracker_active_parcels",
-    "Active parcels count (excludes Delivered/Expired)",
+    "Parcels being tracked (not removed or archived), all users",
+)
+
+STALLED_PARCELS = Gauge(
+    "parceltracker_stalled_parcels",
+    "Active parcels with no carrier update for STALL_ALERT_DAYS or more",
 )
 
 

@@ -28,7 +28,6 @@ def env_clean(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         "METRICS_PORT",
         "BATCH_SIZE",
         "RATE_LIMIT_DEFAULT_PER_MIN",
-        "NOTIFY_COOLDOWN_MINUTES",
         "ADMIN_USER_IDS",
     ]:
         monkeypatch.delenv(key, raising=False)
@@ -57,7 +56,7 @@ def test_minimal_valid_config(monkeypatch: pytest.MonkeyPatch, env_clean: None) 
     assert cfg.telegram_bot_token == "fake_token"
     assert cfg.owner_id == 12345
     assert cfg.allowed_user_ids == []
-    assert cfg.check_interval_minutes == 30  # default
+    assert cfg.check_interval_minutes == 5  # default
     assert cfg.database_path == "/app/data/bot.db"  # default
     assert cfg.track17_api_key is None  # optional
 
@@ -126,7 +125,6 @@ def test_config_loads_scheduler_defaults(monkeypatch: pytest.MonkeyPatch, env_cl
     assert cfg.batch_size == 10
     assert cfg.rate_limit_default_per_min == 10
     assert cfg.rate_limit_overrides == {}
-    assert cfg.notify_cooldown_minutes == 60
     assert cfg.admin_user_ids == frozenset()
 
 
@@ -139,12 +137,10 @@ def test_config_loads_rate_limit_overrides(
     monkeypatch.setenv("RATE_LIMIT_TRACKER_DHL", "60")
     monkeypatch.setenv("BATCH_SIZE", "20")
     monkeypatch.setenv("ADMIN_USER_IDS", "111,222")
-    monkeypatch.setenv("NOTIFY_COOLDOWN_MINUTES", "30")
     cfg = Config.from_env(load_dotenv_file=False)
     assert cfg.batch_size == 20
     assert cfg.rate_limit_overrides == {"track17": 30, "dhl": 60}
     assert cfg.admin_user_ids == frozenset({111, 222})
-    assert cfg.notify_cooldown_minutes == 30
 
 
 def test_config_admin_user_ids_invalid_raises_config_error(

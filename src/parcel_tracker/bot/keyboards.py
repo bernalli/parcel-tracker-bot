@@ -46,13 +46,19 @@ def parcels_submenu() -> InlineKeyboardMarkup:
     )
 
 
-def settings_submenu() -> InlineKeyboardMarkup:
-    """Settings submenu — language, notifications, whoami."""
+def settings_submenu(*, seller_mode: bool = False) -> InlineKeyboardMarkup:
+    """Settings submenu — language, notifications, seller mode, web, export, whoami."""
+    seller = _("🏪 Seller mode: on") if seller_mode else _("📦 Seller mode: off")
     return InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton(_("🌍 Language"), callback_data="action:lang"),
                 InlineKeyboardButton(_("🔔 Notifications"), callback_data="action:notify"),
+            ],
+            [InlineKeyboardButton(seller, callback_data="action:sellermode")],
+            [
+                InlineKeyboardButton(_("🌐 Web dashboard"), callback_data="action:web"),
+                InlineKeyboardButton(_("📄 Export CSV"), callback_data="action:export"),
             ],
             [InlineKeyboardButton(_("🪴 Whoami"), callback_data="action:whoami")],
             _back_row(),
@@ -186,6 +192,10 @@ def parcel_actions_keyboard(tracking_number: str) -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(_("🗺 Map"), callback_data=f"parcel:map:{tn}"),
                 InlineKeyboardButton(_("✏️ Rename"), callback_data=f"parcel:rename:{tn}"),
+            ],
+            [
+                InlineKeyboardButton(_("📝 Details"), callback_data=f"parcel:details:{tn}"),
+                InlineKeyboardButton(_("🔗 Share"), callback_data=f"parcel:share:{tn}"),
             ],
             [InlineKeyboardButton(_("🗑 Remove"), callback_data=f"parcel:remove:{tn}")],
             [InlineKeyboardButton(_("⬅️ Back"), callback_data="nav:parcels")],

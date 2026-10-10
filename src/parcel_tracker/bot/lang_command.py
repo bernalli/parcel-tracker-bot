@@ -31,7 +31,9 @@ async def cmd_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     available = available_locales(LOCALE_ROOT)
 
     if not args:
-        current = await user_repo.get_language(user_id)
+        config = context.bot_data.get("config")
+        default = getattr(config, "default_language", "en") or "en"
+        current = await user_repo.get_language(user_id, default=default)
         await reply_to.reply_text(
             messages.lang_current(current, available),
             parse_mode="HTML",

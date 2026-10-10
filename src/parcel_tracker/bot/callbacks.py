@@ -55,7 +55,16 @@ from parcel_tracker.bot.parcel_commands import (
     cmd_list,  # noqa: F401  (lazy lookup target)
     cmd_remove,  # noqa: F401  (lazy lookup target)
 )
+from parcel_tracker.bot.pending import clear_pending, set_pending
 from parcel_tracker.bot.roles import is_admin
+from parcel_tracker.bot.seller_commands import (
+    ask_detail,
+    cmd_export,  # noqa: F401  (lazy lookup target)
+    cmd_web,  # noqa: F401  (lazy lookup target)
+    share_parcel,
+    show_details_menu,
+    toggle_seller_mode,  # noqa: F401  (lazy lookup target)
+)
 from parcel_tracker.i18n import _
 
 if TYPE_CHECKING:
@@ -134,7 +143,10 @@ async def _nav_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     query = update.callback_query
     if query is None:
         return
-    await _edit(query, messages.menu_section_settings(), settings_submenu())
+    settings = context.bot_data.get("settings")
+    user = update.effective_user
+    seller = bool(settings is not None and user is not None and await settings.seller_mode(user.id))
+    await _edit(query, messages.menu_section_settings(), settings_submenu(seller_mode=seller))
 
 
 async def _nav_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -185,7 +197,10 @@ async def _action_lang(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if query is None or user is None:
         return
     user_repo = context.bot_data["user_repo"]
-    current = await user_repo.get_language(user.id)
+    config = context.bot_data.get("config")
+    current = await user_repo.get_language(
+        user.id, default=getattr(config, "default_language", "en") or "en"
+    )
     locales = available_locales(LOCALE_ROOT)
     await _edit(query, messages.lang_current(current, locales), language_picker(locales, current))
 
@@ -273,8 +288,7 @@ async def _action_adduser(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not await _admin_gate(update, context):
         return
     query = update.callback_query
-    if context.user_data is not None:
-        context.user_data["pending"] = {"action": "adduser"}
+    set_pending(context, "adduser")
     if query is not None:
         await _edit(query, messages.prompt_adduser_value(), _back_only_keyboard())
 
@@ -283,8 +297,7 @@ async def _action_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not await _admin_gate(update, context):
         return
     query = update.callback_query
-    if context.user_data is not None:
-        context.user_data["pending"] = {"action": "revoke"}
+    set_pending(context, "revoke")
     if query is not None:
         await _edit(query, messages.prompt_revoke_value(), _back_only_keyboard())
 
@@ -321,6 +334,9 @@ def _get_action_handler(name: str):  # type: ignore[no-untyped-def]
         "adduser": "_action_adduser",
         "revoke": "_action_revoke",
         "forgetme_do": "_action_forgetme_do",
+        "sellermode": "toggle_seller_mode",
+        "web": "cmd_web",
+        "export": "cmd_export",
     }
     attr = table.get(name)
     if attr is None:
@@ -480,8 +496,7 @@ async def _handle_parcel(
             await _edit(query, messages.parcel_added_auto(tracking_number), None)
         return
     if action == "rename":
-        if context.user_data is not None:
-            context.user_data["pending"] = {"action": "rename", "tn": tracking_number}
+        set_pending(context, "rename", tn=tracking_number)
         query = update.callback_query
         if query is not None:
             await _edit(query, messages.prompt_rename_value(tracking_number), _back_only_keyboard())
@@ -491,6 +506,12 @@ async def _handle_parcel(
         return
     if action == "refresh":
         await _refresh_parcel(update, context, tracking_number)
+        return
+    if action == "share":
+        await share_parcel(update, context, tracking_number)
+        return
+    if action == "details":
+        await show_details_menu(update, context, tracking_number)
         return
     handler = _get_parcel_handler(action)
     if handler is None:
@@ -603,6 +624,14 @@ async def _dispatch_setlang(
     await _edit(query, messages.lang_changed(locale), language_picker(locales, locale))
 
 
+async def _dispatch_detail(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, parts: list[str]
+) -> None:
+    if len(parts) < 3:
+        return
+    await ask_detail(update, context, parts[1], parts[2])
+
+
 _PREFIX_DISPATCH = {
     "nav": _dispatch_nav,
     "action": _dispatch_action,
@@ -610,6 +639,7 @@ _PREFIX_DISPATCH = {
     "parcel": _dispatch_parcel,
     "confirm": _dispatch_confirm,
     "setlang": _dispatch_setlang,
+    "detail": _dispatch_detail,
 }
 
 
@@ -621,6 +651,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
     data = query.data or ""
     logger.debug("Callback received: %s", data)
+    # Any tap abandons a half-finished guided input (rename, authorise, …); the
+    # handler below arms a new one if this button asks for text.
+    clear_pending(context)
 
     parts = data.split(":", 2)
     prefix = parts[0] if parts else ""

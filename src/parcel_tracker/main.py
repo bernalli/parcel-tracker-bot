@@ -14,7 +14,13 @@ from telegram import (
     BotCommandScopeDefault,
     Update,
 )
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    filters,
+)
 
 from parcel_tracker.bot import messages
 from parcel_tracker.bot.handlers import register_handlers
@@ -36,6 +42,8 @@ from parcel_tracker.db.health_repository import HealthRepository
 from parcel_tracker.db.migrations import init_schema
 from parcel_tracker.db.notification_repository import NotificationRepository
 from parcel_tracker.db.repository import ParcelRepository, UserRepository
+from parcel_tracker.db.settings_repository import SettingsRepository
+from parcel_tracker.db.web_repository import WebRepository
 from parcel_tracker.i18n import Translator, set_default_translator
 from parcel_tracker.notifier.preferences import CooldownConfig, NotificationPreferences
 from parcel_tracker.notifier.telegram import TelegramNotifier
@@ -66,12 +74,16 @@ async def _health_dispatch(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 def _register_health_handlers(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
     """Register /health command family with sub-command dispatch."""
-    application.add_handler(CommandHandler("health", _health_dispatch))
+    application.add_handler(
+        CommandHandler("health", _health_dispatch, filters=filters.UpdateType.MESSAGE)
+    )
 
 
 def _register_notify_handlers(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
     """Register /notify command and inline-button callback."""
-    application.add_handler(CommandHandler("notify", cmd_notify_dispatch))
+    application.add_handler(
+        CommandHandler("notify", cmd_notify_dispatch, filters=filters.UpdateType.MESSAGE)
+    )
     application.add_handler(CallbackQueryHandler(on_notify_callback, pattern=r"^notify:"))
 
 
@@ -116,10 +128,13 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
     )
 
     registry = TrackerRegistry()
-    register_builtins(registry, config)
+    http_client = register_builtins(registry, config)
     plugins_dir = _resolve_plugin_dir(config)
     if plugins_dir.exists():
-        registry.load_from_directory(plugins_dir)
+        registry.load_from_directory(
+            plugins_dir,
+            inject={"http_client": http_client, "track17": registry.get_by_name("track17")},
+        )
     detector = CourierDetector(registry)
 
     rate_limiter = RateLimiter(default_rate_per_min=config.rate_limit_default_per_min)
@@ -129,7 +144,7 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
     notification_repo = NotificationRepository(config.database_path)
     prefs = NotificationPreferences(
         repo=notification_repo,
-        cooldown=CooldownConfig(minutes=config.notify_cooldown_minutes),
+        cooldown=CooldownConfig(minutes=0),
     )
 
     geocoder = None
@@ -163,6 +178,9 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
         "prefs": prefs,
         "geocoder": geocoder,
         "map_renderer": map_renderer,
+        "http_client": http_client,
+        "settings": SettingsRepository(config.database_path),
+        "web_repo": WebRepository(config.database_path),
         # NOTE: notifier added in main() after Application.builder().build()
     }
 
@@ -174,11 +192,13 @@ async def build_bot_data(config: Config) -> dict[str, Any]:
 COMMANDS_PUBLIC_EN: list[tuple[str, str]] = [
     ("menu", "📋 Open the menu"),
     ("list", "📦 My parcels"),
+    ("web", "🌐 Web dashboard"),
     ("help", "ℹ️ Help"),
 ]
 COMMANDS_PUBLIC_IT: list[tuple[str, str]] = [
     ("menu", "📋 Apri il menu"),
     ("list", "📦 I miei pacchi"),
+    ("web", "🌐 Dashboard web"),
     ("help", "ℹ️ Aiuto"),
 ]
 COMMANDS_ADMIN_EXTRA_EN: list[tuple[str, str]] = []
@@ -256,6 +276,44 @@ async def _post_init(application: Application[Any, Any, Any, Any, Any, Any]) -> 
 
     # One-shot: heal DELIVERED parcels that predate the delivery-confirmation lifecycle.
     await _heal_delivered_backlog(application)
+    await _start_web(application)
+
+
+async def _start_web(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Start the web dashboard in the bot's event loop when WEB_ENABLED is set."""
+    config = application.bot_data.get("config")
+    if config is None or not getattr(config, "web_enabled", False):
+        return
+    from parcel_tracker.web import WebServer  # noqa: PLC0415
+
+    server = WebServer(application.bot_data, host=config.web_bind_host, port=config.web_port)
+    try:
+        await server.start()
+    except OSError:
+        logger.exception(
+            "web dashboard could not listen on %s:%s; the bot keeps running without it",
+            config.web_bind_host,
+            config.web_port,
+        )
+        return
+    application.bot_data["web_server"] = server
+    logger.info("web dashboard available at %s", config.web_public_url)
+
+
+async def _post_shutdown(application: Application[Any, Any, Any, Any, Any, Any]) -> None:
+    """Release network resources on a clean shutdown."""
+    server = application.bot_data.get("web_server")
+    if server is not None:
+        try:
+            await server.stop()
+        except Exception:  # noqa: BLE001 — shutdown must complete
+            logger.warning("stopping the web dashboard failed", exc_info=True)
+    client = application.bot_data.get("http_client")
+    if client is not None:
+        try:
+            await client.close()
+        except Exception:  # noqa: BLE001 — shutdown must complete
+            logger.warning("closing the HTTP client failed", exc_info=True)
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -290,7 +348,11 @@ def main() -> None:
     asyncio.set_event_loop(asyncio.new_event_loop())
 
     application = (
-        Application.builder().token(config.telegram_bot_token).post_init(_post_init).build()
+        Application.builder()
+        .token(config.telegram_bot_token)
+        .post_init(_post_init)
+        .post_shutdown(_post_shutdown)
+        .build()
     )
 
     user_repo = bot_data["user_repo"]

@@ -188,7 +188,8 @@ async def test_action_lang_shows_the_language_picker() -> None:
 
     await handle_callback(update, context)
 
-    user_repo.get_language.assert_awaited_once_with(42)
+    user_repo.get_language.assert_awaited_once()
+    assert user_repo.get_language.await_args.args == (42,)
     update.callback_query.edit_message_text.assert_awaited_once()
     assert update.callback_query.edit_message_text.await_args.kwargs["reply_markup"] is not None
 
@@ -382,14 +383,15 @@ async def test_skipname_clears_matching_pending() -> None:
 
 
 @pytest.mark.asyncio
-async def test_skipname_keeps_unrelated_pending() -> None:
+async def test_any_tap_abandons_an_unrelated_pending_prompt() -> None:
+    # An abandoned guided input must not swallow a message sent much later.
     update = _cb_update("parcel:skipname:TN1")
     context = SimpleNamespace(
         bot_data={"parcel_repo": AsyncMock()},
         user_data={"pending": {"action": "name", "tn": "OTHER"}},
     )
     await callbacks.handle_callback(update, context)  # type: ignore[arg-type]
-    assert context.user_data["pending"] == {"action": "name", "tn": "OTHER"}
+    assert "pending" not in context.user_data
 
 
 @pytest.mark.asyncio

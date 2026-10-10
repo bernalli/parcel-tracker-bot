@@ -1,133 +1,146 @@
 # Writing a tracker plugin
 
-You can add support for a courier without forking the project. A plugin is a single Python
-file dropped into `plugins/` (or `$PARCEL_TRACKER_PLUGIN_DIR`) at runtime.
+Add a carrier without forking the project: drop one Python file into
+`plugins/` (or the directory in `PARCEL_TRACKER_PLUGIN_DIR`) and restart the
+bot. Sub-directories are scanned too, so `plugins/it/brt.py` works.
 
-## Skeleton
+## Contract
+
+- The file defines a class named **`Tracker`** that subclasses
+  `AbstractTracker`.
+- `name` is unique among all trackers. A duplicate is logged and the plugin is
+  skipped; a plugin that fails to import or construct is skipped as well, and
+  the bot keeps running.
+- `fetch()` is `async` and returns a `TrackingResult`. It must not raise for
+  ordinary failures: return `found=False` with an `error_kind`.
+- The constructor may accept `http_client` and/or `track17` keyword arguments;
+  the bot passes its shared HTTP client (connection pool, `REQUEST_TIMEOUT`,
+  retries, safe redirects) and its 17track client when they exist.
+
+## Example: an API-based courier
 
 ```python
-"""Acme Express tracker (priority=70)."""
+"""plugins/acme.py — Acme Express via its JSON API."""
 
 from __future__ import annotations
 
 import re
+from typing import ClassVar
 
-from parcel_tracker.core.tracker_base import AbstractTracker, TrackingResult, TrackingEvent
-from parcel_tracker.db.models import ShipmentStatus
+from parcel_tracker.core.event_status import is_negated_delivery
+from parcel_tracker.core.http_client import HttpClient
+from parcel_tracker.core.tracker_base import (
+    AbstractTracker,
+    TrackingResult,
+    classify_exception,
+    classify_status,
+)
+from parcel_tracker.db.models import ShipmentStatus, TrackingEvent
+
+_STATUS = {
+    "LABEL": ShipmentStatus.INFO_RECEIVED,
+    "PICKUP": ShipmentStatus.PICKUP,
+    "TRANSIT": ShipmentStatus.IN_TRANSIT,
+    "OUT": ShipmentStatus.OUT_FOR_DELIVERY,
+    "DELIVERED": ShipmentStatus.DELIVERED,
+    "FAILED": ShipmentStatus.UNDELIVERED,
+}
 
 
-class AcmeExpressTracker(AbstractTracker):
-    name = "AcmeExpress"
-    priority = 70
-    country_codes = ["US"]
-    tracking_id_patterns = [
-        re.compile(r"^ACME\d{10}$"),
-    ]
-    url_patterns = [
-        re.compile(r"https?://(www\.)?acme-express\.com/track/(?P<id>[A-Z0-9]+)"),
-    ]
+class Tracker(AbstractTracker):
+    name: ClassVar[str] = "acme"
+    priority: ClassVar[int] = 70
+    country_codes: ClassVar[list[str]] = ["US"]
+    tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [re.compile(r"^ACME\d{10}$")]
+
+    def __init__(self, *, http_client: HttpClient | None = None) -> None:
+        self._http = http_client or HttpClient(timeout=30.0)
 
     async def fetch(self, tracking_id: str) -> TrackingResult:
-        async with self.http_client() as client:
-            response = await client.get(
-                f"https://api.acme-express.com/v1/parcels/{tracking_id}",
-                timeout=10.0,
-            )
-        response.raise_for_status()
+        try:
+            response = await self._http.get(f"https://api.acme.example/v1/parcels/{tracking_id}")
+        except Exception as exc:  # noqa: BLE001 — report, never raise
+            return TrackingResult(tracking_id, found=False, error=str(exc),
+                                  error_kind=classify_exception(exc))
+        if response.status_code != 200:
+            return TrackingResult(tracking_id, found=False, error=f"HTTP {response.status_code}",
+                                  error_kind=classify_status(response.status_code))
         data = response.json()
-
         events = [
-            TrackingEvent(
-                timestamp=event["timestamp"],
-                location=event.get("location", ""),
-                description=event["description"],
-                status=self._map_status(event["code"]),
-            )
-            for event in data.get("events", [])
+            TrackingEvent(time=e["timestamp"], description=e["text"], location=e.get("city"))
+            for e in data.get("events", [])  # newest first
         ]
+        text = events[0].description if events else ""
+        status = (ShipmentStatus.UNDELIVERED if is_negated_delivery(text)
+                  else _STATUS.get(data.get("status", ""), ShipmentStatus.IN_TRANSIT))
         return TrackingResult(
-            tracking_id=tracking_id,
-            carrier_name=self.name,
+            tracking_number=tracking_id,
+            found=bool(events),
+            status=status,
+            carrier_name="Acme Express",
             carrier_code="acme",
-            status=events[-1].status if events else ShipmentStatus.NOT_FOUND,
+            last_event=text or None,
+            last_event_time=events[0].time if events else None,
+            last_location=events[0].location if events else None,
             events=events,
         )
-
-    @staticmethod
-    def _map_status(code: str) -> ShipmentStatus:
-        return {
-            "PICKUP":    ShipmentStatus.PICKUP,
-            "TRANSIT":   ShipmentStatus.IN_TRANSIT,
-            "OUT":       ShipmentStatus.OUT_FOR_DELIVERY,
-            "DELIVERED": ShipmentStatus.DELIVERED,
-        }.get(code, ShipmentStatus.IN_TRANSIT)
 ```
 
-Drop the file as `plugins/acme.py` (or `plugins/<region>/acme.py`). Restart the bot. Done.
+`TrackingResult` fields: `tracking_number`, `found`, `status`, `carrier_code`,
+`carrier_name`, `last_event`, `last_event_time`, `last_location`, `events`
+(newest first), `error`, `error_kind`. `TrackingEvent` fields: `time`,
+`description`, `location`, `carrier`.
 
-## Pattern checklist
+## Example: detection only, fetched through 17track
 
-- **`name`** is unique across all loaded trackers. Collision = startup error.
-- **`priority`** decides who wins on regex collisions. Use the table in [docs/trackers.md] as a
-  reference. Tier S (national post / OAuth API) typically `≥60`, Tier D fallbacks `30–40`,
-  17track `1`.
-- **`tracking_id_patterns`** are anchored regexes (`^…$`). Be precise — over-broad regexes
-  steal IDs from the right tracker.
-- **`fetch`** is `async`. Use `parcel_tracker.core.http_client.HttpClient` so requests share
-  UA rotation and timeouts. It does not retry on its own.
-- **Retry**: nothing retries a failed `fetch` within a tick; the scheduler simply tries the
-  next matching tracker and checks again on the next tick. If you want in-call retries,
-  decorate `fetch` with `@apply_retry(RetryProfile.…)` from `core/retry_policy.py`.
-- **Health**: do not call `HealthManager` from inside `fetch`; the scheduler records
-  success/failure and applies quarantine around every call.
-
-## Tier D — delegate to 17track
-
-If the courier has no public API and 17track covers it, subclass `Track17BackedTracker`:
+When 17track already covers a courier, a plugin only has to recognise its
+codes and show the right name:
 
 ```python
-from parcel_tracker.trackers._track17_backed import Track17BackedTracker
-import re
+"""plugins/it/brt.py — BRT codes, fetched through 17track."""
 
-class AcmeWeakTracker(Track17BackedTracker):
-    name = "AcmeWeak"
-    priority = 35
-    country_codes = ["XX"]
-    track17_carrier_id = 1234           # from 17track carrier list
-    rebrand_carrier_name = "Acme Weak"
-    tracking_id_patterns = [re.compile(r"^[Aa]\d{12}$")]
+import re
+from typing import ClassVar
+
+from parcel_tracker.trackers._track17_backed import Track17BackedTracker
+
+
+class Tracker(Track17BackedTracker):
+    name: ClassVar[str] = "brt"
+    priority: ClassVar[int] = 45
+    country_codes: ClassVar[list[str]] = ["IT"]
+    tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [re.compile(r"^\d{12}$")]
+    CARRIER_NAME: ClassVar[str] = "BRT"
+    CARRIER_CODE: ClassVar[str] = "brt"
 ```
 
-The base class fetches via 17track and rewrites `carrier_name` / `carrier_code` so the user
-sees `Acme Weak` instead of `17track`.
+`Track17BackedTracker` receives the bot's 17track client automatically and
+re-brands the result with `CARRIER_NAME` / `CARRIER_CODE`. Without a
+`TRACK17_API_KEY` it reports "track17 not configured".
 
-## Tests
+## Rules of thumb
 
-For every plugin, add a unit test in `tests/unit/trackers/test_<name>.py` and HTML fixtures
-in `tests/fixtures/trackers/<name>/`. Mock HTTP via `respx`. Cover at least:
+- **Patterns** are anchored (`^…$`) and as narrow as the carrier allows. A
+  broad pattern steals codes from other trackers. Codes reach `detect()`
+  already normalised: upper case, no spaces, dashes or dots.
+- **Priority** decides the order among matches: official APIs 90–100, national
+  scrapers 60–90, detection-only 30–45, 17track 1.
+- **Errors**: use `classify_status()` / `classify_exception()` so the scheduler
+  knows a 404 (try the next source) from a 503 (try again later) or a 429
+  (stop, the quota is spent).
+- **Health** is handled by the scheduler: never call `HealthManager` yourself.
+- **Statuses**: check `is_negated_delivery()` before looking for "delivered".
+- **Blocking work** (heavy parsing) goes through `asyncio.to_thread`; the bot
+  is a single event loop.
 
-- `delivered` event sequence
-- `in_transit` event sequence
-- `out_for_delivery` event sequence
-- `not_found` (404 / empty response)
-- detection: `AcmeExpressTracker.detect("ACME1234567890")` returns `True`
-- detection: false positive on a foreign ID returns `False`
+## Testing a plugin
 
-The 24 built-in trackers each have eight tests. Lean on them as templates.
-
-## Distributing a plugin
-
-We have no plugin marketplace. If you want to share a plugin:
-
-1. Open a PR adding the tracker to `src/parcel_tracker/trackers/` for inclusion in the next
-   minor release.
-2. Or publish it as your own GitHub repo and document the install path in your README
-   (typical: clone into the bot's `plugins/` mount).
+Mock HTTP with `respx` and cover at least: delivered, in transit, out for
+delivery, not found, a malformed response, and detection (a matching code and a
+foreign one). `tests/unit/trackers/test_dhl_api.py` is a compact template.
 
 ## Limits
 
-- Each plugin file = one tracker class. Multiple classes per file work but are confusing.
-- Plugins **cannot** monkey-patch core modules. If you need to extend behaviour, open an
-  issue describing the use case so we can add an extension point.
-- Plugins run inside the same Python process as the bot. Misbehaving plugins (infinite
-  loops, blocking IO) will degrade the whole bot — keep `fetch` async and time-boxed.
+Plugins run in the bot's process with its permissions: install only code you
+trust. They cannot change core behaviour; if you need an extension point, open
+an issue describing the use case.

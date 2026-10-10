@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from bs4 import BeautifulSoup
 
+from parcel_tracker.core.event_status import is_negated_delivery
 from parcel_tracker.core.http_client import HttpClient
 from parcel_tracker.core.tracker_base import (
     AbstractTracker,
@@ -87,7 +88,9 @@ class AustraliaPostTracker(AbstractTracker):
     tracking_id_patterns: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"^[A-Z]{2}\d{9}AU$"),  # UPU AU
         re.compile(r"^33[A-Z]{8}\d{8,12}$"),  # AusPost barcode (33 prefix + 8 letters + digits)
-        re.compile(r"^7[A-Z0-9]{11,15}$"),  # AusPost numeric variant
+        # AusPost variant starting with 7 that contains letters: an all-digit code
+        # starting with 7 is far more often a FedEx number.
+        re.compile(r"^7(?=[A-Z0-9]*[A-Z])[A-Z0-9]{11,15}$"),
     ]
     url_patterns: ClassVar[list[re.Pattern[str]]] = [
         re.compile(r"auspost\.com\.au/mypost/track", re.IGNORECASE),
@@ -188,6 +191,8 @@ class AustraliaPostTracker(AbstractTracker):
     @staticmethod
     def _map_status(raw: str) -> ShipmentStatus:
         text = raw.lower()
+        if is_negated_delivery(text):
+            return ShipmentStatus.UNDELIVERED
         # Order matters: "out for delivery" must be checked before "delivered"
         # because in some locales / phrasings "delivered" can appear as a
         # substring of out-for-delivery descriptions.

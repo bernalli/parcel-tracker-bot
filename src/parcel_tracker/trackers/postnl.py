@@ -8,6 +8,7 @@ from typing import ClassVar
 
 from bs4 import BeautifulSoup
 
+from parcel_tracker.core.event_status import is_negated_delivery
 from parcel_tracker.core.http_client import HttpClient
 from parcel_tracker.core.tracker_base import (
     AbstractTracker,
@@ -165,6 +166,8 @@ class PostnlTracker(AbstractTracker):
     @staticmethod
     def _map_status(raw: str) -> ShipmentStatus:
         text = raw.lower()
+        if is_negated_delivery(text):
+            return ShipmentStatus.UNDELIVERED
         # Order matters: "out for delivery" / "in levering" must be checked before
         # "delivered" / "afgeleverd". In Dutch the two phrases share no substrings
         # (afgeleverd vs in levering), but we keep the same priority ordering as

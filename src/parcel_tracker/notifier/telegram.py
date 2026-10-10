@@ -234,9 +234,11 @@ class TelegramNotifier:
     ) -> None:
         from parcel_tracker.bot.keyboards import delivery_confirm_keyboard  # noqa: PLC0415
 
-        text = messages.delivery_confirm_prompt(parcel_name, tracking_number)
+        text = messages.delivery_confirm_prompt(
+            _clip(parcel_name, _MAX_NAME_CHARS) if parcel_name else None, tracking_number
+        )
         if location:
-            text += f"\n📍 {messages.esc(location)}"
+            text += f"\n📍 {messages.esc(_clip(location, _MAX_LOCATION_CHARS))}"
         try:
             await self._bot.send_message(
                 chat_id=chat_id,
@@ -249,6 +251,64 @@ class TelegramNotifier:
             raise
         else:
             TELEGRAM_SENT_TOTAL.labels(status_value=ShipmentStatus.DELIVERED.value).inc()
+
+    @_in_recipient_language
+    async def send_delivered_notice(  # noqa: PLR0913
+        self,
+        *,
+        chat_id: int,
+        tracking_number: str,
+        parcel_name: str | None,
+        recipient: str | None,
+        location: str | None,
+    ) -> None:
+        """Seller mode: tell the seller the parcel reached its recipient."""
+        text = messages.delivered_notice(
+            _clip(parcel_name, _MAX_NAME_CHARS) if parcel_name else None,
+            tracking_number,
+            _clip(recipient, _MAX_NAME_CHARS) if recipient else None,
+        )
+        if location:
+            text += f"\n📍 {messages.esc(_clip(location, _MAX_LOCATION_CHARS))}"
+        await self._send_message_instrumented(
+            chat_id=chat_id, text=text, status_value=ShipmentStatus.DELIVERED.value
+        )
+
+    @_in_recipient_language
+    async def send_stall_alert(  # noqa: PLR0913
+        self,
+        *,
+        chat_id: int,
+        tracking_number: str,
+        parcel_name: str | None,
+        status: ShipmentStatus,
+        days: int,
+        location: str | None,
+    ) -> None:
+        """Warn that a shipment has had no carrier update for ``days`` days."""
+        from parcel_tracker.bot.formatting import status_label  # noqa: PLC0415
+        from parcel_tracker.bot.keyboards import parcel_actions_keyboard  # noqa: PLC0415
+
+        text = messages.stall_alert(
+            _clip(parcel_name, _MAX_NAME_CHARS) if parcel_name else None,
+            tracking_number,
+            days=days,
+            status_text=status_label(status),
+        )
+        if location:
+            text += f"\n📍 {messages.esc(_clip(location, _MAX_LOCATION_CHARS))}"
+        try:
+            await self._bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=parcel_actions_keyboard(tracking_number),
+            )
+        except Exception as exc:  # noqa: BLE001 (instrumentation)
+            TELEGRAM_ERRORS_TOTAL.labels(error_class=type(exc).__name__).inc()
+            raise
+        else:
+            TELEGRAM_SENT_TOTAL.labels(status_value="stalled").inc()
 
     @_in_recipient_language
     async def send_events_update(  # noqa: PLR0913

@@ -15,6 +15,6 @@ async def tmp_user_repo(tmp_path: Path) -> UserRepository:
     db_path = tmp_path / "test.db"
     await init_schema(str(db_path))
     repo = UserRepository(str(db_path))
-    # Pre-populate allowed_users so set_language UPDATE has a row to hit
+    # An allow-listed user, as most bot tests need one
     await repo.add_user(user_id=123, added_by=999)
     return repo

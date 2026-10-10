@@ -1,0 +1,41 @@
+{% macro pill(status, stalled=false, active=true) -%}
+<span class="pill {{ status_class(status) }}">{{ status_icon(status) }}{{ status_label(status) }}</span>
+{%- if stalled %} <span class="pill stalled">{{ icon("stalled") }}{{ _("No updates") }}</span>{% endif %}
+{%- if not active %} <span class="pill archived">{{ _("Archived") }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro when(dt, fmt="datetime") -%}
+{% if dt %}<time datetime="{{ dt|iso }}" data-format="{{ fmt }}">{{ dt.strftime("%Y-%m-%d %H:%M") }} UTC</time>{% else %}<span class="muted">—</span>{% endif %}
+{%- endmacro %}
+
+{% macro title(p) -%}
+{{ p.name or p.tracking_number }}
+{%- endmacro %}
+
+{% macro csrf_field() -%}
+<input type="hidden" name="csrf" value="{{ csrf }}">
+{%- endmacro %}
+
+{% macro flash_message(flash, n, m) -%}
+{% set messages = {
+  "added": ("ok", _("Shipment added. The first check runs within a few minutes.")),
+  "saved": ("ok", _("Changes saved.")),
+  "refreshed": ("ok", _("Checked with the carrier just now.")),
+  "refresh_failed": ("warn", _("Couldn't reach the carrier. Showing the last known data.")),
+  "wait": ("warn", _("Please wait %(n)d seconds before checking again.", n=n)),
+  "archived": ("ok", _("Shipment archived. It is no longer checked.")),
+  "restored": ("ok", _("Shipment restored. Tracking resumes on the next check.")),
+  "deleted": ("ok", _("Shipment deleted together with its history.")),
+  "shared": ("ok", _("Public tracking link created. Copy it and send it to your customer.")),
+  "unshared": ("ok", _("Public link revoked. The old address no longer works.")),
+  "rotated": ("ok", _("New public link created. The old address no longer works.")),
+  "limit": ("err", _("You reached the limit of %(n)d active shipments.", n=n)),
+  "bulk": ("ok", ngettext("%(num)d shipment added.", "%(num)d shipments added.", n) ~ ((" " ~ ngettext("%(num)d line skipped (duplicate or invalid).", "%(num)d lines skipped (duplicate or invalid).", m)) if m else "")),
+  "token_revoked": ("ok", _("API token revoked.")),
+  "token_limit": ("err", _("You already have the maximum number of API tokens.")),
+  "confirm_needed": ("err", _("Tick the confirmation box to delete your data.")),
+} %}
+{% if flash in messages %}
+<div class="flash {{ messages[flash][0] }}" role="status">{{ messages[flash][1] }}</div>
+{% endif %}
+{%- endmacro %}

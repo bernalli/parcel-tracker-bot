@@ -7,7 +7,7 @@ Configured manually in GitHub repo settings → **Branches → main**.
 | Require a pull request before merging                    | ✅                                                           |
 | Required approving reviews                               | 1                                                           |
 | Dismiss stale reviews when new commits pushed            | ✅                                                           |
-| Require status checks to pass                            | ✅ — `test (3.11)`, `test (3.12)`, `gitleaks`, `pip-audit`   |
+| Require status checks to pass                            | ✅ — `test (3.11)`, `test (3.12)`, `test (3.13)`, `gitleaks`, `pip-audit`   |
 | Require branches to be up to date before merging         | ✅                                                           |
 | Require conversation resolution before merging           | ✅                                                           |
 | Require signed commits                                   | recommended (not enforced — small project)                  |

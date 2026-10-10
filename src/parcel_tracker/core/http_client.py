@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ipaddress
 import random
+import re
+import socket
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -45,12 +47,31 @@ def _redirect_problem(source: httpx.URL, target: httpx.URL) -> str | None:
     host = target.host.lower().rstrip(".")
     if host == "localhost" or host.endswith(".localhost"):
         return "loopback host"
-    try:
-        ip = ipaddress.ip_address(host)
-    except ValueError:
-        return None
-    if not ip.is_global:
+    ip = _literal_ip(host)
+    if ip is not None and not ip.is_global:
         return "non-public address"
+    return None
+
+
+_LOOSE_IPV4 = re.compile(r"^(0x[0-9a-f]+|[0-9]+)(\.(0x[0-9a-f]+|[0-9]+)){0,3}$")
+
+
+def _literal_ip(host: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """Parse ``host`` as an IP literal, including the shorthand forms resolvers accept.
+
+    ``127.1``, ``2130706433`` and ``0x7f.0.0.1`` all reach loopback through
+    getaddrinfo but are rejected by ``ipaddress``; ``inet_aton`` reads them the
+    way the resolver will.
+    """
+    try:
+        return ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        pass
+    if _LOOSE_IPV4.fullmatch(host):
+        try:
+            return ipaddress.IPv4Address(socket.inet_aton(host))
+        except OSError:
+            return None
     return None
 
 

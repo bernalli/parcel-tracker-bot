@@ -92,6 +92,54 @@ SCHEMA_STATEMENTS: list[str] = [
         PRIMARY KEY (user_id, tracking_number, status_value)
     )
     """,
+    # Per-user preferences that are not notifications (seller mode, shop name, …).
+    """
+    CREATE TABLE IF NOT EXISTS user_settings (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY (user_id, key)
+    )
+    """,
+    # Process-wide values generated once and kept across restarts.
+    """
+    CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    )
+    """,
+    # Web dashboard: one-time login links sent by /web. Only a SHA-256 of the
+    # token is stored, so a database leak does not hand out live links.
+    """
+    CREATE TABLE IF NOT EXISTS web_login_tokens (
+        token_hash TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        expires_at TIMESTAMP NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS web_sessions (
+        session_hash TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        csrf_token TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL,
+        last_seen_at TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_web_sessions_user ON web_sessions(user_id)",
+    # Personal API tokens for the JSON API (shop integrations, scripts).
+    """
+    CREATE TABLE IF NOT EXISTS api_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        token_hash TEXT NOT NULL UNIQUE,
+        user_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_used_at TIMESTAMP
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id)",
 ]
 
 
@@ -109,7 +157,45 @@ async def init_schema(db_path: str) -> None:
         await _add_tracking_history_notified(conn)
         await _migrate_to_per_user_uniqueness(conn)
         await _copy_language_choices(conn)
+        await _add_parcels_seller_columns(conn)
         await conn.commit()
+
+
+# Seller metadata and lifecycle columns added in v0.4 (name → SQL type).
+_SELLER_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("order_ref", "TEXT"),
+    ("recipient", "TEXT"),
+    ("destination", "TEXT"),
+    ("notes", "TEXT"),
+    ("tags", "TEXT"),
+    ("share_token", "TEXT"),
+    ("last_change_at", "TIMESTAMP"),
+    ("stall_alerted_at", "TIMESTAMP"),
+)
+
+
+async def _add_parcels_seller_columns(conn: aiosqlite.Connection) -> None:
+    """Idempotent ALTER: add the v0.4 seller columns and their indexes.
+
+    ``last_change_at`` is backfilled from ``updated_at`` (or ``created_at``) so an
+    upgraded database does not flag every existing parcel as stalled at once.
+    """
+    cursor = await conn.execute("PRAGMA table_info(parcels)")
+    columns = {row[1] for row in await cursor.fetchall()}
+    for name, sql_type in _SELLER_COLUMNS:
+        if name not in columns:
+            await conn.execute(f"ALTER TABLE parcels ADD COLUMN {name} {sql_type}")
+    await conn.execute(
+        "UPDATE parcels SET last_change_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP) "
+        "WHERE last_change_at IS NULL"
+    )
+    await conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_parcels_share_token "
+        "ON parcels(share_token) WHERE share_token IS NOT NULL"
+    )
+    await conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_parcels_user_status ON parcels(user_id, is_active, status)"
+    )
 
 
 async def _copy_language_choices(conn: aiosqlite.Connection) -> None:

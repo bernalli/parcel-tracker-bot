@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf_field with context %}
+{% block title %}{{ _("Import") }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{{ _("Import shipments") }}</h1><p>{{ _("Upload a CSV exported from your shop or spreadsheet.") }}</p></div>
+  <div class="actions"><a class="btn" href="/export.csv">{{ _("Export all as CSV") }}</a></div></div>
+
+{% if error %}<div class="flash err" role="alert">{% if error == "empty" %}{{ _("Choose a CSV file first.") }}{% else %}{{ _("The file could not be read: %(reason)s.", reason=error) }}{% endif %}</div>{% endif %}
+
+{% if report %}
+<section class="card" aria-live="polite">
+  <h2>{{ _("Import finished") }}</h2>
+  <dl class="facts">
+    <div><dt>{{ _("Added") }}</dt><dd>{{ report.added }}</dd></div>
+    <div><dt>{{ _("Already tracked") }}</dt><dd>{{ report.duplicates }}</dd></div>
+    <div><dt>{{ _("Invalid lines") }}</dt><dd>{{ report.invalid }}</dd></div>
+    <div><dt>{{ _("Over the limit") }}</dt><dd>{{ report.over_limit }}</dd></div>
+  </dl>
+  {% if report.truncated %}<p class="flash warn">{{ _("Only the first 2,000 rows were read.") }}</p>{% endif %}
+  {% if report.errors %}
+  <details class="data-table" open><summary>{{ _("Lines not imported") }}</summary>
+    <div class="table-wrap"><table><thead><tr><th class="num">{{ _("Line") }}</th><th>{{ _("Reason") }}</th></tr></thead>
+    <tbody>{% for line, reason in report.errors[:100] %}<tr><td class="num">{{ line }}</td><td>{{ reason }}</td></tr>{% endfor %}</tbody></table></div>
+  </details>
+  {% endif %}
+  <p><a class="btn btn-primary" href="/shipments">{{ _("See shipments") }}</a></p>
+</section>
+{% endif %}
+
+<div class="grid grid-2">
+  <section class="card">
+    <h2>{{ _("Upload") }}</h2>
+    <form method="post" action="/import" enctype="multipart/form-data">
+      {{ csrf_field() }}
+      <div class="field"><label for="file">{{ _("CSV file") }}</label><input id="file" type="file" name="file" accept=".csv,text/csv" required></div>
+      <button class="btn btn-primary" type="submit">{{ _("Import") }}</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2>{{ _("Format") }}</h2>
+    <p class="secondary">{{ _("Only the tracking number column is required. Recognised columns:") }}</p>
+    <p><code>tracking_number, name, order_ref, recipient, destination, tags, notes</code></p>
+    <p class="secondary">{{ _("Comma, semicolon or tab separated; headers in English or Italian (codice, ordine, cliente…) are understood. A file with just one code per line works too.") }}</p>
+    <a class="btn btn-small" href="/import/template.csv">{{ _("Download a template") }}</a>
+  </section>
+</div>
+{% endblock %}

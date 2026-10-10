@@ -26,6 +26,8 @@ _USAGE = {
     "structlog": r"^\s*(from|import) structlog\b",
     "prometheus-client": r"^\s*(from|import) prometheus_client\b",
     "python-json-logger": r"^\s*(from|import) pythonjsonlogger\b",
+    "aiohttp": r"^\s*(from|import) aiohttp\b",
+    "jinja2": r"^\s*(from|import) jinja2\b",
 }
 
 

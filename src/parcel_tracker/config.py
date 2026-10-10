@@ -7,7 +7,13 @@ from dataclasses import dataclass, field
 
 from dotenv import load_dotenv
 
+from parcel_tracker import __version__
 from parcel_tracker.db.models import ShipmentStatus
+
+# Tile servers ask for an identifying User-Agent; it follows the package version.
+DEFAULT_MAP_USER_AGENT = (
+    f"parcel-tracker-bot/{__version__} (+https://github.com/bernalli/parcel-tracker-bot)"
+)
 
 
 class ConfigError(ValueError):
@@ -22,7 +28,9 @@ class Config:
 
     # Optional / with defaults
     allowed_user_ids: list[int] = field(default_factory=list)
-    check_interval_minutes: int = 30
+    # How often the scheduler wakes up; each parcel is then polled at its
+    # per-status interval (STATUS_INTERVAL_*), so keep this at or below the smallest.
+    check_interval_minutes: int = 5
     max_active_shipments: int = 20
     # Per-status polling interval overrides (minutes) from STATUS_INTERVAL_<STATUS>.
     status_interval_overrides: dict[ShipmentStatus, int] = field(default_factory=dict)
@@ -42,11 +50,8 @@ class Config:
     quarantine_12fail_hours: int = 24
 
     track17_api_key: str | None = None
+    # Official DHL Shipment Tracking API (developer.dhl.com); enables the dhl_api tracker.
     dhl_api_key: str | None = None
-    ups_client_id: str | None = None
-    ups_client_secret: str | None = None
-    fedex_api_key: str | None = None
-    fedex_secret_key: str | None = None
 
     metrics_enabled: bool = True
     metrics_bind_host: str = "0.0.0.0"  # noqa: S104 — Docker network scope; override via METRICS_BIND_HOST  # nosec B104
@@ -55,7 +60,6 @@ class Config:
     batch_size: int = 10
     rate_limit_default_per_min: int = 10
     rate_limit_overrides: dict[str, int] = field(default_factory=dict)
-    notify_cooldown_minutes: int = 60
     # Removed/archived parcels (and their history) are deleted after this many
     # days without changes; 0 keeps them forever.
     data_retention_days: int = 180
@@ -66,7 +70,17 @@ class Config:
     # be set via OSM_TILE_URL (set MAP_TILE_SIZE=256 for standard-DPI servers).
     osm_tile_url: str = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
     map_tile_size: int = 512
-    map_user_agent: str = "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
+    map_user_agent: str = DEFAULT_MAP_USER_AGENT
+
+    # Warn when an active shipment has no carrier update for this many days (0 = off).
+    stall_alert_days: int = 7
+
+    # Web dashboard (opt-in). WEB_PUBLIC_URL is what /web links point to.
+    web_enabled: bool = False
+    web_bind_host: str = "127.0.0.1"
+    web_port: int = 8080
+    web_public_url: str = "http://localhost:8080"
+    web_session_days: int = 30
 
     @classmethod
     def from_env(cls, *, load_dotenv_file: bool = True) -> Config:  # noqa: C901
@@ -98,10 +112,9 @@ class Config:
                         f"ALLOWED_USER_IDS contains non-integer: {token_id!r}"
                     ) from exc
 
-        batch_size = _int_env("BATCH_SIZE", 10)
-        rate_limit_default = _int_env("RATE_LIMIT_DEFAULT_PER_MIN", 10)
+        batch_size = _int_env("BATCH_SIZE", 10, minimum=1, maximum=100)
+        rate_limit_default = _int_env("RATE_LIMIT_DEFAULT_PER_MIN", 10, minimum=1)
         rate_limit_overrides = _rate_limit_overrides_env()
-        notify_cooldown = _int_env("NOTIFY_COOLDOWN_MINUTES", 60)
         admin_raw = os.getenv("ADMIN_USER_IDS", "")
         admin_ids_list: list[int] = []
         for token_id in admin_raw.split(","):
@@ -117,53 +130,63 @@ class Config:
             telegram_bot_token=token,
             owner_id=owner_id,
             allowed_user_ids=allowed,
-            check_interval_minutes=_int_env("CHECK_INTERVAL_MINUTES", 30),
-            data_retention_days=_int_env("DATA_RETENTION_DAYS", 180),
-            max_active_shipments=_int_env("MAX_ACTIVE_SHIPMENTS", 20),
+            check_interval_minutes=_int_env("CHECK_INTERVAL_MINUTES", 5, minimum=1, maximum=1440),
+            data_retention_days=_int_env("DATA_RETENTION_DAYS", 180, minimum=0),
+            max_active_shipments=_int_env("MAX_ACTIVE_SHIPMENTS", 20, minimum=0),
             status_interval_overrides=_status_interval_overrides_env(),
             database_path=os.getenv("DATABASE_PATH", "/app/data/bot.db"),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
             log_format=os.getenv("LOG_FORMAT", "json").lower(),
             log_full_tracking_id=_bool_env("LOG_FULL_TRACKING_ID", False),
             default_language=os.getenv("DEFAULT_LANGUAGE", "en"),
-            request_timeout=_int_env("REQUEST_TIMEOUT", 30),
-            quarantine_3fail_hours=_int_env("QUARANTINE_3FAIL_HOURS", 1),
-            quarantine_6fail_hours=_int_env("QUARANTINE_6FAIL_HOURS", 6),
-            quarantine_12fail_hours=_int_env("QUARANTINE_12FAIL_HOURS", 24),
+            request_timeout=_int_env("REQUEST_TIMEOUT", 30, minimum=1, maximum=300),
+            quarantine_3fail_hours=_int_env("QUARANTINE_3FAIL_HOURS", 1, minimum=0),
+            quarantine_6fail_hours=_int_env("QUARANTINE_6FAIL_HOURS", 6, minimum=0),
+            quarantine_12fail_hours=_int_env("QUARANTINE_12FAIL_HOURS", 24, minimum=0),
             track17_api_key=_optional_env("TRACK17_API_KEY"),
             dhl_api_key=_optional_env("DHL_API_KEY"),
-            ups_client_id=_optional_env("UPS_CLIENT_ID"),
-            ups_client_secret=_optional_env("UPS_CLIENT_SECRET"),
-            fedex_api_key=_optional_env("FEDEX_API_KEY"),
-            fedex_secret_key=_optional_env("FEDEX_SECRET_KEY"),
             metrics_enabled=_bool_env("METRICS_ENABLED", True),
             metrics_bind_host=os.getenv("METRICS_BIND_HOST", "0.0.0.0").strip() or "0.0.0.0",  # noqa: S104  # nosec B104
-            metrics_port=_int_env("METRICS_PORT", 9090),
+            metrics_port=_int_env("METRICS_PORT", 9090, minimum=1, maximum=65535),
             batch_size=batch_size,
             rate_limit_default_per_min=rate_limit_default,
             rate_limit_overrides=rate_limit_overrides,
-            notify_cooldown_minutes=notify_cooldown,
             admin_user_ids=admin_ids,
             maps_enabled=_bool_env("MAPS_ENABLED", True),
             osm_tile_url=os.getenv(
                 "OSM_TILE_URL",
                 "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
             ),
-            map_tile_size=_int_env("MAP_TILE_SIZE", 512),
-            map_user_agent=os.getenv(
-                "MAP_USER_AGENT", "parcel-tracker-bot/0.2 (+self-hosted; map tiles)"
-            ),
+            map_tile_size=_int_env("MAP_TILE_SIZE", 512, minimum=64, maximum=1024),
+            map_user_agent=os.getenv("MAP_USER_AGENT", DEFAULT_MAP_USER_AGENT),
+            stall_alert_days=_int_env("STALL_ALERT_DAYS", 7, minimum=0, maximum=365),
+            web_enabled=_bool_env("WEB_ENABLED", False),
+            web_bind_host=os.getenv("WEB_BIND_HOST", "127.0.0.1").strip() or "127.0.0.1",
+            web_port=_int_env("WEB_PORT", 8080, minimum=1, maximum=65535),
+            web_public_url=_public_url_env("WEB_PUBLIC_URL", "http://localhost:8080"),
+            web_session_days=_int_env("WEB_SESSION_DAYS", 30, minimum=1, maximum=365),
         )
 
 
-def _int_env(key: str, default: int) -> int:
+def _int_env(
+    key: str, default: int, *, minimum: int | None = None, maximum: int | None = None
+) -> int:
     raw = os.getenv(key, "").strip()
     if not raw:
         return default
     try:
-        return int(raw)
+        value = int(raw)
     except ValueError as exc:
         raise ConfigError(f"{key} must be an integer, got: {raw!r}") from exc
+    return _check_range(key, value, minimum, maximum)
+
+
+def _check_range(key: str, value: int, minimum: int | None, maximum: int | None) -> int:
+    if minimum is not None and value < minimum:
+        raise ConfigError(f"{key} must be at least {minimum}, got: {value}")
+    if maximum is not None and value > maximum:
+        raise ConfigError(f"{key} must be at most {maximum}, got: {value}")
+    return value
 
 
 def _bool_env(key: str, default: bool) -> bool:
@@ -175,6 +198,16 @@ def _bool_env(key: str, default: bool) -> bool:
     if raw in {"0", "false", "no", "off"}:
         return False
     raise ConfigError(f"{key} must be boolean (true/false), got: {raw!r}")
+
+
+def _public_url_env(key: str, default: str) -> str:
+    """An absolute http(s) base URL without a trailing slash."""
+    raw = os.getenv(key, "").strip().rstrip("/")
+    if not raw:
+        return default
+    if not raw.startswith(("http://", "https://")):
+        raise ConfigError(f"{key} must start with http:// or https://, got: {raw!r}")
+    return raw
 
 
 def _optional_env(key: str) -> str | None:
@@ -202,9 +235,10 @@ def _status_interval_overrides_env() -> dict[ShipmentStatus, int]:
             )
         raw = val.strip()
         try:
-            overrides[status] = int(raw)
+            minutes = int(raw)
         except ValueError as exc:
             raise ConfigError(f"{key} must be an integer, got: {raw!r}") from exc
+        overrides[status] = _check_range(key, minutes, 0, None)
     return overrides
 
 
@@ -222,7 +256,8 @@ def _rate_limit_overrides_env() -> dict[str, int]:
                 )
             raw_rate = val.strip()
             try:
-                overrides[tracker] = int(raw_rate)
+                rate = int(raw_rate)
             except ValueError as exc:
                 raise ConfigError(f"{key} must be an integer, got: {raw_rate!r}") from exc
+            overrides[tracker] = _check_range(key, rate, 1, None)
     return overrides

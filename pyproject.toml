@@ -4,21 +4,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "parcel-tracker-bot"
-version = "0.3.0"
-description = "Self-hosted Telegram bot for tracking parcels across 24+ couriers worldwide"
+version = "0.4.0"
+description = "Self-hosted parcel tracking: a Telegram bot and a web dashboard for people and small online shops"
 authors = [{ name = "Samuele Martinalli" }]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
-keywords = ["telegram", "bot", "parcel", "tracking", "courier", "shipment"]
+keywords = ["telegram", "bot", "parcel", "tracking", "courier", "shipment", "ecommerce", "dashboard", "self-hosted"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: No Input/Output (Daemon)",
+    "Environment :: Web Environment",
+    "Framework :: aiohttp",
     "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Other Audience",
     "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Natural Language :: Italian",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Communications :: Chat",
+    "Topic :: Office/Business",
 ]
 dependencies = [
     "python-telegram-bot[job-queue]>=21.3,<22",
@@ -32,6 +39,8 @@ dependencies = [
     "tenacity>=9.0.0,<10",
     "structlog>=24.1",
     "prometheus-client>=0.20",
+    "aiohttp>=3.14.3,<4",
+    "jinja2>=3.1.6,<4",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +60,8 @@ dev = [
 [project.urls]
 Repository = "https://github.com/bernalli/parcel-tracker-bot"
 Issues = "https://github.com/bernalli/parcel-tracker-bot/issues"
+Changelog = "https://github.com/bernalli/parcel-tracker-bot/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/bernalli/parcel-tracker-bot/tree/main/docs"
 Funding = "https://github.com/sponsors/bernalli"
 
 [project.scripts]
@@ -66,6 +77,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "parcel_tracker.i18n" = ["locale/*/LC_MESSAGES/*.mo", "locale/*.pot"]
 "parcel_tracker.maps" = ["data/cities1000.tsv", "data/markers/*.png"]
+"parcel_tracker.web" = ["templates/*.html", "static/*"]
 
 [tool.ruff]
 line-length = 100
@@ -94,6 +106,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "BLE001", "S105", "S106"]
 "src/parcel_tracker/db/migrations.py" = ["S608"]
+"scripts/**" = ["S311", "S106", "S603", "S607", "C901", "PLR0912", "PLR0913", "PLR0915", "ASYNC240", "T201", "E501"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -120,7 +133,7 @@ warn_unused_ignores = true
 files = ["src/parcel_tracker"]
 
 [[tool.mypy.overrides]]
-module = ["telegram.*", "dotenv", "aiosqlite", "tenacity", "staticmap"]
+module = ["staticmap"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

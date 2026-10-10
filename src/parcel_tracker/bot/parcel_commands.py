@@ -3,10 +3,24 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING
 
 from parcel_tracker.bot import messages
+from parcel_tracker.bot.pending import pop_pending, set_pending
+from parcel_tracker.core.shipments import (
+    FIELD_LIMITS,
+    AddOutcome,
+    ShipmentInput,
+    add_shipment,
+    clip_field,
+    extract_code_and_name,
+    is_known_code_format,
+    is_valid_tracking_number,
+    normalize_tracking_number,
+    parse_bulk_codes,
+    pick_single_code,
+    s10_operator,
+)
 from parcel_tracker.db.models import Parcel
 
 if TYPE_CHECKING:
@@ -15,21 +29,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TRACKING_SHAPE = re.compile(r"^[A-Z0-9]{8,35}$")
+_NAME_MAX_LEN = FIELD_LIMITS["name"]
+# Echoed user text is clipped so a pasted wall of text cannot exceed Telegram's
+# message limit (the reply would fail and the user would only see an error).
+_ECHO_MAX_LEN = 40
 
 
-def _looks_like_tracking(candidate: str) -> bool:
-    """Strict heuristic: alphanumeric, 8-35 chars, with at least 3 digits."""
-    up = candidate.upper()
-    if not _TRACKING_SHAPE.fullmatch(up):
-        return False
-    return sum(c.isdigit() for c in up) >= 3
+def _code_arg(raw: str) -> str:
+    """A tracking-code argument as stored: separators removed, upper-cased."""
+    return normalize_tracking_number(raw)
 
 
-_NAME_MAX_LEN = 64
-# Longest real-world codes are ~35 chars; 40 also keeps "parcel:<action>:<code>"
-# inside Telegram's 64-byte callback_data limit.
-_CODE_MAX_LEN = 40
+def _echo(text: str) -> str:
+    return text if len(text) <= _ECHO_MAX_LEN else text[: _ECHO_MAX_LEN - 1] + "…"
 
 
 def _parcel_line(parcel: Parcel) -> str:
@@ -68,11 +80,11 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not args:
         await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
         return
-    tracking_number = args[0].strip().upper()
-    if len(tracking_number) > _CODE_MAX_LEN:
+    tracking_number = _code_arg(args[0])
+    if not is_valid_tracking_number(tracking_number):
         await update.message.reply_text(messages.add_usage(), parse_mode="HTML")
         return
-    name = " ".join(args[1:]).strip()[:_NAME_MAX_LEN] or None
+    name = clip_field("name", " ".join(args[1:]))
 
     limit = await _active_limit_reached(context, user.id)
     if limit is not None:
@@ -84,6 +96,7 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         tracking_number=tracking_number,
         user_id=user.id,
         name=name,
+        carrier_name=s10_operator(tracking_number),
     )
     created = await repo.create(parcel)
     if created is None:
@@ -94,8 +107,7 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if name is None:
         from parcel_tracker.bot.keyboards import name_prompt_keyboard  # noqa: PLC0415
 
-        if context.user_data is not None:
-            context.user_data["pending"] = {"action": "name", "tn": tracking_number}
+        set_pending(context, "name", tn=tracking_number)
         await update.message.reply_text(
             messages.parcel_added(tracking_number) + "\n\n" + messages.ask_parcel_name(),
             parse_mode="HTML",
@@ -130,7 +142,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not args:
         await reply_to.reply_text(messages.status_usage(), parse_mode="HTML")
         return
-    tracking_number = args[0].strip()
+    tracking_number = _code_arg(args[0])
     repo = context.bot_data["parcel_repo"]
     parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if parcel is None:
@@ -155,7 +167,7 @@ async def cmd_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not args:
         await reply_to.reply_text(messages.events_usage(), parse_mode="HTML")
         return
-    tracking_number = args[0].strip()
+    tracking_number = _code_arg(args[0])
     repo = context.bot_data["parcel_repo"]
     parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if parcel is None:
@@ -187,7 +199,7 @@ async def cmd_remove(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not args:
         await reply_to.reply_text(messages.remove_usage(), parse_mode="HTML")
         return
-    tracking_number = args[0].strip()
+    tracking_number = _code_arg(args[0])
     repo = context.bot_data["parcel_repo"]
     parcel = await repo.get_for_user(tracking_number, user_id=user.id)
     if parcel is None:
@@ -207,7 +219,7 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if len(args) < 2:
         await reply_to.reply_text(messages.rename_usage(), parse_mode="HTML")
         return
-    tracking_number = args[0].strip()
+    tracking_number = _code_arg(args[0])
     new_name = " ".join(args[1:]).strip()[:_NAME_MAX_LEN]
     repo = context.bot_data["parcel_repo"]
     ok = await repo.rename(tracking_number, user_id=user.id, name=new_name)
@@ -269,15 +281,14 @@ async def _consume_pending_name(
     context: ContextTypes.DEFAULT_TYPE,
     user_id: int,
 ) -> bool:
-    """Handle 'name' pending action. Returns False if text looks like a tracking number."""
-    candidate = text.split()[0]
-    detector = context.bot_data.get("detector")
-    specific_match = detector is not None and any(
-        t.priority > 1 for t in detector.detect(candidate)
-    )
-    if specific_match or _looks_like_tracking(candidate):
-        # It's a different tracking number: discard the pending action (already
-        # popped) and let handle_message treat it as a new auto-add.
+    """Use ``text`` as the name of a just-added parcel.
+
+    Returns False when the reply is really another tracking code, so the caller
+    adds it instead. Only a certain code format counts (a carrier pattern or a
+    valid UPU S10): product names such as "AirPods2023" are names, not codes.
+    """
+    code, _rest = extract_code_and_name(text, context.bot_data.get("detector"))
+    if is_known_code_format(code, context.bot_data.get("detector")):
         return False
     repo = context.bot_data["parcel_repo"]
     name = text.strip()[:_NAME_MAX_LEN]
@@ -291,24 +302,48 @@ async def _consume_pending_name(
     return True
 
 
+async def _consume_user_id(
+    action: str, text: str, reply_to: Message, context: ContextTypes.DEFAULT_TYPE, admin_id: int
+) -> None:
+    """Authorise or revoke the numeric Telegram user ID in ``text``."""
+    usage = messages.adduser_usage() if action == "adduser" else messages.removeuser_usage()
+    try:
+        target = int(text.strip())
+    except ValueError:
+        await reply_to.reply_text(usage, parse_mode="HTML")
+        return
+    if action == "adduser":
+        added = await context.bot_data["user_repo"].add_user(user_id=target, added_by=admin_id)
+        await reply_to.reply_text(
+            messages.user_added(target) if added else messages.user_duplicate(target),
+            parse_mode="HTML",
+        )
+        return
+    from parcel_tracker.bot.auth_commands import revoke_user  # noqa: PLC0415
+
+    await reply_to.reply_text(await revoke_user(context, target), parse_mode="HTML")
+
+
 async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> bool:
     """If a guided input is pending for this user, consume `text` as its value.
     Returns True if it handled the message."""
-    pending = (context.user_data or {}).get("pending")
-    if not pending:
-        return False
     user = update.effective_user
     reply_to = update.message
     if user is None or reply_to is None:
-        return True
+        return False
+    pending = pop_pending(context)  # consumed once; expired prompts are dropped
+    if not pending:
+        return False
     action = pending.get("action")
-    if context.user_data is not None:
-        context.user_data.pop("pending", None)  # consume once
+    detector = context.bot_data.get("detector")
     if action == "name":
         return await _consume_pending_name(pending, text, reply_to, context, user.id)
-    repo = context.bot_data["parcel_repo"]
     if action == "rename":
+        code, _rest = extract_code_and_name(text, detector)
+        if is_known_code_format(code, detector):
+            return False  # a pasted code is a new parcel, not the new name
         name = text.strip()[:_NAME_MAX_LEN]
+        repo = context.bot_data["parcel_repo"]
         ok = await repo.rename(pending["tn"], user_id=user.id, name=name)
         msg = (
             messages.parcel_renamed(pending["tn"], name)
@@ -317,37 +352,53 @@ async def _consume_pending(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         )
         await reply_to.reply_text(msg, parse_mode="HTML")
         return True
-    if action == "adduser":
-        user_repo = context.bot_data["user_repo"]
-        try:
-            target = int(text.strip())
-        except ValueError:
-            await reply_to.reply_text(messages.adduser_usage(), parse_mode="HTML")
-            return True
-        added = await user_repo.add_user(user_id=target, added_by=user.id)
-        await reply_to.reply_text(
-            messages.user_added(target) if added else messages.user_duplicate(target),
-            parse_mode="HTML",
-        )
+    if action in ("adduser", "revoke"):
+        await _consume_user_id(action, text, reply_to, context, user.id)
         return True
-    if action == "revoke":
-        user_repo = context.bot_data["user_repo"]
-        try:
-            target = int(text.strip())
-        except ValueError:
-            await reply_to.reply_text(messages.removeuser_usage(), parse_mode="HTML")
-            return True
-        removed = await user_repo.remove_user(target)
-        await reply_to.reply_text(
-            messages.user_removed(target) if removed else messages.user_not_present(target),
-            parse_mode="HTML",
-        )
+    if action == "detail":
+        from parcel_tracker.bot.seller_commands import consume_detail  # noqa: PLC0415
+
+        await consume_detail(pending, text, reply_to, context, user.id)
         return True
-    return True
+    return False
+
+
+async def _bulk_add(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, codes: list[tuple[str, str | None]]
+) -> None:
+    """Add every code of a multi-line paste and reply with one summary."""
+    user = update.effective_user
+    message = update.message
+    if user is None or message is None:
+        return
+    config = context.bot_data.get("config")
+    max_active = int(getattr(config, "max_active_shipments", 0) or 0)
+    counts = dict.fromkeys(AddOutcome, 0)
+    for code, name in codes:
+        outcome, _parcel = await add_shipment(
+            context.bot_data["parcel_repo"],
+            user_id=user.id,
+            data=ShipmentInput(tracking_number=code, name=name),
+            max_active=max_active,
+        )
+        counts[outcome] += 1
+    await message.reply_text(
+        messages.bulk_added(
+            added=counts[AddOutcome.ADDED],
+            duplicates=counts[AddOutcome.DUPLICATE],
+            over_limit=counts[AddOutcome.LIMIT],
+        ),
+        parse_mode="HTML",
+    )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Plain text → if it looks like a tracking number, auto-add it (no /add needed)."""
+    """Plain text → if it looks like a tracking number, auto-add it (no /add needed).
+
+    A code printed with spaces ("1Z 999 AA1 …") is recognised as one code, a code
+    inside a sentence or a carrier link is picked out, and a message with several
+    codes (one per line, a numbered list, or comma-separated) adds them all.
+    """
     if update.message is None or update.effective_user is None:
         return
     text = (update.message.text or "").strip()
@@ -355,28 +406,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
     if await _consume_pending(update, context, text):
         return
-    candidate = text.split()[0]
-    name = text[len(candidate) :].strip() or None
-
     detector = context.bot_data.get("detector")
-    specific_match = False
-    if detector is not None:
-        specific_match = any(t.priority > 1 for t in detector.detect(candidate))
-
-    if len(candidate) > _CODE_MAX_LEN or not (specific_match or _looks_like_tracking(candidate)):
-        await update.message.reply_text(messages.to_add_use(candidate), parse_mode="HTML")
+    bulk = parse_bulk_codes(text, detector)
+    if bulk:
+        await _bulk_add(update, context, bulk)
         return
+    picked = pick_single_code(text, detector)
+    if picked is None:
+        first_word = text.split()[0]
+        await update.message.reply_text(messages.to_add_use(_echo(first_word)), parse_mode="HTML")
+        return
+    candidate, name = picked
 
     limit = await _active_limit_reached(context, update.effective_user.id)
     if limit is not None:
         await update.message.reply_text(messages.max_active_reached(limit), parse_mode="HTML")
         return
 
-    name = name[:_NAME_MAX_LEN] if name else None
-    tn = candidate.upper()
+    name = clip_field("name", name)
+    tn = candidate
     repo = context.bot_data["parcel_repo"]
     created = await repo.create(
-        Parcel(tracking_number=tn, user_id=update.effective_user.id, name=name)
+        Parcel(
+            tracking_number=tn,
+            user_id=update.effective_user.id,
+            name=name,
+            carrier_name=s10_operator(tn),
+        )
     )
     if created is None:
         await update.message.reply_text(messages.parcel_duplicate(tn), parse_mode="HTML")
@@ -384,8 +440,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     from parcel_tracker.bot.keyboards import name_prompt_keyboard, undo_keyboard  # noqa: PLC0415
 
     if name is None:
-        if context.user_data is not None:
-            context.user_data["pending"] = {"action": "name", "tn": tn}
+        set_pending(context, "name", tn=tn)
         await update.message.reply_text(
             messages.parcel_added_auto(tn) + "\n\n" + messages.ask_parcel_name(),
             parse_mode="HTML",

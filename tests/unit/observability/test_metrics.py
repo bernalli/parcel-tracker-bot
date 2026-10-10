@@ -8,7 +8,6 @@ from parcel_tracker.observability.metrics import (
     ACTIVE_PARCELS,
     CHECK_LATENCY_SECONDS,
     CHECK_TOTAL,
-    DB_QUERY_DURATION_SECONDS,
     QUARANTINE_ACTIVE,
     SCHEDULER_TICK_DURATION_SECONDS,
     TELEGRAM_ERRORS_TOTAL,
@@ -51,13 +50,6 @@ def test_telegram_errors_total_counter() -> None:
     assert after == before + 1.0
 
 
-def test_db_query_duration_histogram() -> None:
-    DB_QUERY_DURATION_SECONDS.labels(op="select").observe(0.005)
-    samples = list(DB_QUERY_DURATION_SECONDS.collect()[0].samples)
-    counts = [s for s in samples if s.name.endswith("_count") and s.labels.get("op") == "select"]
-    assert any(s.value >= 1.0 for s in counts)
-
-
 def test_scheduler_tick_histogram() -> None:
     SCHEDULER_TICK_DURATION_SECONDS.observe(2.5)
     samples = list(SCHEDULER_TICK_DURATION_SECONDS.collect()[0].samples)
@@ -79,6 +71,6 @@ def test_build_registry_returns_collector_registry() -> None:
     assert "parceltracker_quarantine_active" in output
     assert "parceltracker_telegram_sent_total" in output
     assert "parceltracker_telegram_errors_total" in output
-    assert "parceltracker_db_query_duration_seconds" in output
+    assert "parceltracker_stalled_parcels" in output
     assert "parceltracker_scheduler_tick_duration_seconds" in output
     assert "parceltracker_active_parcels" in output

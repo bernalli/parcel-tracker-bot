@@ -30,25 +30,28 @@ def fmt_event_time(raw: str | None) -> str:
     return dt.strftime("%d/%m/%Y %H:%M")
 
 
-_STATUS_MSGID: dict[ShipmentStatus, str] = {
-    ShipmentStatus.NOT_FOUND: "Not found",
-    ShipmentStatus.INFO_RECEIVED: "Info received",
-    ShipmentStatus.PICKUP: "Picked up",
-    ShipmentStatus.IN_TRANSIT: "In transit",
-    ShipmentStatus.OUT_FOR_DELIVERY: "Out for delivery",
-    ShipmentStatus.CUSTOMS: "In customs",
-    ShipmentStatus.DELIVERED: "Delivered",
-    ShipmentStatus.UNDELIVERED: "Undelivered",
-    ShipmentStatus.EXCEPTION: "Exception",
-    ShipmentStatus.RETURNED: "Returned",
-    ShipmentStatus.EXPIRED: "Expired",
-    ShipmentStatus.ALERT: "Alert",
-}
+def _status_labels() -> dict[ShipmentStatus, str]:
+    # Literal _() calls so babel extracts every label (a dynamic msgid never
+    # reaches the catalogs, which left statuses in English for every user).
+    return {
+        ShipmentStatus.NOT_FOUND: _("Not found"),
+        ShipmentStatus.INFO_RECEIVED: _("Info received"),
+        ShipmentStatus.PICKUP: _("Picked up"),
+        ShipmentStatus.IN_TRANSIT: _("In transit"),
+        ShipmentStatus.OUT_FOR_DELIVERY: _("Out for delivery"),
+        ShipmentStatus.CUSTOMS: _("In customs"),
+        ShipmentStatus.DELIVERED: _("Delivered"),
+        ShipmentStatus.UNDELIVERED: _("Undelivered"),
+        ShipmentStatus.EXCEPTION: _("Exception"),
+        ShipmentStatus.RETURNED: _("Returned"),
+        ShipmentStatus.EXPIRED: _("Expired"),
+        ShipmentStatus.ALERT: _("Alert"),
+    }
 
 
 def status_label(status: ShipmentStatus) -> str:
     """Human, translatable label for a status (falls back to the enum value)."""
-    return _(_STATUS_MSGID.get(status, status.value))
+    return _status_labels().get(status, status.value)
 
 
 _STATUS_EMOJI: dict[ShipmentStatus, str] = {

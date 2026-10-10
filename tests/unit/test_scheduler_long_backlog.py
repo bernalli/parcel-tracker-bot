@@ -46,7 +46,6 @@ async def test_long_backlog_survives_a_failed_batch(tmp_path: Path) -> None:
         batch_size=5,
         rate_limit_default_per_min=600,
         rate_limit_overrides={},
-        notify_cooldown_minutes=0,
         admin_user_ids=frozenset({7}),
     )
     bot_data = await build_bot_data(cfg)

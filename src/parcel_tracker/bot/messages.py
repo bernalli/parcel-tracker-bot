@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 from typing import TYPE_CHECKING
 
-from parcel_tracker.i18n import _
+from parcel_tracker.i18n import _, _n
 
 if TYPE_CHECKING:
     from parcel_tracker.db.models import Parcel
@@ -19,19 +19,28 @@ def esc(value: object) -> str:
 def welcome() -> str:
     return _(
         "📦 <b>Parcel Tracker Bot</b>\n\n"
-        "Track your parcels and get smart notifications with maps.\n\n"
-        "<b>Quick start:</b>\n"
-        "• Just send a tracking number to start tracking it\n"
-        "• Press /menu for everything else (buttons)"
+        "I follow your parcels with the carriers and tell you when something changes, "
+        "with a map of the route.\n\n"
+        "<b>Quick start</b>\n"
+        "• Send a tracking number (or several, one per line) to start tracking\n"
+        "• Send a .csv file to import many shipments at once\n"
+        "• /menu opens everything else\n\n"
+        "Selling online? Turn on <b>Seller mode</b> in Settings and open the web dashboard "
+        "with /web."
     )
 
 
 def help_text() -> str:
     return _(
         "📦 <b>Parcel Tracker Bot</b>\n\n"
-        "• Send a tracking number → I track it automatically\n"
-        "• /menu — buttons for list, status, events, map, settings\n"
+        "• Send a tracking number → I track it (spaces and dashes are fine)\n"
+        "• Several codes, one per line → I add them all\n"
+        "• A .csv file → I import it (columns: tracking_number, name, order_ref, recipient, "
+        "destination, tags, notes)\n"
+        "• /menu — parcels, maps, settings\n"
         "• /list — your active parcels\n"
+        "• /web — open the web dashboard\n"
+        "• /export — download your shipments as CSV\n"
         "• /forgetme — delete all your data\n"
         "• /help — this message"
     )
@@ -431,4 +440,175 @@ def parcel_detail_card(parcel: Parcel) -> str:
     checked = fmt_check_time(parcel.last_check_at)
     if checked:
         lines.append(f"{last_check_word}: {checked}")
+    lines.extend(_seller_lines(parcel))
     return "\n".join(lines)
+
+
+def _seller_lines(parcel: Parcel) -> list[str]:
+    """Order, customer, destination, tags and notes, when the seller set them."""
+    order_word = _("Order")
+    customer_word = _("Customer")
+    lines: list[str] = []
+    if parcel.order_ref or parcel.recipient or parcel.destination or parcel.tags or parcel.notes:
+        lines.append("")
+    if parcel.order_ref:
+        lines.append(f"🧾 {order_word}: {esc(parcel.order_ref)}")
+    if parcel.recipient or parcel.destination:
+        who = " — ".join(esc(v) for v in (parcel.recipient, parcel.destination) if v)
+        lines.append(f"👤 {customer_word}: {who}")
+    if parcel.tags:
+        lines.append("🏷 " + " ".join(f"#{esc(t)}" for t in parcel.tags))
+    if parcel.notes:
+        lines.append(f"🗒 <i>{esc(parcel.notes[:300])}</i>")
+    return lines
+
+
+def delivered_notice(title: str | None, tracking_number: str, recipient: str | None) -> str:
+    """Seller mode: the parcel reached the customer and was archived automatically."""
+    head = f"✅ <b>{esc(title)}</b>\n" if title else "✅ "
+    body = (
+        _("Delivered to the recipient.")
+        if not recipient
+        else _("Delivered to <b>{recipient}</b>.").format(recipient=esc(recipient))
+    )
+    archived = _("Archived automatically — see /history.")
+    return f"{head}<code>{esc(tracking_number)}</code>\n\n{body}\n<i>{archived}</i>"
+
+
+def stall_alert(title: str | None, tracking_number: str, *, days: int, status_text: str) -> str:
+    """A shipment saw no carrier update for ``days`` days."""
+    head = f"⏸ <b>{esc(title)}</b>\n" if title else "⏸ "
+    body = _(
+        "No carrier update for <b>{days} days</b> (last status: {status}). "
+        "The shipment may be stuck: consider contacting the carrier."
+    ).format(days=int(days), status=status_text)
+    return f"{head}<code>{esc(tracking_number)}</code>\n\n{body}"
+
+
+def user_protected(user_id: int) -> str:
+    return _(
+        "⛔ User <code>{user_id}</code> is authorised in the configuration "
+        "(OWNER_ID, ADMIN_USER_IDS or ALLOWED_USER_IDS). Remove them from .env instead."
+    ).format(user_id=user_id)
+
+
+def whoami(user_id: int, username: str | None) -> str:
+    if username:
+        return _("Your ID: <code>{user_id}</code>\nUsername: @{username}").format(
+            user_id=user_id, username=esc(username)
+        )
+    return _("Your ID: <code>{user_id}</code>\nUsername: (none)").format(user_id=user_id)
+
+
+def count_active(n: int) -> str:
+    return _n("{n} active", "{n} active", n).format(n=n)
+
+
+def count_archived(n: int) -> str:
+    return _n("{n} archived", "{n} archived", n).format(n=n)
+
+
+def bulk_added(*, added: int, duplicates: int, over_limit: int) -> str:
+    lines = [_n("✅ Added {n} parcel.", "✅ Added {n} parcels.", added).format(n=added)]
+    if duplicates:
+        lines.append(
+            _n("{n} was already tracked.", "{n} were already tracked.", duplicates).format(
+                n=duplicates
+            )
+        )
+    if over_limit:
+        lines.append(
+            _n(
+                "⚠️ {n} not added: active parcel limit reached.",
+                "⚠️ {n} not added: active parcel limit reached.",
+                over_limit,
+            ).format(n=over_limit)
+        )
+    return "\n".join(lines)
+
+
+def private_chat_only() -> str:
+    return _(
+        "🔒 For your privacy this works only in a private chat with me: "
+        "in a group, anyone could open it. Send the command to me directly."
+    )
+
+
+def web_disabled() -> str:
+    return _(
+        "🌐 The web dashboard is not enabled on this bot.\n"
+        "The admin can turn it on with <code>WEB_ENABLED=true</code> and "
+        "<code>WEB_PUBLIC_URL</code> in the .env file."
+    )
+
+
+def web_login_link(url: str) -> str:
+    return _(
+        "🌐 <b>Web dashboard</b>\n\n"
+        '<a href="{url}">Open the dashboard</a>\n\n'
+        "The link signs you in once and expires in 15 minutes. Don't share it."
+    ).format(url=esc(url))
+
+
+def share_link(url: str) -> str:
+    return _(
+        "🔗 <b>Customer tracking link</b>\n\n{url}\n\n"
+        "Send it to your customer: it shows the carrier status and history, never your notes. "
+        "You can revoke it from the web dashboard."
+    ).format(url=esc(url))
+
+
+def export_caption(n: int) -> str:
+    return _n("📄 {n} shipment exported.", "📄 {n} shipments exported.", n).format(n=n)
+
+
+def import_too_large() -> str:
+    return _("⚠️ The file is too large (1 MB max).")
+
+
+def import_unreadable() -> str:
+    return _("⚠️ I couldn't read that file as CSV.")
+
+
+def import_report(
+    *,
+    added: int,
+    duplicates: int,
+    invalid: int,
+    over_limit: int,
+    first_errors: list[tuple[int, str]],
+) -> str:
+    lines = [
+        _("📥 <b>Import finished</b>"),
+        _(
+            "Added: {added} · already tracked: {dup} · invalid: {invalid} · over the limit: {over}"
+        ).format(added=added, dup=duplicates, invalid=invalid, over=over_limit),
+    ]
+    for line_no, reason in first_errors:
+        lines.append(_("Line {line}: {reason}").format(line=line_no, reason=esc(reason)))
+    return "\n".join(lines)
+
+
+def details_menu(parcel: Parcel) -> str:
+    return _("📝 <b>Details</b> of <code>{tn}</code>\nChoose what to edit:").format(
+        tn=esc(parcel.tracking_number)
+    )
+
+
+def ask_detail_value(label: str, tracking_number: str) -> str:
+    return _(
+        "📝 Send the new <b>{label}</b> for <code>{tn}</code> (send <code>-</code> to clear it):"
+    ).format(label=esc(label), tn=esc(tracking_number))
+
+
+def detail_saved(label: str) -> str:
+    return _("✅ {label} saved.").format(label=esc(label))
+
+
+def seller_mode_changed(enabled: bool) -> str:
+    if enabled:
+        return _(
+            "🏪 <b>Seller mode on.</b> Delivered parcels are archived automatically and you "
+            'get a short notice instead of the "did you receive it?" question.'
+        )
+    return _("📦 <b>Seller mode off.</b> I'll ask you to confirm each delivery again.")

@@ -41,7 +41,7 @@ def get_interval_minutes(
     return DEFAULT_INTERVALS_MIN[status]
 
 
-def is_due(
+def is_due(  # noqa: PLR0913 — keyword-only knobs with defaults
     status: ShipmentStatus,
     last_check_at: datetime | None,
     now: datetime,
@@ -49,8 +49,12 @@ def is_due(
     delivery_disputed: bool = False,
     delivered_at: datetime | None = None,
     interval_overrides: Mapping[ShipmentStatus, int] | None = None,
+    slack: timedelta = timedelta(0),
 ) -> bool:
     """True if a parcel needs re-check given status, last check time, and dispute flag.
+
+    ``slack`` lets a parcel be checked that much early, absorbing the few seconds of
+    drift between scheduler runs.
 
     Disputed deliveries (user tapped "Not yet") keep polling at DISPUTED_INTERVAL_MIN
     only within a grace window of DISPUTED_MAX_AGE_HOURS after `delivered_at`; once the
@@ -68,4 +72,4 @@ def is_due(
         return False
     if last_check_at is None:
         return True
-    return now >= last_check_at + timedelta(minutes=interval)
+    return now + slack >= last_check_at + timedelta(minutes=interval)

@@ -44,6 +44,14 @@ _PREFIXES = (
     "sorting centre ",
     "facility ",
 )
+# USPS state/territory abbreviations. US carriers print "CITY, ST" or
+# "CITY, ST, US"; several of these are also ISO country codes (CA, DE, GA, IN…),
+# so a bare two-letter suffix from a US carrier must not be read as a country.
+_US_STATES = frozenset(
+    "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT "
+    "NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR".lower().split()
+)
+
 _COUNTRY_TO_ISO = {
     "italy": "it",
     "italia": "it",
@@ -89,13 +97,18 @@ def _is_wordlike(s: str) -> bool:
     return any(ch.isalpha() for ch in s)
 
 
+_Entry = tuple[float, float, int]
+
+
 class Geocoder:
     """Loads a 6-column GeoNames-derived TSV into an in-memory name->coord index."""
 
     def __init__(self, dataset_path: Path) -> None:
-        self._by_city_country: dict[tuple[str, str], tuple[float, float]] = {}
-        self._by_city: dict[str, tuple[float, float]] = {}
-        for raw in dataset_path.read_text(encoding="utf-8").splitlines():
+        # Values are (lat, lng, rank); rows are sorted by population, so a lower
+        # rank is a larger place. One tuple per row, shared by all its keys.
+        self._by_city_country: dict[tuple[str, str], _Entry] = {}
+        self._by_city: dict[str, _Entry] = {}
+        for rank, raw in enumerate(dataset_path.read_text(encoding="utf-8").splitlines()):
             if not raw or raw.startswith("#"):
                 continue
             parts = raw.split("\t")
@@ -103,7 +116,7 @@ class Geocoder:
                 continue
             name, ascii_name, alternates, lat_s, lng_s, cc = parts[:6]
             try:
-                coord = (float(lat_s), float(lng_s))
+                coord: _Entry = (float(lat_s), float(lng_s), rank)
             except ValueError:
                 continue
             cc_n = _norm(cc)
@@ -185,14 +198,32 @@ class Geocoder:
         segments = [s for s in (seg.strip() for seg in location.split(",")) if s]
         if not segments:
             return None
+        last = _norm(segments[-1])
         country = self._country_iso(segments[-1]) if len(segments) >= 2 else None  # noqa: PLR2004
         candidates = segments[:-1] if country else segments
+        # "CITY, ST" from a US carrier: the two letters may be a state that is also
+        # a country code (CA, DE, IN…), so both readings are considered.
+        state_or_country = country is not None and len(last) == 2 and last in _US_STATES  # noqa: PLR2004
+        if country == "us" and len(candidates) >= 2 and _norm(candidates[-1]) in _US_STATES:  # noqa: PLR2004
+            candidates = candidates[:-1]  # "CITY, ST, US": the state is not a city
         for seg in candidates:
             for variant in self._clean_variants(seg):
-                if country is not None:
-                    hit = self._by_city_country.get((variant, country))
-                else:
-                    hit = self._by_city.get(variant)
+                hit = self._lookup(variant, country, also_us=state_or_country)
                 if hit is not None:
                     return hit
         return None
+
+    def _lookup(
+        self, variant: str, country: str | None, *, also_us: bool
+    ) -> tuple[float, float] | None:
+        if country is None:
+            entry = self._by_city.get(variant)
+            return (entry[0], entry[1]) if entry else None
+        entry = self._by_city_country.get((variant, country))
+        if also_us:
+            us = self._by_city_country.get((variant, "us"))
+            # The larger place wins: "Toronto, CA" stays in Canada, while
+            # "Sacramento, CA" (no such city in Canada) lands in California.
+            if us is not None and (entry is None or us[2] < entry[2]):
+                entry = us
+        return (entry[0], entry[1]) if entry else None

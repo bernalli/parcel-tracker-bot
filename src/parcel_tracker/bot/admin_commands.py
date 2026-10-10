@@ -88,10 +88,10 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     archived = await bd["parcel_repo"].list_archived_for_user(user_id=user.id)
 
     status_counts: Counter[Any] = Counter(p.status for p in active)
-    by_status_parts = [f"{len(active)} active"]
+    by_status_parts = [messages.count_active(len(active))]
     for st in status_counts:
         by_status_parts.append(f"{status_counts[st]} {status_label(st).lower()}")
-    by_status_parts.append(f"{len(archived)} archived")
+    by_status_parts.append(messages.count_archived(len(archived)))
     by_status = " · ".join(by_status_parts)
 
     carrier_counts: Counter[str] = Counter((p.carrier_name or "?") for p in active)
@@ -117,6 +117,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if owner_id is not None:
         user_ids.add(owner_id)
     user_ids.update(getattr(config, "allowed_user_ids", ()) or ())
+    user_ids.update(getattr(config, "admin_user_ids", ()) or ())
 
     text = messages.stats_full(
         by_status=by_status,

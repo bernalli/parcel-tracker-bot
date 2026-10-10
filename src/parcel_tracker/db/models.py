@@ -46,11 +46,27 @@ class TrackingEvent:
 
 @dataclass(slots=True)
 class Parcel:
-    """A tracked parcel record."""
+    """A tracked parcel record.
+
+    The seller fields (``order_ref``, ``recipient``, ``destination``, ``notes``,
+    ``tags``) are free-form metadata the user attaches to a shipment; the bot never
+    sends them to a carrier. ``share_token`` is the capability that unlocks the
+    public tracking page; ``last_change_at`` is when the bot last saw a new carrier
+    event or status, and drives the stalled-shipment alert.
+    """
 
     tracking_number: str
     user_id: int
     name: str | None = None
+    id: int | None = None
+    order_ref: str | None = None
+    recipient: str | None = None
+    destination: str | None = None
+    notes: str | None = None
+    tags: list[str] = field(default_factory=list)
+    share_token: str | None = None
+    last_change_at: datetime | None = None
+    stall_alerted_at: datetime | None = None
     carrier_code: str | None = None
     carrier_name: str | None = None
     all_carriers: list[str] = field(default_factory=list)

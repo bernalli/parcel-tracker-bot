@@ -90,3 +90,18 @@ async def test_erasing_a_user_drops_their_language(users: UserRepository, tmp_pa
     async with get_connection(str(tmp_path / "bot.db")) as conn:
         cur = await conn.execute("SELECT COUNT(*) FROM user_language WHERE user_id = ?", (ALICE,))
         assert (await cur.fetchone())[0] == 0
+
+
+async def test_erased_language_does_not_come_back_after_a_restart(
+    users: UserRepository, tmp_path: Path
+) -> None:
+    db = str(tmp_path / "bot.db")
+    await users.set_language(ALICE, "it")
+    # A database written by an older version also holds the choice in allowed_users.
+    async with get_connection(db) as conn:
+        await conn.execute("UPDATE allowed_users SET language = 'it' WHERE user_id = ?", (ALICE,))
+        await conn.commit()
+    await users.erase_user_data(ALICE)
+    assert await users.get_language(ALICE) == "en"
+    await init_schema(db)  # startup migrations run again
+    assert await users.get_language(ALICE) == "en"

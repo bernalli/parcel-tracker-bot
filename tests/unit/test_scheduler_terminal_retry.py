@@ -44,7 +44,6 @@ async def _bot_data(tmp_path: Path, result: TrackingResult) -> dict[str, Any]:
         batch_size=5,
         rate_limit_default_per_min=600,
         rate_limit_overrides={},
-        notify_cooldown_minutes=0,
         admin_user_ids=frozenset({7}),
     )
     bot_data = await build_bot_data(cfg)
