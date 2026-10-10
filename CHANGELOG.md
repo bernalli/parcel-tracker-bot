@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Running the Docker workflow by hand from `main` replaced `latest` with
+  unreleased code and then failed while generating the SBOM. It now publishes
+  `edge`, and the SBOM is generated from the pushed image's digest.
+
 ## [0.4.0] — 2026-10-09
 
 The "shop" release: the bot becomes a shipment control room for small online

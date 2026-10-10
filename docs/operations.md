@@ -110,12 +110,29 @@ docker compose cp parcel-tracker:/app/data/backup.db ./bot-$(date +%Y%m%d).db
 To restore, stop the bot, copy the file back into the volume as `bot.db`, and
 start it again. Older backups are upgraded automatically at startup.
 
+## Using the published image
+
+Each release is published on `ghcr.io/bernalli/parcel-tracker-bot` for amd64 and
+arm64, signed with cosign, with its SBOM attached to the GitHub release.
+
+| Tag | Points to |
+|---|---|
+| `0.4.0`, `0.4` | That release, or the newest patch of that minor version |
+| `latest` | The newest stable release; release candidates never move it |
+| `edge` | The current `main`, only when the Docker workflow is run by hand |
+
+To use it instead of building locally, remove the `build: .` line from
+`docker-compose.yml` and set `image: ghcr.io/bernalli/parcel-tracker-bot:0.4.0`.
+
 ## Upgrading
 
 ```bash
 git pull
 docker compose up -d --build
 ```
+
+With the published image, change the tag in `docker-compose.yml` and run
+`docker compose pull && docker compose up -d`.
 
 Schema changes are applied automatically and idempotently at startup; take a
 backup first. Read the [changelog](../CHANGELOG.md) for anything that changes
