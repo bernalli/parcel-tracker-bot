@@ -113,4 +113,4 @@ def grouped_columns(
         f'y1="{baseline}" y2="{baseline}"/>'
     )
     parts.append("</svg>")
-    return Markup("".join(parts))  # noqa: S704 — built from escaped values only
+    return Markup("".join(parts))  # noqa: S704  # nosec B704 — escaped values only

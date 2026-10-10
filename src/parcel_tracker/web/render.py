@@ -66,7 +66,7 @@ _STATUS_ICON = {
 
 def icon(name: str) -> Markup:
     """Inline SVG icon (decorative: the label next to it carries the meaning)."""
-    return Markup(  # noqa: S704 — constant markup from _ICON_PATHS
+    return Markup(  # noqa: S704  # nosec B704 — constant markup from _ICON_PATHS
         '<svg class="ico" width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" '
         f'focusable="false">{_ICON_PATHS.get(name, _ICON_PATHS["pending"])}</svg>'
     )
