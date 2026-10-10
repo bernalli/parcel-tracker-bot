@@ -59,7 +59,8 @@ WEB_ENABLED=true
 WEB_PUBLIC_URL=http://localhost:8080
 ```
 
-Tagged releases are also published as `ghcr.io/bernalli/parcel-tracker-bot`.
+Releases are also published as signed images on
+`ghcr.io/bernalli/parcel-tracker-bot` (`latest` or a version such as `0.4.0`).
 For a public address, HTTPS and backups, read [operations](docs/operations.md).
 
 ## Using the bot

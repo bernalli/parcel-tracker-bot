@@ -35,11 +35,15 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ghcr.io/bernalli/parcel-tracker-bot
+          # A release tag vX.Y.Z publishes X.Y.Z, X.Y and vX.Y.Z. `latest` follows
+          # stable releases only: the semver entries run first and set it, and they
+          # leave it off for release candidates (flavor latest=auto). A manual run
+          # from main publishes `edge`, so unreleased code never replaces `latest`.
           tags: |
             type=ref,event=tag
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=edge,branch=main
 
       - name: Build & push
         id: build
@@ -70,7 +74,9 @@ jobs:
       - name: Generate SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          image: ghcr.io/bernalli/parcel-tracker-bot:${{ github.ref_name }}
+          # The image just pushed, by digest: a run from main has no image tag
+          # named after its branch, so a tag-based reference would not exist.
+          image: ghcr.io/bernalli/parcel-tracker-bot@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom.spdx.json
 

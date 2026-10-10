@@ -49,7 +49,9 @@ _FACES = (
     "M117 218 L238 277 L238 421 L117 362 Z",
     "M274 277 L395 218 L395 362 L274 421 Z",
 )
-_BOX_TRANSFORM = "translate(-26 18)"
+# The parcel (faces span x 108-404, y 112-430 with their stroke) sits at the exact
+# centre of the 512 grid; the pin keeps its place at the parcel's top-right corner.
+_BOX_TRANSFORM = "translate(0 -15)"
 _TAPE = "M186 153 L326 223"
 _PIN_RING = (
     "M0 -94 C-54 -94 -90 -55 -90 -6 C-90 46 -31 90 0 123 C31 90 90 46 90 -6 C90 -55 54 -94 0 -94 Z"
@@ -57,7 +59,7 @@ _PIN_RING = (
 _PIN = (
     "M0 -74 C-41 -74 -70 -44 -70 -6 C-70 34 -24 71 0 97 C24 71 70 34 70 -6 C70 -44 41 -74 0 -74 Z"
 )
-_PIN_TRANSFORM = "translate(352 152)"
+_PIN_TRANSFORM = "translate(378 119)"
 
 
 def mark(
