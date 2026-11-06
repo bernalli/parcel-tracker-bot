@@ -7,11 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-11-06
+
 ### Fixed
 
+- Adding a code that no carrier recognises, while 17track is not configured,
+  no longer replies "tracking it now": the bot stores the parcel and warns that
+  nothing will track it until the code is corrected or `TRACK17_API_KEY` is set.
+  The warning covers codes sent in chat, `/add`, the add button and bulk adds.
 - Running the Docker workflow by hand from `main` replaced `latest` with
   unreleased code and then failed while generating the SBOM. It now publishes
   `edge`, and the SBOM is generated from the pushed image's digest.
+
+### Tests
+
+- Regression test that the warning follows the 17track configuration: shown
+  without a key, absent with one.
 
 ## [0.4.0] — 2026-10-09
 
@@ -351,5 +362,7 @@ First public release candidate. Full feature set:
 - + prometheus-client ≥0.20
 - + freezegun ≥1.5 (dev only)
 
-[Unreleased]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bernalli/parcel-tracker-bot/compare/v0.2.0...v0.3.0
