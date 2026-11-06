@@ -222,3 +222,38 @@ async def test_bulk_add_counts_untrackable_codes(monkeypatch: pytest.MonkeyPatch
     text = reply.await_args.args[0]
     assert "Added 2 parcels" in text
     assert "1 can't be tracked" in text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("configured", [False, True])
+async def test_unknown_code_warning_follows_track17_configuration(
+    monkeypatch: pytest.MonkeyPatch, configured: bool
+) -> None:
+    from parcel_tracker import trackers
+    from parcel_tracker.core.detector import CourierDetector
+    from parcel_tracker.core.registry import TrackerRegistry
+
+    http = MagicMock()
+    monkeypatch.setattr(trackers, "HttpClient", MagicMock(return_value=http))
+    registry = TrackerRegistry()
+    config = SimpleNamespace(
+        request_timeout=30,
+        dhl_api_key=None,
+        track17_api_key="configured-for-test" if configured else "",
+    )
+    trackers.register_builtins(registry, config)
+    detector = CourierDetector(registry)
+    code = "3UW9X0012345"
+    assert ("track17" in [t.name for t in detector.detect(code)]) is configured
+
+    context = _context_with(detector)
+    update = _update(code)
+    await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
+
+    context.bot_data["parcel_repo"].create.assert_awaited_once()
+    update.message.reply_text.assert_awaited_once()
+    text = update.message.reply_text.await_args.args[0]
+    assert ("tracking it now" in text) is configured
+    assert ("TRACK17_API_KEY" in text) is (not configured)
+    http.get.assert_not_called()
+    http.post.assert_not_called()
