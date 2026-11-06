@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Running the Docker workflow by hand from `main` replaced `latest` with
   unreleased code and then failed while generating the SBOM. It now publishes
   `edge`, and the SBOM is generated from the pushed image's digest.
+- Centred the parcel within the icon tile and regenerated the brand images
+  and screenshots.
 
 ### Tests
 
