@@ -49,6 +49,7 @@ from parcel_tracker.bot.notify_commands import (
     cmd_notify_dispatch,  # noqa: F401  (lazy lookup target)
 )
 from parcel_tracker.bot.parcel_commands import (
+    added_message,
     cmd_checkall,  # noqa: F401  (lazy lookup target)
     cmd_events,  # noqa: F401  (lazy lookup target)
     cmd_history,  # noqa: F401  (lazy lookup target)
@@ -493,7 +494,7 @@ async def _handle_parcel(
         _clear_name_pending_if_matching(context, tracking_number)
         query = update.callback_query
         if query is not None:
-            await _edit(query, messages.parcel_added_auto(tracking_number), None)
+            await _edit(query, added_message(tracking_number, context), None)
         return
     if action == "rename":
         set_pending(context, "rename", tn=tracking_number)

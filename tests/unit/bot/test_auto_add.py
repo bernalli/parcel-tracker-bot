@@ -136,3 +136,89 @@ async def test_numbered_list_is_added_in_bulk(monkeypatch: pytest.MonkeyPatch) -
     context = SimpleNamespace(args=[], bot_data={"detector": None}, user_data={})
     await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
     assert bulk.await_args.args[2] == [("RR123456785IT", "mug"), ("LX987654321CN", None)]
+
+
+def _real_detector(*trackers: AbstractTracker) -> object:
+    from parcel_tracker.core.detector import CourierDetector
+    from parcel_tracker.core.registry import TrackerRegistry
+
+    registry = TrackerRegistry()
+    for tracker in trackers:
+        registry.register(tracker)
+    return CourierDetector(registry)
+
+
+def _context_with(detector: object) -> SimpleNamespace:
+    repo = AsyncMock()
+    repo.create.return_value = object()
+    return SimpleNamespace(
+        args=[], bot_data={"parcel_repo": repo, "detector": detector}, user_data={}
+    )
+
+
+@pytest.mark.asyncio
+async def test_untrackable_code_is_added_with_a_warning() -> None:
+    """A Poste Italiane domestic code with no 17track key: nothing will ever poll it,
+    so the reply must say so instead of promising "tracking it now"."""
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        message=SimpleNamespace(text="3UW9X0012345", reply_text=reply),
+    )
+    context = _context_with(_real_detector(_Ups()))
+    await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
+    context.bot_data["parcel_repo"].create.assert_awaited_once()
+    text = reply.await_args.args[0]
+    assert "TRACK17_API_KEY" in text
+    assert "tracking it now" not in text
+    assert context.user_data["pending"]["action"] == "name"
+
+
+@pytest.mark.asyncio
+async def test_trackable_code_keeps_the_usual_reply() -> None:
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        message=SimpleNamespace(text="1Z999AA10123456784", reply_text=reply),
+    )
+    context = _context_with(_real_detector(_Ups()))
+    await parcel_commands.handle_message(update, context)  # type: ignore[arg-type]
+    text = reply.await_args.args[0]
+    assert "tracking it now" in text
+    assert "TRACK17_API_KEY" not in text
+
+
+@pytest.mark.asyncio
+async def test_cmd_add_warns_about_an_untrackable_code() -> None:
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        message=SimpleNamespace(reply_text=reply),
+    )
+    context = _context_with(_real_detector(_Ups()))
+    context.args = ["3UW9X0012345", "scarpe"]
+    await parcel_commands.cmd_add(update, context)  # type: ignore[arg-type]
+    assert "TRACK17_API_KEY" in reply.await_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_bulk_add_counts_untrackable_codes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from parcel_tracker.core.shipments import AddOutcome
+
+    monkeypatch.setattr(
+        parcel_commands, "add_shipment", AsyncMock(return_value=(AddOutcome.ADDED, None))
+    )
+    reply = AsyncMock()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=10),
+        message=SimpleNamespace(reply_text=reply),
+    )
+    context = _context_with(_real_detector(_Ups()))
+    await parcel_commands._bulk_add(
+        update,  # type: ignore[arg-type]
+        context,  # type: ignore[arg-type]
+        [("1Z999AA10123456784", None), ("3UW9X0012345", None)],
+    )
+    text = reply.await_args.args[0]
+    assert "Added 2 parcels" in text
+    assert "1 can't be tracked" in text

@@ -370,6 +370,15 @@ def parcel_added_auto(tracking_number: str) -> str:
     )
 
 
+def parcel_added_untrackable(tracking_number: str) -> str:
+    return _(
+        "⚠️ Added <code>{tracking_number}</code>, but I can't track it: no built-in "
+        "carrier recognises this code and 17track is not configured, so you won't "
+        "get updates. Double-check the code, or ask the bot admin to set "
+        "<code>TRACK17_API_KEY</code>."
+    ).format(tracking_number=esc(tracking_number))
+
+
 def menu_maps_title() -> str:
     return _("🗺 Choose a parcel to see its route map:")
 
@@ -508,7 +517,7 @@ def count_archived(n: int) -> str:
     return _n("{n} archived", "{n} archived", n).format(n=n)
 
 
-def bulk_added(*, added: int, duplicates: int, over_limit: int) -> str:
+def bulk_added(*, added: int, duplicates: int, over_limit: int, untrackable: int = 0) -> str:
     lines = [_n("✅ Added {n} parcel.", "✅ Added {n} parcels.", added).format(n=added)]
     if duplicates:
         lines.append(
@@ -523,6 +532,16 @@ def bulk_added(*, added: int, duplicates: int, over_limit: int) -> str:
                 "⚠️ {n} not added: active parcel limit reached.",
                 over_limit,
             ).format(n=over_limit)
+        )
+    if untrackable:
+        lines.append(
+            _n(
+                "⚠️ {n} can't be tracked: no built-in carrier recognises it and "
+                "17track is not configured (TRACK17_API_KEY).",
+                "⚠️ {n} can't be tracked: no built-in carrier recognises them and "
+                "17track is not configured (TRACK17_API_KEY).",
+                untrackable,
+            ).format(n=untrackable)
         )
     return "\n".join(lines)
 

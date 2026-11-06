@@ -14,6 +14,7 @@ from parcel_tracker.core.shipments import (
     add_shipment,
     clip_field,
     extract_code_and_name,
+    has_tracking_source,
     is_known_code_format,
     is_valid_tracking_number,
     normalize_tracking_number,
@@ -33,6 +34,17 @@ _NAME_MAX_LEN = FIELD_LIMITS["name"]
 # Echoed user text is clipped so a pasted wall of text cannot exceed Telegram's
 # message limit (the reply would fail and the user would only see an error).
 _ECHO_MAX_LEN = 40
+
+
+def added_message(tracking_number: str, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """The "added" reply for a code from chat: a warning when nothing can track it.
+
+    Without this the bot promised "tracking it now" for codes no tracker covers,
+    and the parcel then sat in the list without ever being checked.
+    """
+    if has_tracking_source(tracking_number, context.bot_data.get("detector")):
+        return messages.parcel_added_auto(tracking_number)
+    return messages.parcel_added_untrackable(tracking_number)
 
 
 def _code_arg(raw: str) -> str:
@@ -104,17 +116,20 @@ async def cmd_add(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             messages.parcel_duplicate(tracking_number), parse_mode="HTML"
         )
         return
+    added = messages.parcel_added(name or tracking_number)
+    if not has_tracking_source(tracking_number, context.bot_data.get("detector")):
+        added += "\n\n" + messages.parcel_added_untrackable(tracking_number)
     if name is None:
         from parcel_tracker.bot.keyboards import name_prompt_keyboard  # noqa: PLC0415
 
         set_pending(context, "name", tn=tracking_number)
         await update.message.reply_text(
-            messages.parcel_added(tracking_number) + "\n\n" + messages.ask_parcel_name(),
+            added + "\n\n" + messages.ask_parcel_name(),
             parse_mode="HTML",
             reply_markup=name_prompt_keyboard(tracking_number),
         )
         return
-    await update.message.reply_text(messages.parcel_added(name), parse_mode="HTML")
+    await update.message.reply_text(added, parse_mode="HTML")
 
 
 async def cmd_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -373,7 +388,9 @@ async def _bulk_add(
         return
     config = context.bot_data.get("config")
     max_active = int(getattr(config, "max_active_shipments", 0) or 0)
+    detector = context.bot_data.get("detector")
     counts = dict.fromkeys(AddOutcome, 0)
+    untrackable = 0
     for code, name in codes:
         outcome, _parcel = await add_shipment(
             context.bot_data["parcel_repo"],
@@ -382,11 +399,14 @@ async def _bulk_add(
             max_active=max_active,
         )
         counts[outcome] += 1
+        if outcome is AddOutcome.ADDED and not has_tracking_source(code, detector):
+            untrackable += 1
     await message.reply_text(
         messages.bulk_added(
             added=counts[AddOutcome.ADDED],
             duplicates=counts[AddOutcome.DUPLICATE],
             over_limit=counts[AddOutcome.LIMIT],
+            untrackable=untrackable,
         ),
         parse_mode="HTML",
     )
@@ -442,11 +462,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if name is None:
         set_pending(context, "name", tn=tn)
         await update.message.reply_text(
-            messages.parcel_added_auto(tn) + "\n\n" + messages.ask_parcel_name(),
+            added_message(tn, context) + "\n\n" + messages.ask_parcel_name(),
             parse_mode="HTML",
             reply_markup=name_prompt_keyboard(tn, include_undo=True),
         )
         return
     await update.message.reply_text(
-        messages.parcel_added_auto(tn), parse_mode="HTML", reply_markup=undo_keyboard(tn)
+        added_message(tn, context), parse_mode="HTML", reply_markup=undo_keyboard(tn)
     )
