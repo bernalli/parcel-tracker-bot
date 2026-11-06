@@ -160,6 +160,19 @@ def matches_specific_carrier(code: str, detector: _DetectorLike | None) -> bool:
     return any(getattr(t, "priority", 0) > 1 for t in detector.detect(code))
 
 
+def has_tracking_source(code: str, detector: _DetectorLike | None) -> bool:
+    """False when no registered tracker would ever fetch ``code``.
+
+    With ``TRACK17_API_KEY`` unset there is no catch-all fallback, so a code that
+    no carrier pattern recognises (Poste Italiane domestic, BRT, SDA, ...) is
+    stored but skipped by every poll. ``None`` (no detector wired) means unknown,
+    so it is treated as covered.
+    """
+    if detector is None:
+        return True
+    return bool(detector.detect(code))
+
+
 def is_known_code_format(code: str, detector: _DetectorLike | None) -> bool:
     """A code that is certainly a tracking number: a carrier pattern or a valid S10.
 
